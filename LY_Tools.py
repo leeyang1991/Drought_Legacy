@@ -934,7 +934,7 @@ class MULTIPROCESS:
     def __init__(self, func, params):
         self.func = func
         self.params = params
-        copy_reg.pickle(types.MethodType, self._pickle_method)
+        copyreg.pickle(types.MethodType, self._pickle_method)
         pass
 
     def _pickle_method(self, m):

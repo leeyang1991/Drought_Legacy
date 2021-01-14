@@ -16,7 +16,7 @@ from scipy import stats, linalg
 import pandas as pd
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
-# import imageio
+import copyreg
 from scipy.stats import gaussian_kde as kde
 import matplotlib as mpl
 import multiprocessing

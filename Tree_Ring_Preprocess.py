@@ -140,8 +140,453 @@ class Tree_Ring_preprocess:
         df.to_excel(self.this_class_arr + 'Dataframe.xlsx')
         pass
 
+
+class Tree_Ring_Legacy:
+
+    def __init__(self):
+        self.this_class_arr = results_root + 'arr\\Tree_Ring_preprocess\\'
+        self.this_class_tif = results_root + 'tif\\Tree_Ring_preprocess\\'
+        self.this_class_png = results_root + 'png\\Tree_Ring_preprocess\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        self.dff = Tree_Ring_preprocess().this_class_arr + 'DataFrame.df'
+
+    def run(self):
+        # self.Tree_Ring_to_df()
+        # self.load_Tree_Ring()
+        # self.integrate_lon_lat()
+        self.spei_treering_reg()
+        # self.cal_legacy()
+        pass
+
+    def load_df(self):
+        df = T.load_df(self.dff)
+        return df,self.dff
+
+
+    def Tree_Ring_to_df(self):
+        f = data_root + 'TreeRing\\TRI.xlsx'
+        df = pd.read_excel(f)
+        tree_dic = {}
+        for col in df:
+            # print(col)
+            tree_dic[col] = np.array(df[col])
+        T.save_df(df,self.this_class_arr + 'TreeRing.df')
+
+    def load_Tree_Ring_dic(self):
+        dff = self.this_class_arr + 'TreeRing.df'
+        df = T.load_df(dff)
+        # T.print_head_n(df)
+        # exit()
+        # tr_num = []
+        # for col in df:
+        #     tr_num.append(col)
+        tr_dic = {}
+        for col in df:
+            tr_dic[col] = np.array(df[col],dtype=float)
+        # for n in tr_dic:
+        #     print(n,tr_dic[n])
+        #     pause()
+        return tr_dic
+
+
+    def load_drought_events(self):
+        dff = self.this_class_arr + 'drought_events.df'
+        df = T.load_df(dff)
+        return df,dff
+
+    def integrate_lon_lat(self):
+        drought_events_df, _ = self.load_drought_events()
+        Traits_df,_ = self.load_df()
+
+        spatial_dic = {}
+        for i,row in tqdm(Traits_df.iterrows(),total=len(Traits_df)):
+            pix = (row.LAT,row.LON)
+            spatial_dic[pix] = 1
+        arr1 = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+
+        spatial_dic = {}
+        for i, row in tqdm(drought_events_df.iterrows(), total=len(drought_events_df)):
+            pix = row.pix
+            spatial_dic[pix] = 1
+        arr2 = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+
+        plt.imshow(arr2,cmap='jet')
+        plt.imshow(arr1,zorder=99)
+        plt.show()
+        pass
+
+
+    def pick_drought_events(self):
+
+
+        pass
+
+
+    def spei_treering_reg(self):
+        spei_dir = data_root + 'SPEI\\per_pix_clean\\'
+        spei_dic = {}
+        for f in os.listdir(spei_dir):
+            dic = T.load_npy(spei_dir + f)
+            spei_dic.update(dic)
+        Traits_df,_ = self.load_df()
+        Tree_Ring_dic = self.load_Tree_Ring_dic()
+        pix_list = []
+        x = []
+        y = []
+        for i,row in tqdm(Traits_df.iterrows(),total=len(Traits_df)):
+            pix = (row.LAT,row.LON)
+            x.append(row.longitude)
+            y.append(row.latitude)
+            continue
+            tree_num = row.NUM
+            tree_ring = Tree_Ring_dic[tree_num]
+            if not pix in spei_dic:
+                continue
+            spei = spei_dic[pix]
+            spei = np.array(spei)
+            spei = spei.reshape((int(len(spei)/12),12))
+            annual_spei = []
+            for s in spei:
+                annual_spei.append(np.mean(s))
+            print(len(tree_ring))
+            print(len(annual_spei))
+            # exit()
+            plt.plot(range(1901,2016),tree_ring,c='g')
+            plt.twinx()
+            plt.plot(range(1950,2016),annual_spei,c='r')
+            plt.show()
+            # print(pix)
+            # print(tree_ring)
+            # exit()
+        plt.scatter(x,y)
+        plt.show()
+
+    def kernel_cal_legacy(self):
+
+
+        pass
+
+    def cal_legacy(self):
+        TR_df,_ = self.load_Tree_Ring()
+        Traits_df,_ = self.load_df()
+        drought_events_f = SPEI_preprocess().this_class_arr + 'events.df'
+        drought_events_df = T.load_df(drought_events_f)
+        # T.print_head_n(drought_events_df)
+        # exit()
+        # T.print_head_n(Traits_df)
+        pos_dic = {}
+        tree_num = Traits_df['NUM']
+        lat = Traits_df['LAT']
+        lon = Traits_df['LON']
+        for n in range(len(tree_num)):
+            pos_dic[(lat[n],lon[n])]=tree_num[n]
+        for i,row in tqdm(drought_events_df.iterrows(),total=len(drought_events_df)):
+            pix = row.pix
+            if pix in pos_dic:
+                tree_num_i = pos_dic[pix]
+                TR = TR_df[tree_num_i]
+                plt.plot(TR)
+                year_list = np.array(range(len(TR)))+1901
+                plt.xticks(range(len(TR))[::10],year_list[::10])
+                plt.show()
+                # pause()
+
+
+
+class SPEI_preprocess:
+
+    def __init__(self):
+        self.this_class_arr = results_root + 'arr\\SPEI_preprocess\\'
+        self.this_class_tif = results_root + 'tif\\SPEI_preprocess\\'
+        self.this_class_png = results_root + 'png\\SPEI_preprocess\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        # self.nc_to_tif()
+        # self.tif_to_perpix()
+        # self.foo()
+
+        # self.clean_spei()
+        # self.do_pick()
+        # self.events_to_df()
+
+
+        pass
+
+    def nc_to_tif(self):
+        outdir = data_root + 'SPEI\\spei_tif\\'
+        T.mk_dir(outdir)
+        f = data_root + 'SPEI\\spei03.nc'
+        ncin = Dataset(f, 'r')
+        lat = ncin['lat'][::-1]
+        lon = ncin['lon']
+        pixelWidth = lon[1] - lon[0]
+        pixelHeight = lat[1] - lat[0]
+        longitude_start = lon[0]
+        latitude_start = lat[0]
+
+        time = ncin.variables['time']
+
+        # print(time)
+        # exit()
+        # time_bounds = ncin.variables['time_bounds']
+        # print(time_bounds)
+        start = datetime.datetime(1900, 1, 1)
+        # print(start)
+        # exit()
+        # a = start + datetime.timedelta(days=5459)
+        # print(a)
+        # print(len(time_bounds))
+        # print(len(time))
+        # for i in time:
+        #     print(i)
+        # exit()
+        # nc_dic = {}
+        flag = 0
+
+        for i in tqdm(range(len(time))):
+            flag += 1
+            # print(time[i])
+            date = start + datetime.timedelta(days=int(time[i]))
+            year = str(date.year)
+            if not int(year) >= 1950:
+                continue
+            # exit()
+            month = '%02d' % date.month
+            # day = '%02d'%date.day
+            date_str = year + month
+            # if not date_str[:4] in valid_year:
+            #     continue
+            # print(date_str)
+            arr = ncin.variables['spei'][i][::-1]
+            arr = np.array(arr)
+            grid = arr < 99999
+            arr[np.logical_not(grid)] = -999999
+            newRasterfn = outdir + date_str + '.tif'
+            to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+            # grid = np.ma.masked_where(grid>1000,grid)
+            # plt.imshow(arr,'RdBu',vmin=-3,vmax=3)
+            # plt.colorbar()
+            # plt.show()
+            # nc_dic[date_str] = arr
+            # exit()
+
+        pass
+
+    def tif_to_perpix(self):
+        fdir = data_root + 'SPEI\\spei_tif\\'
+        outdir = data_root + 'SPEI\\per_pix\\'
+        Pre_Process().data_transform(fdir,outdir)
+
+        pass
+
+    def kernel_find_drought_period(self, params):
+        # 根据不同干旱程度查找干旱时期
+        pdsi = params[0]
+        key = params[1]
+        threshold = params[2]
+        drought_month = []
+        for i, val in enumerate(pdsi):
+            if val < threshold:# SPEI
+                drought_month.append(i)
+            else:
+                drought_month.append(-99)
+        # plt.plot(drought_month)
+        # plt.show()
+        events = []
+        event_i = []
+        for ii in drought_month:
+            if ii > -99:
+                event_i.append(ii)
+            else:
+                if len(event_i) > 0:
+                    events.append(event_i)
+                    event_i = []
+                else:
+                    event_i = []
+
+        flag = 0
+        events_list = []
+        # 不取两个端点
+        for i in events:
+            # 去除两端pdsi值小于-0.5
+            if 0 in i or len(pdsi) - 1 in i:
+                continue
+            new_i = []
+            for jj in i:
+                new_i.append(jj)
+            # print(new_i)
+            # exit()
+            flag += 1
+            vals = []
+            for j in new_i:
+                try:
+                    vals.append(pdsi[j])
+                except:
+                    print(j)
+                    print('error')
+                    print(new_i)
+                    exit()
+            # print(vals)
+
+            # if 0 in new_i:
+            # SPEI
+            min_val = min(vals)
+            if min_val < -99999:
+                continue
+            if min_val < threshold:
+                level = 4
+            # if -1 <= min_val < -.5:
+            #     level = 1
+            # elif -1.5 <= min_val < -1.:
+            #     level = 2
+            # elif -2 <= min_val < -1.5:
+            #     level = 3
+            # elif min_val <= -2.:
+            #     level = 4
+            else:
+                level = 0
+
+            events_list.append([level, new_i])
+            # print(min_val)
+            # plt.plot(vals)
+            # plt.show()
+        # for key in events_dic:
+        #     # print key,events_dic[key]
+        #     if 0 in events_dic[key][1]:
+        #         print(events_dic[key])
+        # exit()
+        return events_list, key
+
+    def pick_events(self,f, outdir):
+        # 前n个月和后n个月无极端干旱事件
+        fname = f.split('.')[0].split('_')[-1]
+        # print(fname)
+        # exit()
+        n = 24.
+        T.mk_dir(outdir,force=True)
+        single_event_dic = {}
+        dic = T.load_npy(f)
+        for pix in tqdm(dic,desc='picking {}'.format(f)):
+            vals = dic[pix]
+            # print list(vals)
+            # f = '{}_{}.txt'.format(pix[0],pix[1])
+            # fw = open(f,'w')
+            # fw.write(str(list(vals)))
+            # fw.close()
+            # pause()
+            # mean = np.mean(vals)
+            # std = np.std(vals)
+            # threshold = mean - 2 * std
+            threshold = -2.
+            # threshold = np.quantile(vals, 0.05)
+            event_list,key = self.kernel_find_drought_period([vals,pix,threshold])
+            if len(event_list) == 0:
+                continue
+            events_4 = []
+            for i in event_list:
+                level,drought_range = i
+                events_4.append(drought_range)
+
+            single_event = []
+            for i in range(len(events_4)):
+                if i - 1 < 0:  # 首次事件
+                    if events_4[i][0] - n < 0 or events_4[i][-1] + n >= len(vals):  # 触及两边则忽略
+                        continue
+                    if len(events_4) == 1:
+                        single_event.append(events_4[i])
+                    elif events_4[i][-1] + n <= events_4[i + 1][0]:
+                        single_event.append(events_4[i])
+                    continue
+
+                # 最后一次事件
+                if i + 1 >= len(events_4):
+                    if events_4[i][0] - events_4[i - 1][-1] >= n and events_4[i][-1] + n <= len(vals):
+                        single_event.append(events_4[i])
+                    break
+
+                # 中间事件
+                if events_4[i][0] - events_4[i - 1][-1] >= n and events_4[i][-1] + n <= events_4[i + 1][0]:
+                    single_event.append(events_4[i])
+            # print single_event
+            # sleep(0.1)
+            single_event_dic[pix] = single_event
+            # for evt in single_event:
+            #     picked_vals = T.pick_vals_from_1darray(vals,evt)
+            #     plt.scatter(evt,picked_vals,c='r')
+            # plt.plot(vals)
+            # plt.show()
+        np.save(outdir + 'single_events_{}'.format(fname),single_event_dic)
+        # spatial_dic = {}
+        # for pix in single_event_dic:
+        #     evt_num = len(single_event_dic[pix])
+        #     if evt_num == 0:
+        #         continue
+        #     spatial_dic[pix] = evt_num
+        # DIC_and_TIF().plot_back_ground_arr()
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # plt.imshow(arr)
+        # plt.colorbar()
+        # plt.show()
+
+
+    def do_pick(self):
+        outdir = self.this_class_arr + 'drought_events\\'
+        fdir = data_root + 'SPEI\\per_pix_clean\\'
+        for f in os.listdir(fdir):
+            self.pick_events(fdir + f,outdir)
+        pass
+
+    def events_to_df(self):
+        dff = self.this_class_arr + 'events.df'
+        fdir = self.this_class_arr + 'drought_events\\'
+        events_dic = {}
+        for f in tqdm(os.listdir(fdir)):
+            dic_i = T.load_npy(fdir + f)
+            events_dic.update(dic_i)
+        df = pd.DataFrame()
+        pix_list = []
+        event_list = []
+        for pix in events_dic:
+            events = events_dic[pix]
+            for event in events:
+                pix_list.append(pix)
+                event_list.append(event)
+        df['pix'] = pix_list
+        df['event'] = event_list
+        T.save_df(df,dff)
+        pass
+
+    def clean_spei(self):
+        fdir = data_root + 'SPEI\\per_pix\\'
+        outdir = data_root + 'SPEI\\per_pix_clean\\'
+        T.mk_dir(outdir)
+        for f in tqdm(os.listdir(fdir)):
+            dic = T.load_npy(fdir+f)
+            clean_dic = {}
+            for pix in dic:
+                val = dic[pix]
+                val = np.array(val,dtype=np.float)
+                val[val<-9999]=np.nan
+                new_val = T.interp_nan(val,kind='linear')
+                if len(new_val) == 1:
+                    continue
+                # plt.plot(val)
+                # plt.show()
+                clean_dic[pix] = new_val
+            np.save(outdir+f,clean_dic)
+        pass
 def main():
-    Tree_Ring_preprocess().run()
+    # Tree_Ring_preprocess().run()
+    Tree_Ring_Legacy().run()
+    # SPEI_preprocess().run()
     pass
 
 

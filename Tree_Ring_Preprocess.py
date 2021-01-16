@@ -157,8 +157,13 @@ class Tree_Ring_Legacy:
         # self.Tree_Ring_to_df()
         # self.load_Tree_Ring()
         # self.integrate_lon_lat()
-        self.spei_treering_reg()
-        # self.cal_legacy()
+        # for legacy_year in range(1,5):
+        #     print('legacy_year',legacy_year)
+        #     self.cal_legacy(legacy_year)
+        # self.check_legacy()
+        self.legacy_plot()
+
+
         pass
 
     def load_df(self):
@@ -219,81 +224,209 @@ class Tree_Ring_Legacy:
         pass
 
 
-    def pick_drought_events(self):
 
-
-        pass
-
-
-    def spei_treering_reg(self):
+    def cal_legacy(self,legacy_year):
+        # legacy_year = 4
+        outdf = self.this_class_arr + 'legacy.df'
+        if os.path.isfile(outdf):
+            df_void = T.load_df(outdf)
+        else:
+            df_void = pd.DataFrame()
+            T.save_df(df_void,outdf)
+        # legacy_year = 3
         spei_dir = data_root + 'SPEI\\per_pix_clean\\'
         spei_dic = {}
         for f in os.listdir(spei_dir):
             dic = T.load_npy(spei_dir + f)
             spei_dic.update(dic)
+        drought_event_dir = SPEI_preprocess().this_class_arr + 'drought_events\\'
+        event_dic = {}
+        for f in os.listdir(drought_event_dir):
+            dic = T.load_npy(drought_event_dir + f)
+            event_dic.update(dic)
         Traits_df,_ = self.load_df()
         Tree_Ring_dic = self.load_Tree_Ring_dic()
+
+        legacy_df = df_void
         pix_list = []
-        x = []
-        y = []
+        legacy_list = []
+        drought_event_list = []
+        tree_num_list = []
+        corr_list = []
         for i,row in tqdm(Traits_df.iterrows(),total=len(Traits_df)):
             pix = (row.LAT,row.LON)
-            x.append(row.longitude)
-            y.append(row.latitude)
-            continue
             tree_num = row.NUM
             tree_ring = Tree_Ring_dic[tree_num]
+            tree_ring = tree_ring[49:]
             if not pix in spei_dic:
+                pix_list.append(np.nan)
+                legacy_list.append(np.nan)
+                drought_event_list.append(np.nan)
+                tree_num_list.append(np.nan)
+                corr_list.append(np.nan)
                 continue
             spei = spei_dic[pix]
             spei = np.array(spei)
             spei = spei.reshape((int(len(spei)/12),12))
             annual_spei = []
             for s in spei:
-                annual_spei.append(np.mean(s))
-            print(len(tree_ring))
-            print(len(annual_spei))
-            # exit()
-            plt.plot(range(1901,2016),tree_ring,c='g')
-            plt.twinx()
-            plt.plot(range(1950,2016),annual_spei,c='r')
-            plt.show()
-            # print(pix)
-            # print(tree_ring)
-            # exit()
-        plt.scatter(x,y)
-        plt.show()
+                gs_indx = list(range(5,10))
+                s_selected = T.pick_vals_from_1darray(s,gs_indx)
+                annual_spei.append(np.mean(s_selected))
+            # plt.plot(annual_spei,c='r')
+            # plt.twinx()
+            # plt.plot(tree_ring,c='g')
+            # plt.show()
+            temp_df = pd.DataFrame()
+            temp_df['annual_spei'] = annual_spei
+            temp_df['tree_ring'] = tree_ring
+            temp_df = temp_df.dropna()
+            x = np.array(temp_df['annual_spei']).reshape(-1, 1)
+            y = np.array(temp_df['tree_ring'])
+            corr_r,p = stats.pearsonr(x.flatten(),y)
+            # plt.scatter(x,y)
+            # print(corr_r)
+            # plt.show()
+            # rf = RandomForestRegressor()
+            # rf.fit(x, y)
 
-    def kernel_cal_legacy(self):
+            lr = LinearRegression()
+            lr.fit(x, y)
+
+            spei_reshape = np.array(annual_spei).reshape(-1,1)
+            # tree_ring_pred = rf.predict(spei_reshape)
+            tree_ring_pred = lr.predict(spei_reshape)
+            # tree_ring_pred = np.ones_like(spei_reshape)
+
+            # plt.plot(tree_ring_pred)
+            # plt.plot(tree_ring)
+            # plt.show()
+
+            temp_df1 = pd.DataFrame()
+            temp_df1['annual_spei'] = annual_spei
+            temp_df1['tree_ring'] = tree_ring
+            temp_df1['tree_ring_pred'] = tree_ring_pred
+            if not pix in event_dic:
+                pix_list.append(np.nan)
+                legacy_list.append(np.nan)
+                drought_event_list.append(np.nan)
+                tree_num_list.append(np.nan)
+                corr_list.append(np.nan)
+                continue
+            events = event_dic[pix]
+            for event in events:
+                drought_mon = event[0] % 12 + 1
+                if not drought_mon in list(range(5,10)):
+                    pix_list.append(np.nan)
+                    legacy_list.append(np.nan)
+                    drought_event_list.append(np.nan)
+                    tree_num_list.append(np.nan)
+                    corr_list.append(np.nan)
+                    continue
+                drought_year = event[0]//12
+                if drought_year + legacy_year >= len(tree_ring_pred):
+                    pix_list.append(np.nan)
+                    legacy_list.append(np.nan)
+                    drought_event_list.append(np.nan)
+                    tree_num_list.append(np.nan)
+                    corr_list.append(np.nan)
+                    continue
+                legacy_start = legacy_year - 1
+                legacy_end = legacy_year
+                legacy_range = list(range(drought_year + legacy_start,drought_year + legacy_end))
+                # print(legacy_range)
+                tree_ring_pred_select = T.pick_vals_from_1darray(tree_ring_pred,legacy_range)
+                tree_ring_obs_select = T.pick_vals_from_1darray(tree_ring,legacy_range)
+                if True in np.isnan(tree_ring_obs_select):
+                    legacy_list.append(np.nan)
+                else:
+                    legacy = np.mean(tree_ring_obs_select - tree_ring_pred_select)
+                    legacy_list.append(legacy)
+                pix_list.append(pix)
+                drought_event_list.append(event)
+                tree_num_list.append(tree_num)
+                corr_list.append(corr_r)
+        legacy_df['tree_num'] = tree_num_list
+        legacy_df['pix'] = pix_list
+        legacy_df['drought_event'] = drought_event_list
+        legacy_df['legacy_year_{}_linear'.format(legacy_year)] = legacy_list
+        legacy_df['correlation'.format(legacy_year)] = corr_list
+        T.save_df(legacy_df,outdf)
+
+
+    def check_legacy(self):
+        dff = self.this_class_arr + 'legacy.df'
+        df = T.load_df(dff)
+        # df = df.dropna(how='all')
+        df.to_excel(self.this_class_arr + 'legacy.xlsx')
+        T.save_df(df,dff)
+        # T.print_head_n(df)
+        pass
+
+    def legacy_plot(self):
+        dff = self.this_class_arr + 'legacy.df'
+        df = T.load_df(dff)
+        df = df[df['correlation']>0]
+        # T.print_head_n(df)
+
+        # exit()
+
+        for legacy_year_ in range(1,5):
+            legacy_dic = {}
+            for dr in df['drought_event']:
+                # print()
+                if type(dr) == float:
+                    continue
+                legacy_dic[dr[0]//12] = []
+            mon_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                drought_event = row.drought_event
+                if type(drought_event) == float:
+                    continue
+                drought_start = drought_event[0]
+                mon_list.append(drought_start//12)
+                legacy = row['legacy_year_{}_linear'.format(legacy_year_)]
+                legacy_dic[drought_start//12].append(legacy)
+
+            mon_list = list(set(mon_list))
+            mon_list.sort()
+            mon_list = list(range(min(mon_list),max(mon_list)))
+            # print(mon_list)
+            # exit()
+            mon_mean = []
+            yerr = []
+            box = []
+            for mon in mon_list:
+                if not mon in legacy_dic:
+                    mon_mean.append(np.nan)
+                    yerr.append(np.nan)
+                    box.append(np.nan)
+                else:
+                    vals = legacy_dic[mon]
+                    vals = np.array(vals)
+                    mon_mean.append(np.nanmean(vals))
+                    yerr.append(np.nanstd(vals))
+                    vals_mask = T.remove_np_nan(vals)
+                    box.append(vals_mask)
+            # print(mon_mean)
+            # exit()
+            date_list = []
+            for i in mon_list:
+                mon = i % 12 + 1
+                year = i // 12 + 1950
+                date_list.append('{}_{}'.format(year,mon))
+            # plt.bar(mon_list,mon_mean,label='legacy_year_{}'.format(legacy_year_),alpha=0.5,yerr=yerr)
+            plt.figure()
+            plt.boxplot(box,showfliers=False)
+            mon_mean = SMOOTH().mid_window_smooth(mon_mean,window=3)
+            plt.plot(mon_mean)
+            # plt.xticks(mon_list[::5],date_list[::5],rotation=90)
+            # plt.legend()
+            plt.title('legacy_year_{}'.format(legacy_year_))
+        plt.show()
 
 
         pass
-
-    def cal_legacy(self):
-        TR_df,_ = self.load_Tree_Ring()
-        Traits_df,_ = self.load_df()
-        drought_events_f = SPEI_preprocess().this_class_arr + 'events.df'
-        drought_events_df = T.load_df(drought_events_f)
-        # T.print_head_n(drought_events_df)
-        # exit()
-        # T.print_head_n(Traits_df)
-        pos_dic = {}
-        tree_num = Traits_df['NUM']
-        lat = Traits_df['LAT']
-        lon = Traits_df['LON']
-        for n in range(len(tree_num)):
-            pos_dic[(lat[n],lon[n])]=tree_num[n]
-        for i,row in tqdm(drought_events_df.iterrows(),total=len(drought_events_df)):
-            pix = row.pix
-            if pix in pos_dic:
-                tree_num_i = pos_dic[pix]
-                TR = TR_df[tree_num_i]
-                plt.plot(TR)
-                year_list = np.array(range(len(TR)))+1901
-                plt.xticks(range(len(TR))[::10],year_list[::10])
-                plt.show()
-                # pause()
-
 
 
 class SPEI_preprocess:
@@ -314,7 +447,7 @@ class SPEI_preprocess:
         # self.foo()
 
         # self.clean_spei()
-        # self.do_pick()
+        self.do_pick()
         # self.events_to_df()
 
 

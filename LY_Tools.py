@@ -585,7 +585,7 @@ class SMOOTH:
                 left = 0
             if right >= len(x):
                 right = len(x)
-            picked_indx = list(range(left,right))
+            picked_indx = list(range(int(left),int(right)))
             picked_value = Tools().pick_vals_from_1darray(x,picked_indx)
             picked_value_mean = np.nanmean(picked_value)
             new_x.append(picked_value_mean)

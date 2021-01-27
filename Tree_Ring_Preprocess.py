@@ -157,11 +157,12 @@ class Tree_Ring_Legacy:
         # self.Tree_Ring_to_df()
         # self.load_Tree_Ring()
         # self.integrate_lon_lat()
-        # for legacy_year in range(1,5):
-        #     print('legacy_year',legacy_year)
-        #     self.cal_legacy(legacy_year)
+        for legacy_year in range(1,5):
+            print('legacy_year',legacy_year)
+            self.cal_legacy(legacy_year)
         # self.check_legacy()
-        self.legacy_plot()
+        # self.legacy_plot()
+        self.plot_legacy_together()
 
 
         pass
@@ -366,7 +367,7 @@ class Tree_Ring_Legacy:
     def legacy_plot(self):
         dff = self.this_class_arr + 'legacy.df'
         df = T.load_df(dff)
-        df = df[df['correlation']>0]
+        # df = df[df['correlation']>0]
         # T.print_head_n(df)
 
         # exit()
@@ -427,6 +428,65 @@ class Tree_Ring_Legacy:
 
 
         pass
+
+    def plot_legacy_together(self):
+        dff = self.this_class_arr + 'legacy.df'
+        df = T.load_df(dff)
+        # temp_df = pd.DataFrame()
+        # temp_df['drought_event'] = df['drought_event']
+        # temp_df['legacy_year_1_linear'] = df['legacy_year_1_linear']
+        # temp_df['legacy_year_2_linear'] = df['legacy_year_2_linear']
+        # temp_df['legacy_year_3_linear'] = df['legacy_year_3_linear']
+        # temp_df['legacy_year_4_linear'] = df['legacy_year_4_linear']
+
+        drought_year_list = []
+        drought_mon_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            drought_event = row['drought_event']
+            if type(drought_event) == float:
+                drought_year_list.append(np.nan)
+                drought_mon_list.append(np.nan)
+                continue
+            drought_year = drought_event[0] // 12 + 1951
+            drought_mon = drought_event[0] % 12 + 1
+            drought_year_list.append(int(drought_year))
+            drought_mon_list.append(int(drought_mon))
+        df['drought_year'] = drought_year_list
+        df['drought_mon'] = drought_mon_list
+
+
+        # temp_df = temp_df.dropna()
+        # T.print_head_n(df)
+        # exit()
+        # legacy_year_1_linear = df['legacy_year_1_linear']
+        df_group = df.groupby(by='drought_year').mean()
+        # legacy_year_1_linear_group.
+        # print(df_group)
+        plt.plot(df_group['legacy_year_1_linear'],label='legacy1')
+        plt.plot(df_group['legacy_year_2_linear'],label='legacy2')
+        plt.plot(df_group['legacy_year_3_linear'],label='legacy3')
+        plt.plot(df_group['legacy_year_4_linear'],label='legacy4')
+        plt.legend()
+        # plt.bar(list(range(len(df_group['legacy_year_1_linear']))), df_group['legacy_year_1_linear'], width=0.8, bottom=None)
+        # plt.bar(list(range(len(df_group['legacy_year_1_linear']))), df_group['legacy_year_2_linear'], width=0.8, bottom=df_group['legacy_year_1_linear'])
+        # plt.bar(list(range(len(df_group['legacy_year_1_linear']))), df_group['legacy_year_3_linear'], width=0.8, bottom=df_group['legacy_year_1_linear']+df_group['legacy_year_2_linear'])
+        # plt.bar(list(range(len(df_group['legacy_year_1_linear']))), df_group['legacy_year_4_linear'], width=0.8, bottom=df_group['legacy_year_1_linear']+df_group['legacy_year_2_linear']+df_group['legacy_year_3_linear'])
+        # exit()
+        # legacy_year_2_linear = df['legacy_year_2_linear']
+        # legacy_year_3_linear = df['legacy_year_3_linear']
+        # legacy_year_4_linear = df['legacy_year_4_linear']
+        # plt.boxplot(legacy_year_1_linear,)
+        # sns.boxplot(x='drought_year',y='legacy_year_1_linear',data=df)
+        plt.show()
+
+
+        # tips = sns.load_dataset("tips")
+        # T.print_head_n(tips)
+        # sns.boxplot()
+        pass
+
+
+
 
 
 class SPEI_preprocess:

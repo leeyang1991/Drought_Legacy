@@ -52,6 +52,9 @@ class Tools:
             pickle.dump(dic, fw)
             fw.close()
 
+    def save_npy(self,dic,outf):
+        np.save(outf, dic)
+
     def load_dict_from_binary(self,f):
         fr = open(f,'rb')
         dic = pickle.load(fr)
@@ -1249,6 +1252,7 @@ class Pre_Process:
             # pix_anomaly = Tools().interp_1d_1(pix_anomaly,-100)
             # plt.plot(pix_anomaly)
             # plt.show()
+            pix_anomaly = np.array(pix_anomaly)
             anomaly_pix_dic[pix] = pix_anomaly
 
         np.save(save_dir + f, anomaly_pix_dic)
@@ -1301,6 +1305,17 @@ class Pre_Process:
                 # plt.show()
                 clean_dic[pix] = new_val
             np.save(outdir+f,clean_dic)
+        pass
+
+
+
+    def detrend(self,fdir,outdir):
+        Tools().mk_dir(outdir)
+        for f in tqdm(os.listdir(fdir),desc='detrend...'):
+            dic = Tools().load_npy(fdir + f)
+            dic_detrend = Tools().detrend_dic(dic)
+            outf = outdir + f
+            Tools().save_npy(dic_detrend,outf)
         pass
 
 

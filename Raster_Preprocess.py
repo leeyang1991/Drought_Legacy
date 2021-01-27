@@ -16,8 +16,8 @@ class CSIF:
         # self.per_pix()
         # self.clean_per_pix()
         # self.cal_per_pix_anomaly()
-        self.check_per_pix()
-        pass
+        # self.detrend()
+        # self.check_per_pix()
         pass
 
     def nc_to_tif(self):
@@ -70,6 +70,13 @@ class CSIF:
                 # plt.show()
                 # nc_dic[date_str] = arr
                 # exit()
+
+    def detrend(self):
+        fdir = self.this_data_root + 'per_pix_anomaly\\'
+        outdir = self.this_data_root + 'per_pix_anomaly_detrend\\'
+        Pre_Process().detrend(fdir,outdir)
+        pass
+
 
     def monthly_compose(self):
 
@@ -241,8 +248,8 @@ class SPEI_preprocess:
 
 
 def main():
-    # CSIF().run()
-    SPEI_preprocess().run()
+    CSIF().run()
+    # SPEI_preprocess().run()
     # Pick_drought_events().run()
     pass
 

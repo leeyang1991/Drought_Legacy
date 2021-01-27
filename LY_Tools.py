@@ -20,9 +20,11 @@ class Tools:
             else:
                 os.mkdir(dir)
 
-    def load_npy_dir(self,fdir):
+    def load_npy_dir(self,fdir,condition=''):
         dic = {}
         for f in tqdm(os.listdir(fdir),desc='loading '+fdir):
+            if not condition in f:
+                continue
             dic_i = self.load_npy(fdir + f)
             dic.update(dic_i)
         return dic
@@ -1129,27 +1131,6 @@ class Pre_Process:
 
         pass
 
-    def do_data_transform(self):
-        father_dir = this_root + 'SPEI\\tif\\'
-        for spei_dir in os.listdir(father_dir):
-            print(spei_dir + '\n')
-            interval = spei_dir[-2:]
-
-            spei_dir_ = spei_dir.upper()[:4] + '_' + interval
-            outdir = this_root + 'SPEI\\per_pix\\' + spei_dir_ + '\\'
-            print(outdir)
-            Tools().mk_dir(outdir)
-            self.data_transform(father_dir + spei_dir + '\\', outdir)
-
-
-    def kenel_data_transfrom(self,params):
-
-        col,all_array,r,void_dic = params
-
-
-
-        pass
-
     def data_transform(self, fdir, outdir):
         # 不可并行，内存不足
         Tools().mk_dir(outdir)
@@ -1215,7 +1196,7 @@ class Pre_Process:
 
     def kernel_cal_anomaly(self, params):
         fdir, f, save_dir = params
-        pix_dic = dict(np.load(fdir + f).item())
+        pix_dic = Tools().load_npy(fdir + f)
         anomaly_pix_dic = {}
         for pix in pix_dic:
             ####### one pix #######
@@ -1286,7 +1267,7 @@ class Pre_Process:
         # for p in params:
         #     print(p[1])
         #     self.kernel_cal_anomaly(p)
-        MULTIPROCESS(self.kernel_cal_anomaly, params).run(process=6, process_or_thread='p',
+        MULTIPROCESS(self.kernel_cal_anomaly, params).run(process=5, process_or_thread='p',
                                                          desc='calculating anomaly...')
 
 
@@ -1304,55 +1285,23 @@ class Pre_Process:
             np.save(outdir+f,smooth_dic)
 
 
-
-    def check_ndvi_anomaly(self):
-        fdir = this_root + 'NDVI\\per_pix\\'
-        for f in os.listdir(fdir):
-            dic = dict(np.load(fdir+f).item())
-
-            for pix in tqdm(dic):
-                val = dic[pix]
-                std = np.std(val)
-                if std == 0 or len(val) == 0:
-                    continue
-                # print val
-                val = Tools().interp_1d_1(val,-3000)
-                # print val
-                if len(val) == 1:
-                    continue
-                plt.plot(val)
-                plt.grid()
-                plt.show()
-        pass
-
-    def check_per_pix(self,fdir):
-
-        for f in os.listdir(fdir):
-            dic = dict(np.load(fdir+f).item())
+    def clean_per_pix(self,fdir,outdir):
+        Tools().mk_dir(outdir)
+        for f in tqdm(os.listdir(fdir)):
+            dic = Tools().load_npy(fdir+f)
+            clean_dic = {}
             for pix in dic:
                 val = dic[pix]
-                print(pix,val)
-
-    def extend_GPP(self):
-        fidr = this_root + 'GPP\\per_pix_anomaly\\'
-        outdir = this_root + 'GPP\\per_pix_anomaly_extend\\'
-        Tools().mk_dir(outdir)
-        for f in tqdm(os.listdir(fidr)):
-            # if not '015' in f:
-            #     continue
-            dic = dict(np.load(fidr + f).item())
-            new_dic = {}
-            for key in dic:
-                val = dic[key]
-                n = len(val)
-                if n == 0:
-                    new_dic[key] = []
+                val = np.array(val,dtype=np.float)
+                val[val<-9999]=np.nan
+                new_val = Tools().interp_nan(val,kind='linear')
+                if len(new_val) == 1:
                     continue
-                ni = 408 - 192
-                null_list = [np.nan] * ni
-                null_list.extend(val)
-                new_dic[key] = null_list
-            np.save(outdir + f, new_dic)
+                # plt.plot(val)
+                # plt.show()
+                clean_dic[pix] = new_val
+            np.save(outdir+f,clean_dic)
+        pass
 
 
 def main():

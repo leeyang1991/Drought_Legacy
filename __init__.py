@@ -54,6 +54,7 @@ def pause():
 this_root = 'G:\Drought_legacy\\'
 data_root = 'G:\Drought_legacy\\data\\'
 results_root = 'G:\Drought_legacy\\results\\'
+results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
 # from HANTS import *
 
 plt.rcParams['font.sans-serif'] = ['SimHei']

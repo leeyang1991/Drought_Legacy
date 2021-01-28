@@ -196,12 +196,12 @@ class Main_flow_Legacy():
     def run(self):
         # rf_model = T.load_npy(self.this_class_arr + 'rfmodel.npy')
         # rf_model_dic = self.cal_linear_reg()
-        for legacy in [1,2,3]:
-            print(legacy)
+        # for legacy in [1,2,3]:
+        #     print(legacy)
             # self.cal_legacy_annual(legacy)
-            self.cal_legacy_monthly(legacy)
+            # self.cal_legacy_monthly(legacy)
 
-        # self.plot_legacy()
+        self.plot_legacy()
         # self.legacy_trend()
         # self.monthly_change()
         # self.different_legacy_sos()
@@ -487,7 +487,8 @@ class Main_flow_Legacy():
             drought_start_year = int(drought_start_year)
             drought_mon = drought_start % 12 + 1
             drought_mon = int(drought_mon)
-            gs_mons = list(range(1,13)) ################## Todo: Need to calculate Growing season via phenology
+            # gs_mons = list(range(1,13)) ################## Todo: Need to calculate Growing season via phenology
+            gs_mons = list(range(4,11)) ################## Todo: Need to calculate Growing season via phenology
             if not drought_mon in gs_mons:
                 legacy_list.append(np.nan)
                 continue
@@ -575,6 +576,7 @@ class Main_flow_Legacy():
         df,dff = self.load_df()
         legacy_list = []
         # rf_model_dic = self.cal_linear_reg()
+        spatial_dic = DIC_and_TIF().void_spatial_dic_nan()
         for i,row in tqdm(df.iterrows(),total=len(df)):
             # linear_model_params_a_b_score = row['linear_model_params_a_b_score']
             # if not type(linear_model_params_a_b_score) == tuple:
@@ -582,14 +584,17 @@ class Main_flow_Legacy():
             #     continue
             # a,b,score = linear_model_params_a_b_score
             # print a,b,score
+
             pix = row.pix
+
             event = row.event
             drought_start = event[0]
             # drought_start_year = event[0] // 12
             # drought_start_year = int(drought_start_year)
             drought_mon = drought_start % 12 + 1
             drought_mon = int(drought_mon)
-            gs_mons = list(range(1,13)) ################## Todo: Need to calculate Growing season via phenology
+            # gs_mons = list(range(1,13)) ################## Todo: Need to calculate Growing season via phenology
+            gs_mons = list(range(4,11)) ################## Todo: Need to calculate Growing season via phenology
             if not drought_mon in gs_mons:
                 legacy_list.append(np.nan)
                 continue
@@ -599,6 +604,7 @@ class Main_flow_Legacy():
             if not pix in SIFdic:
                 legacy_list.append(np.nan)
                 continue
+
             spei = SPEIdic[pix]
             spei = np.array(spei)
             sif = SIFdic[pix]
@@ -616,6 +622,9 @@ class Main_flow_Legacy():
                     gs_indx.append(m)
             sif_gs = T.pick_vals_from_1darray(sif,gs_indx)
             spei_gs = T.pick_vals_from_1darray(spei,gs_indx)
+            # print(len(sif))
+            # print(len(sif_gs))
+            # exit()
             # plt.plot(sif_gs)
             # plt.plot(spei_gs)
             # plt.show()
@@ -629,14 +638,17 @@ class Main_flow_Legacy():
             y = sif_gs
             lr = LinearRegression()
             lr.fit(x,y)
-            sif_pred = lr.predict(x)
+            spei_reshape = spei.reshape(-1,1)
+            sif_pred = lr.predict(spei_reshape)
 
             legacy_months_start = (legacy_year - 1) * len(gs_mons)
-            legacy_months_end = legacy_year * 12
-
-            if drought_start + legacy_months_end >= len(spei_gs):
+            legacy_months_end = legacy_year * len(gs_mons)
+            if drought_start + legacy_months_end >= len(sif):
                 legacy_list.append(np.nan)
                 continue
+
+            # print(drought_start + legacy_months_start, drought_start + legacy_months_end)
+            # exit()
             legacy_duration = range(drought_start + legacy_months_start, drought_start + legacy_months_end)
             # legacy_duration = list(legacy_duration)
             # print(legacy_duration)
@@ -644,7 +656,7 @@ class Main_flow_Legacy():
             selected_indx = list(legacy_duration)
             # sif_GS_vals = self.__pick_gs_vals(gs_mons,sifvals)
             # SPEI_GS_vals = self.__pick_gs_vals(gs_mons,SPEIvals)
-            sif_obs_selected = T.pick_vals_from_1darray(sif_gs,selected_indx)
+            sif_obs_selected = T.pick_vals_from_1darray(sif,selected_indx)
             sif_pred_selected = T.pick_vals_from_1darray(sif_pred,selected_indx)
             # plt.plot(sif_obs_selected)
             # plt.plot(sif_pred_selected)
@@ -656,8 +668,15 @@ class Main_flow_Legacy():
             legacy_list.append(legacy_mean)
             # print(legacy_mean)
             # legacy_dic[pix] = legacy_mean
+            # spatial_dic[pix] = 1
+
 
         df['monthly_legacy_year_{}'.format(legacy_year)] = legacy_list
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # DIC_and_TIF().plot_back_ground_arr()
+
+        # plt.imshow(arr)
+        # plt.show()
         T.save_df(df,dff)
 
 
@@ -665,15 +684,17 @@ class Main_flow_Legacy():
     def plot_legacy(self):
         df,dff = self.load_df()
         # exit()
-        for year in [1,2,3,4]:
+        for year in [1,2,3]:
             spatial_dic = DIC_and_TIF().void_spatial_dic()
             for i,row in tqdm(df.iterrows(),total=len(df)):
                 pix = row.pix
-                legacy = row['legacy_year_{}'.format(year)]
+                # legacy = row['annual_legacy_year_{}'.format(year)]
+                legacy = row['monthly_legacy_year_{}'.format(year)]
                 spatial_dic[pix].append(legacy)
             arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(spatial_dic)
-            DIC_and_TIF().arr_to_tif(arr,self.this_class_tif + 'plot_legacy_{}_2.tif'.format(year))
-            # plt.imshow(arr,vmax=0.2,vmin=-0.2)
+            # DIC_and_TIF().arr_to_tif(arr,self.this_class_tif + 'annual_legacy_year_{}.tif'.format(year))
+            DIC_and_TIF().arr_to_tif(arr,self.this_class_tif + 'monthly_legacy_year_{}.tif'.format(year))
+            # plt.imshow(arr,vmax=0.3,vmin=-0.3)
             # plt.show()
 
 
@@ -1054,8 +1075,8 @@ class Main_flow_Dataframe:
 
 def main():
     # Main_Flow_Pick_drought_events().run()
-    Main_flow_Dataframe().run()
-    # Main_flow_Legacy().run()
+    # Main_flow_Dataframe().run()
+    Main_flow_Legacy().run()
     pass
 
 

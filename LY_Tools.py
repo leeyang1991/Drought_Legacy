@@ -867,7 +867,7 @@ class DIC_and_TIF:
                     temp.append(1)
             back_ground.append(temp)
         back_ground = np.array(back_ground)
-        plt.imshow(back_ground, 'gray', vmin=0, vmax=1.4)
+        plt.imshow(back_ground, 'gray', vmin=0, vmax=1.4,zorder=-1)
 
         # return back_ground
 

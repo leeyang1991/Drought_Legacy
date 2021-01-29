@@ -815,6 +815,33 @@ class Main_flow_Legacy():
         df,dff = self.load_df()
         df = df[df['lat']>30]
         df = df[df['lat']<60]
+        # df = df[df['gs_sif_spei_corr']>0]
+        # df = df[df['gs_sif_spei_corr_p']<0.05]
+
+        legacy_list_all = []
+        for year in range(1, 4):
+            print(year)
+            legacy_dic = DIC_and_TIF().void_spatial_dic()
+            legacy_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                pix = row.pix
+                legacy = row['monthly_legacy_year_{}'.format(year)]
+                if np.isnan(legacy):
+                    continue
+                legacy_dic[pix].append(legacy)
+                legacy_list.append(legacy)
+            legacy_list_all.append(np.mean(legacy_list))
+
+            arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(legacy_dic)
+            plt.figure()
+            DIC_and_TIF().plot_back_ground_arr()
+            plt.imshow(arr,vmin=-1,vmax=1)
+            plt.colorbar()
+            plt.title('annual_legacy_year_{}'.format(year))
+        # plt.bar(list(range(len(legacy_list_all))),legacy_list_all)
+        plt.show()
+
+
         # T.print_head_n(df)
         # exit()
         for year in range(1,4):
@@ -822,7 +849,7 @@ class Main_flow_Legacy():
             spatial_dic = DIC_and_TIF().void_spatial_dic()
             for i,row in tqdm(df.iterrows(),total=len(df)):
                 pix = row.pix
-                legacy = row['annual_legacy_year_{}'.format(year)]
+                legacy = row['monthly_legacy_year_{}'.format(year)]
                 # hue_list.append('annual_legacy_year_{}'.format(year))
                 spatial_dic[pix].append(legacy)
             hist = []
@@ -830,20 +857,20 @@ class Main_flow_Legacy():
                 vals = spatial_dic[pix]
                 if len(vals)==0:
                     continue
-                # mean = np.nanmean(vals)
-                # if np.isnan(mean):
-                #     continue
-                # hist.append(mean)
-                for val in vals:
-                    if np.isnan(val):
-                        continue
-                    hist.append(val)
+                mean = np.nanmean(vals)
+                if np.isnan(mean):
+                    continue
+                hist.append(mean)
+                # for val in vals:
+                #     if np.isnan(val):
+                #         continue
+                #     hist.append(val)
             hist = np.array(hist)
             n,x,_ = plt.hist(hist,range=(-2,2),bins=120,alpha=1.0,density=True,histtype=u'step',label='legacy_{}'.format(year))
             density = stats.gaussian_kde(hist)
             # plt.plot(x,density(x),label='legacy_{}'.format(year))
             # print(n)
-            nn = SMOOTH().smooth_convolve(n,13)
+            nn = SMOOTH().smooth_convolve(n,21)
             plt.plot(x,nn,label='legacy_{}'.format(year))
             # df_temp['annual_legacy'] = hist
             # df_temp['hue'] = hue_list
@@ -857,8 +884,174 @@ class Main_flow_Legacy():
         pass
 
 
+class Main_flow_Legacy_decrease:
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Legacy_decrease\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Legacy_decrease\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Legacy_decrease\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        # for y in range(1,4):
+        #     print(y)
+        #     self.cal_legacy_monthly(y)
+        self.plot_hist_spatial_mean()
+        pass
+
+
+    def load_df(self):
+        dff = Main_flow_Dataframe().dff
+        df = T.load_df(dff)
+        T.print_head_n(df)
+        return df,dff
+
+    def cal_legacy_monthly(self,legacy_year):
+
+        SIFdir = data_root + 'CSIF\\per_pix_anomaly_detrend\\'
+        SIFdic = T.load_npy_dir(SIFdir)
+        df,dff = self.load_df()
+        legacy_list = []
+        # rf_model_dic = self.cal_linear_reg()
+        spatial_dic = DIC_and_TIF().void_spatial_dic_nan()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            event = row.event
+            drought_start = event[0]
+            drought_mon = drought_start % 12 + 1
+            drought_mon = int(drought_mon)
+            # gs_mons = list(range(1,13)) ################## Todo: Need to calculate Growing season via phenology
+            gs_mons = list(range(4,11)) ################## Todo: Need to calculate Growing season via phenology
+            # if not drought_mon in gs_mons:
+            #     legacy_list.append(np.nan)
+            #     continue
+            if not pix in SIFdic:
+                legacy_list.append(np.nan)
+                continue
+
+            sif = SIFdic[pix]
+            sif = np.array(sif)
+
+            gs_indx = []
+            for m in range(len(sif)):
+                mon = m % 12 + 1
+                mon = int(mon)
+                if mon in gs_mons:
+                    gs_indx.append(m)
+
+            legacy_months_start = (legacy_year - 1) * len(gs_mons)
+            legacy_months_end = legacy_year * len(gs_mons)
+            if drought_start + legacy_months_end >= len(sif):
+                legacy_list.append(np.nan)
+                continue
+
+            legacy_duration = range(drought_start + legacy_months_start, drought_start + legacy_months_end)
+            selected_indx = list(legacy_duration)
+            sif_obs_selected = T.pick_vals_from_1darray(sif,selected_indx)
+            # plt.plot(sif_obs_selected)
+            # plt.plot(sif_pred_selected)
+            # plt.show()
+            legacy = sif_obs_selected
+
+            legacy_mean = np.mean(legacy)
+            # legacy_mean = np.sum(legacy)
+            legacy_list.append(legacy_mean)
+            # print(legacy_mean)
+            # legacy_dic[pix] = legacy_mean
+            # spatial_dic[pix] = 1
+
+
+        df['monthly_legacy_decrease_year_{}'.format(legacy_year)] = legacy_list
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # DIC_and_TIF().plot_back_ground_arr()
+
+        # plt.imshow(arr)
+        # plt.show()
+        T.save_df(df,dff)
+
+
+    def plot_hist_spatial_mean(self):
+        df,dff = self.load_df()
+        df = df[df['lat']>30]
+        df = df[df['lat']<60]
+        df = df[df['gs_sif_spei_corr']>0]
+        df = df[df['gs_sif_spei_corr_p']<0.05]
+
+        legacy_list_all = []
+        for year in range(1, 4):
+            print(year)
+            legacy_dic = DIC_and_TIF().void_spatial_dic()
+            legacy_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                pix = row.pix
+                legacy = row['monthly_legacy_decrease_year_{}'.format(year)]
+                if np.isnan(legacy):
+                    continue
+                legacy_dic[pix].append(legacy)
+                legacy_list.append(legacy)
+            legacy_list_all.append(np.mean(legacy_list))
+
+            arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(legacy_dic)
+            plt.figure()
+            DIC_and_TIF().plot_back_ground_arr()
+            plt.imshow(arr,vmin=-1,vmax=1)
+            plt.colorbar()
+            plt.title('monthly_legacy_decrease_year_{}'.format(year))
+        plt.figure()
+        plt.bar(list(range(len(legacy_list_all))),legacy_list_all)
+        plt.show()
+
+
+        # T.print_head_n(df)
+        # exit()
+        for year in range(1,4):
+            print(year)
+            spatial_dic = DIC_and_TIF().void_spatial_dic()
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                pix = row.pix
+                legacy = row['monthly_legacy_decrease_year_{}'.format(year)]
+                # hue_list.append('annual_legacy_year_{}'.format(year))
+                spatial_dic[pix].append(legacy)
+            hist = []
+            for pix in tqdm(spatial_dic):
+                vals = spatial_dic[pix]
+                if len(vals)==0:
+                    continue
+                mean = np.nanmean(vals)
+                if np.isnan(mean):
+                    continue
+                hist.append(mean)
+                # for val in vals:
+                #     if np.isnan(val):
+                #         continue
+                #     hist.append(val)
+            hist = np.array(hist)
+            n,x,_ = plt.hist(hist,range=(-2,2),bins=120,alpha=1.0,density=True,histtype=u'step',label='legacy_{}'.format(year))
+            density = stats.gaussian_kde(hist)
+            # plt.plot(x,density(x),label='legacy_{}'.format(year))
+            # print(n)
+            nn = SMOOTH().smooth_convolve(n,21)
+            plt.plot(x,nn,label='legacy_{}'.format(year))
+            # df_temp['annual_legacy'] = hist
+            # df_temp['hue'] = hue_list
+
+            # sns.pairplot(df_temp,hue='hue')
+            # plt.xlim(-1,1)
+        plt.vlines([0],0,1,linestyles='--',colors='k')
+        plt.legend()
+        plt.show()
+
+        pass
+
+
+
 def main():
-    Main_flow_Legacy().run()
+    # Main_flow_Legacy().run()
+    Main_flow_Legacy_decrease().run()
     pass
 
 if __name__ == '__main__':

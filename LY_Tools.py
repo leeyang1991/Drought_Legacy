@@ -64,6 +64,8 @@ class Tools:
     def load_npy(self,f):
         try:
             return dict(np.load(f,allow_pickle=True).item())
+        except Exception as e:
+            return dict(np.load(f,allow_pickle=True,encoding='latin1').item())
         except:
             return dict(np.load(f).item())
 
@@ -534,7 +536,7 @@ class SMOOTH:
 
         y = np.convolve(w / w.sum(), s, mode='valid')
         # return y
-        return y[(window_len / 2 - 1):-(window_len / 2)]
+        return y[(window_len // 2 - 1):-(window_len // 2)]
 
     def smooth(self, x):
         # ºó´°ÂË²¨

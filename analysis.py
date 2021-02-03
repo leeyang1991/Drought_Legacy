@@ -98,32 +98,51 @@ class Statistic:
 
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
+        df = df[df['canopy_height'] > 0]
+        # df = df[df['rooting_depth'] > 0]
         df = df[df['gs_sif_spei_corr'] > 0]
         df = df[df['gs_sif_spei_corr_p'] < 0.05]
-        df = df[df['rooting_depth']<30]
+        # df = df[df['rooting_depth']<30]
+
+        # df = df[df['isohydricity']<0.6]
+        df = df[df['isohydricity']>0.9]
         spatial_dic = {}
         for i,row in df.iterrows():
             pix = row.pix
             spatial_dic[pix] = 1
         arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
-        plt.imshow(arr)
         DIC_and_TIF().plot_back_ground_arr()
-        plt.figure()
+        plt.imshow(arr)
+        # plt.figure()
         new_df = pd.DataFrame()
-        rooting_depth = df['rooting_depth']
+        # rooting_depth = df['rooting_depth']
         canopy_height = df['canopy_height']
         legacy1 = df['monthly_legacy_decrease_year_1']
         legacy2 = df['monthly_legacy_decrease_year_2']
         legacy3 = df['monthly_legacy_decrease_year_3']
-        new_df['rooting_depth'] = rooting_depth
+        isohydricity = df['isohydricity']
+        tws_minus_1 = df['TWS_-1']
+        tws1 = df['TWS_1']
+        tws2 = df['TWS_2']
+        tws3 = df['TWS_3']
+        is_gs = df['is_gs']
+        # new_df['rooting_depth'] = rooting_depth
         new_df['canopy height'] = canopy_height
+        new_df['isohydricity'] = isohydricity
         new_df['legacy1'] = legacy1
         new_df['legacy2'] = legacy2
         new_df['legacy3'] = legacy3
 
+        new_df['TWS_-1'] = tws_minus_1
+        new_df['TWS_1'] = tws1
+        new_df['TWS_2'] = tws2
+        new_df['TWS_3'] = tws3
+        new_df['is_gs'] = is_gs
+
         new_df = new_df.dropna()
-        sns.pairplot(new_df)
-        plt.show()
+        sns.pairplot(new_df,markers='.',kind='reg',diag_kind='kde',hue='is_gs')
+        # plt.show()
+        plt.savefig('test.png')
 
 
 

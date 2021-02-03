@@ -207,9 +207,15 @@ class Main_flow_Dataframe:
         # 4 add correlation into df
         # df = self.add_gs_sif_spei_correlation_to_df(df)
         # 5 add canopy height into df
-        df = self.add_canopy_height_to_df(df)
+        # df = self.add_canopy_height_to_df(df)
         # 6 add rooting depth into df
-        df = self.add_rooting_depth_to_df(df)
+        # df = self.add_rooting_depth_to_df(df)
+        # 7 add TWS into df
+        for year in range(4):
+            print(year)
+            df = self.add_TWS_to_df(df,year)
+        # 8 add is gs into df
+        # self.add_is_gs_drought_to_df(df)
 
         # -1 df to excel
         T.save_df(df,self.dff)
@@ -359,7 +365,55 @@ class Main_flow_Dataframe:
         df['rooting_depth'] = val_list
         return df
 
+    def add_TWS_to_df(self,df,year):
 
+        fdir = data_root + 'TWS\\water_gap\\per_pix_anomaly\\'
+        tws_dic = T.load_npy_dir(fdir)
+        tws_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            drought_start = row.event[0]
+            pix = row.pix
+            if not pix in tws_dic:
+                tws_list.append(np.nan)
+                continue
+            vals = tws_dic[pix]
+            # print(len(vals))
+            # exit()
+            start_indx = drought_start + 12 * (year - 1)
+            end_indx = drought_start + 12 * (year)
+            if start_indx < 0:
+                tws_list.append(np.nan)
+                continue
+            if end_indx >= len(vals):
+                tws_list.append(np.nan)
+                continue
+            picked_indx = list(range(start_indx,end_indx))
+            picked_val = T.pick_vals_from_1darray(vals,picked_indx)
+            mean = np.nanmean(picked_val)
+            tws_list.append(mean)
+        if year == 0:
+            year = -1
+        df['TWS_{}'.format(year)] = tws_list
+
+        # exit()
+        return df
+
+    def add_is_gs_drought_to_df(self,df):
+
+        is_gs_list = []
+        gs_mon = list(range(4,11))
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            drought_start = row.event[0]
+            mon = drought_start % 12 + 1
+            if mon in gs_mon:
+                is_gs = 1
+            else:
+                is_gs = 0
+            is_gs_list.append(is_gs)
+        df['is_gs'] = is_gs_list
+        return df
+
+        pass
 
 
 def main():

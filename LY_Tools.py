@@ -84,7 +84,7 @@ class Tools:
 
 
     def mask_999999_arr(self,arr):
-        arr[arr<-99999]=np.nan
+        arr[arr<-9999]=np.nan
 
     def lonlat_to_address(self,lon, lat):
         ak = "mziulWyNDGkBdDnFxWDTvELlMSun8Obt"  # 参照自己的应用
@@ -1199,6 +1199,67 @@ class Pre_Process:
                 temp_dic = {}
         np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
 
+
+    def data_transform_with_date_list(self, fdir, outdir,date_list):
+        # 不可并行，内存不足
+        Tools().mk_dir(outdir)
+        outdir = outdir + '\\'
+        # 将空间图转换为数组
+        template_f = os.path.join(fdir,os.listdir(fdir)[0])
+        template_arr = to_raster.raster2array(template_f)[0]
+        void_arr = np.ones_like(template_arr) * -999999
+        all_array = []
+        invalid_f_num = 0
+        for d in tqdm(date_list, 'loading...'):
+            f = os.path.join(fdir,d)
+            if os.path.isfile(f):
+                array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(f)
+                array = np.array(array,dtype=np.float)
+                all_array.append(array)
+            else:
+                all_array.append(void_arr)
+                invalid_f_num += 1
+        print('\n','invalid_f_num:',invalid_f_num)
+        # exit()
+
+        row = len(all_array[0])
+        col = len(all_array[0][0])
+
+        void_dic = {}
+        void_dic_list = []
+        for r in range(row):
+            for c in range(col):
+                void_dic[(r, c)] = []
+                void_dic_list.append((r, c))
+
+        # print(len(void_dic))
+        # exit()
+        params = []
+        for r in tqdm(range(row)):
+            for c in range(col):
+                for arr in all_array:
+                    val = arr[r][c]
+                    void_dic[(r, c)].append(val)
+
+        # for i in void_dic_list:
+        #     print(i)
+        # exit()
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(void_dic_list, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = void_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+
+
     def kernel_cal_anomaly(self, params):
         fdir, f, save_dir = params
         pix_dic = Tools().load_npy(fdir + f)
@@ -1206,6 +1267,8 @@ class Pre_Process:
         for pix in pix_dic:
             ####### one pix #######
             vals = pix_dic[pix]
+            vals = np.array(vals)
+            Tools().mask_999999_arr(vals)
             # 清洗数据
             climatology_means = []
             climatology_std = []

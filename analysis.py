@@ -1,7 +1,7 @@
 # coding=utf-8
 
 from Main_flow import *
-
+from CSIF_legacy import *
 
 class Correlation_CSIF_SPEI:
 
@@ -145,12 +145,41 @@ class Statistic:
         plt.savefig('test.png')
 
 
+class Tif:
 
+    def __init__(self):
+        self.this_class_tif = results_root_main_flow + 'tif\\Tif\\'
+        Tools().mk_dir(self.this_class_tif, force=True)
+        pass
+
+    def run(self):
+        self.tif_legacy()
+        pass
+
+
+    def tif_legacy(self):
+        outtifdir = self.this_class_tif + 'tif_legacy\\'
+        T.mk_dir(outtifdir)
+        outtif = outtifdir + 'tif_legacy.tif'
+        f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy.pkl'
+        dic = T.load_dict_from_binary(f)
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        for pix in dic:
+            vals = dic[pix]
+            if len(vals) == 0:
+                continue
+            for dic_i in vals:
+                legacy = dic_i['legacy']
+                spatial_dic[pix].append(legacy)
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(spatial_dic)
+        DIC_and_TIF().arr_to_tif(arr,outtif)
+        pass
 
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    Statistic().run()
+    # Statistic().run()
+    Tif().run()
     pass
 
 

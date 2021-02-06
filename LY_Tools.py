@@ -127,7 +127,7 @@ class Tools:
             # print(history_dic[pix])
             return lon, lat, history_dic[pix]
         else:
-            address = self.lonlat_to_address(lon, lat).decode('utf-8')
+            address = self.lonlat_to_address(lon, lat)
             key = pix
             val = address
             history_dic[key] = val

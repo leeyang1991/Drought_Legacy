@@ -1049,17 +1049,51 @@ class Main_flow_Legacy_decrease:
 
 
 
-class Recovery_time:
+class Recovery_time_Legacy:
 
     def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Recovery_time_Legacy\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Recovery_time_Legacy\\'
+        self.this_class_png = results_root_main_flow + 'png\\Recovery_time_Legacy\\'
 
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
         pass
 
     def run(self):
         # 1 cal recovery time
+        event_dic,spei_dic,sif_dic = self.load_data()
+        out_dir = self.this_class_arr + 'Recovery_time_Legacy\\'
+        self.gen_recovery_time_legacy(event_dic,spei_dic, sif_dic,out_dir)
         pass
 
-    def gen_recovery_time(self, events, spei_dic, ndvi_dic, out_dir):
+    def load_data(self,condition=''):
+        # events_dir = results_root_main_flow + 'arr\\SPEI_preprocess\\drought_events\\'
+        # SPEI_dir = data_root + 'SPEI\\per_pix_clean\\'
+        # SIF_dir = data_root + 'CSIF\\per_pix_anomaly_detrend\\'
+
+        events_dir = results_root_main_flow + 'arr\\SPEI_preprocess\\events_408\\spei\\'
+        SPEI_dir = data_root + 'SPEI\\per_pix_408\\'
+        SIF_dir = data_root + 'NDVI\\per_pix_clean_anomaly_smooth_detrend\\'
+
+        event_dic = T.load_npy_dir(events_dir,condition)
+        spei_dic = T.load_npy_dir(SPEI_dir,condition)
+        sif_dic = T.load_npy_dir(SIF_dir,condition)
+
+        return event_dic,spei_dic,sif_dic
+        pass
+
+
+    def __cal_legacy(self,ndvi_obs,ndvi_pred,recovery_range):
+        selected_obs = T.pick_vals_from_1darray(ndvi_obs,recovery_range)
+        selected_pred = T.pick_vals_from_1darray(ndvi_pred,recovery_range)
+        diff = selected_obs - selected_pred
+        legacy = np.sum(diff)
+        return legacy
+        pass
+
+    def gen_recovery_time_legacy(self, events, spei_dic, ndvi_dic, out_dir):
         '''
         生成全球恢复期
         :param interval: SPEI_{interval}
@@ -1070,63 +1104,49 @@ class Recovery_time:
 
         growing_date_range = list(range(4,10))
         Tools().mk_dir(out_dir, force=True)
-        outf = out_dir + 'recovery_time'
+        outf = out_dir + 'recovery_time_legacy'
         # 1 加载事件
         # interval = '%02d' % interval
         # 2 加载NDVI 与 SPEI
         recovery_time_dic = {}
         for pix in tqdm(ndvi_dic):
             if pix in events:
-                # growing_date_range = [5,6,7,8,9,10]
-                # print growing_date_range
-                # pre = pre_dic[pix]
-                # pre = np.array(pre)
-                # 连续值分组
-                # winter_ranges = []
-                # for _, group in groupby(enumerate(winter_index), lambda (index, item): index - item):
-                #     group = map(itemgetter(1), group)
-                #     if len(group) > 1:
-                #         winter_ranges.append(range(group[0], group[-1] + 1))
-                #     else:
-                #         winter_ranges.append([group[0]])
-
-                # gs_index = []
-                # gs_mon_list = growing_season_daterange[pix]
-                # for year, mons in enumerate(gs_mon_list):
-                #     for mon in mons:
-                #         gs_index_i = year * 12 + mon
-                #         gs_index.append(gs_index_i)
-                #
-                # print winter_dic[pix]
-                # print growing_season_daterange[pix]
-                # print winter_dic[pix]
-                # print growing_season_daterange[pix]
-                # exit()
 
                 ndvi = ndvi_dic[pix]
                 ndvi = np.array(ndvi)
+                ndvi_pred = [0] * len(ndvi)
+                ndvi_pred = np.array(ndvi_pred)
+                if not pix in spei_dic:
+                    continue
                 spei = spei_dic[pix]
                 spei = np.array(spei)
                 event = events[pix]
                 recovery_time_result = []
-                for timing, date_range in event:
+                for timing,date_range in event:
+                    # print(date_range)
+                    event_start_index = T.pick_min_indx_from_1darray(spei, date_range)
+                    event_start_index_trans = self.__drought_indx_to_gs_indx(event_start_index,growing_date_range,len(ndvi))
+                    if event_start_index_trans == None:
+                        continue
+                    ndvi_gs = self.__pick_gs_vals(ndvi,growing_date_range)
+                    spei_gs = self.__pick_gs_vals(spei,growing_date_range)
+                    ndvi_gs_pred = self.__pick_gs_vals(ndvi_pred,growing_date_range)
+                    date_range_new = []
+                    for i in date_range:
+                        i_trans = self.__drought_indx_to_gs_indx(i,growing_date_range,len(ndvi))
+                        date_range_new.append(i_trans)
                     # 1 挑出此次干旱事件的NDVI和SPEI值 （画图需要）
                     # spei_picked_vals = Tools().pick_vals_from_1darray(spei, date_range)
                     # 2 挑出此次干旱事件SPEI最低的索引
                     # 在当前生长季搜索
-                    # event_start_index = date_range[0]
-                    event_start_index = T.pick_min_indx_from_1darray(spei, date_range)
-                    year_indx = event_start_index // 12
-
-                    # event_start_index = date_range[-1]
 
                     # 4 搜索恢复期
                     # 4.1 获取growing season NDVI的最小值
                     # 4.3 搜索恢复到正常情况的时间，recovery_time：恢复期； mark：'in', 'out', 'tropical'
                     # mark: In Out Tropical
-                    recovery_range, lag, recovery_start_gs, recovery_start, winter_mark = \
-                        self.search1(ndvi, spei, event_start_index, growing_date_range, timing)
-
+                    search_end_indx = 3 * len(growing_date_range)
+                    recovery_range = self.search1(ndvi_gs, ndvi_gs_pred,spei_gs, event_start_index_trans,search_end_indx)
+                    # continue
                     # recovery_time, lag, recovery_start_gs, recovery_start, 'undefined'
                     ###########################################
                     ###########################################
@@ -1134,100 +1154,87 @@ class Recovery_time:
                     if recovery_range == None:
                         continue
                     recovery_range = np.array(recovery_range)
-                    date_range = np.array(date_range)
+                    date_range_new = np.array(date_range_new)
                     recovery_time = len(recovery_range)
+                    legacy = self.__cal_legacy(ndvi_gs,ndvi_gs_pred,recovery_range)
                     recovery_time_result.append({
                         'recovery_time': recovery_time,
                         'recovery_date_range': recovery_range,
-                        'drought_event_date_range': date_range,
-                        'timing': timing,
-                        'lag': lag,
-                        'recovery_start_gs': recovery_start_gs,
-                        'winter_mark': winter_mark,
+                        'drought_event_date_range': date_range_new,
+                        'legacy': legacy,
                     })
                     #
                     # ################# plot ##################
-                    # print 'recovery_time',recovery_time, 'timing',timing,'lag',lag,'recovery_start_gs',recovery_start_gs,'winter_mark',winter_mark
-                    # print 'growing_date_range',growing_date_range
-                    # print 'recovery_range',recovery_range
-                    # recovery_date_range = recovery_range
-                    # recovery_ndvi = Tools().pick_vals_from_1darray(ndvi, recovery_date_range)
-                    #
-                    # tmp_pre_date_range = []
-                    # for i in recovery_date_range:
-                    #     tmp_pre_date_range.append(i)
-                    # for i in date_range:
-                    #     tmp_pre_date_range.append(i)
-                    # tmp_pre_date_range = list(set(tmp_pre_date_range))
-                    # tmp_pre_date_range.sort()
-                    # # pre_picked_vals = Tools().pick_vals_from_1darray(pre, tmp_pre_date_range)
-                    # # tmp_picked_vals = Tools().pick_vals_from_1darray(tmp, tmp_pre_date_range)
-                    # # if len(swe) == 0:
-                    # #     continue
-                    # # swe_picked_vals = Tools().pick_vals_from_1darray(swe, tmp_pre_date_range)
-                    #
-                    # plt.figure(figsize=(8, 6))
-                    # # plt.plot(tmp_pre_date_range, pre_picked_vals, '--', c='blue', label='precipitation')
-                    # # plt.plot(tmp_pre_date_range, tmp_picked_vals, '--', c='cyan', label='temperature')
-                    # # plt.plot(tmp_pre_date_range, swe_picked_vals, '--', c='black', linewidth=2, label='SWE',
-                    # #          zorder=99)
-                    # # plt.plot(recovery_date_range, recovery_ndvi, c='g', linewidth=6, label='Recovery Period')
-                    # plt.scatter(recovery_date_range, recovery_ndvi, c='g', label='Recovery Period')
-                    # plt.plot(date_range, spei_picked_vals, c='r', linewidth=6,
-                    #          label='drought Event')
-                    # plt.scatter(date_range, spei_picked_vals, c='r', zorder=99)
-                    #
-                    # plt.plot(range(len(ndvi)), ndvi, '--', c='g', zorder=99, label='ndvi')
-                    # plt.plot(range(len(spei)), spei, '--', c='r', zorder=99, label='drought index')
-                    # # plt.plot(range(len(pre)), pre, '--', c='blue', zorder=99, label='Precip')
-                    # # pre_picked = T.pick_vals_from_1darray(pre,recovery_date_range)
-                    # # pre_mean = np.mean(pre_picked)
-                    # # plt.plot(recovery_date_range,[pre_mean]*len(recovery_date_range))
-                    # plt.legend()
-                    #
-                    # minx = 9999
-                    # maxx = -9999
-                    #
-                    # for ii in recovery_date_range:
-                    #     if ii > maxx:
-                    #         maxx = ii
-                    #     if ii < minx:
-                    #         minx = ii
-                    #
-                    # for ii in date_range:
-                    #     if ii > maxx:
-                    #         maxx = ii
-                    #     if ii < minx:
-                    #         minx = ii
-                    # # print date_range[0]-5,recovery_date_range[-1]+5
-                    #
-                    # xtick = []
-                    # for iii in np.arange(len(ndvi)):
-                    #     year = 1982 + iii / 12
-                    #     mon = iii % 12 + 1
-                    #     mon = '%02d' % mon
-                    #     xtick.append('{}.{}'.format(year, mon))
-                    # # # plt.xticks(range(len(xtick))[::3], xtick[::3], rotation=90)
-                    # plt.xticks(range(len(xtick)), xtick, rotation=90)
-                    # plt.grid()
-                    # plt.xlim(minx - 5, maxx + 5)
-                    #
-                    # lon, lat, address = Tools().pix_to_address(pix)
-                    # try:
-                    #     plt.title('lon:{:0.2f} lat:{:0.2f} address:{}\n'.format(lon, lat, address) +
-                    #               'recovery_time:'+str(recovery_time)+
-                    #               ' timing:'+ str(timing)+ ' lag:'+ str(lag)+ ' recovery_start_gs:'+ str(recovery_start_gs)
-                    #               )
-                    #
-                    # except:
-                    #     plt.title('lon:{:0.2f} lat:{:0.2f}\n'.format(lon, lat)+
-                    #               'recovery_time:' + str(recovery_time) +
-                    #               ' timing:' + str(timing) + ' lag:' + str(lag) + ' recovery_start_gs:' + str(
-                    #         recovery_start_gs)
-                    #               )
-                    # plt.show()
-                    # #################plot##################
-
+            #         print('recovery_time',recovery_time)
+            #         print('growing_date_range',growing_date_range)
+            #         print('recovery_range',recovery_range)
+            #         print('legacy',legacy)
+            #         recovery_date_range = recovery_range
+            #         recovery_ndvi = Tools().pick_vals_from_1darray(ndvi_gs, recovery_date_range)
+            #
+            #         # pre_picked_vals = Tools().pick_vals_from_1darray(pre, tmp_pre_date_range)
+            #         # tmp_picked_vals = Tools().pick_vals_from_1darray(tmp, tmp_pre_date_range)
+            #         # if len(swe) == 0:
+            #         #     continue
+            #         # swe_picked_vals = Tools().pick_vals_from_1darray(swe, tmp_pre_date_range)
+            #
+            #         plt.figure(figsize=(8, 6))
+            #         # plt.plot(tmp_pre_date_range, pre_picked_vals, '--', c='blue', label='precipitation')
+            #         # plt.plot(tmp_pre_date_range, tmp_picked_vals, '--', c='cyan', label='temperature')
+            #         # plt.plot(tmp_pre_date_range, swe_picked_vals, '--', c='black', linewidth=2, label='SWE',
+            #         #          zorder=99)
+            #         # plt.plot(recovery_date_range, recovery_ndvi, c='g', linewidth=6, label='Recovery Period')
+            #         plt.scatter(recovery_date_range, recovery_ndvi, c='g', label='Recovery Period')
+            #         # plt.plot(date_range, spei_picked_vals, c='r', linewidth=6,
+            #         #          label='drought Event')
+            #         # plt.scatter(date_range, spei_picked_vals, c='r', zorder=99)
+            #
+            #         plt.plot(range(len(ndvi_gs)), ndvi_gs, '--', c='g', zorder=99, label='ndvi')
+            #         plt.plot(range(len(spei_gs)), spei_gs, '--', c='r', zorder=99, label='drought index')
+            #         # plt.plot(range(len(pre)), pre, '--', c='blue', zorder=99, label='Precip')
+            #         # pre_picked = T.pick_vals_from_1darray(pre,recovery_date_range)
+            #         # pre_mean = np.mean(pre_picked)
+            #         # plt.plot(recovery_date_range,[pre_mean]*len(recovery_date_range))
+            #         plt.legend()
+            #
+            #         minx = 9999
+            #         maxx = -9999
+            #
+            #         for ii in recovery_date_range:
+            #             if ii > maxx:
+            #                 maxx = ii
+            #             if ii < minx:
+            #                 minx = ii
+            #
+            #         for ii in date_range_new:
+            #             if ii > maxx:
+            #                 maxx = ii
+            #             if ii < minx:
+            #                 minx = ii
+            #
+            #         # xtick = []
+            #         # for iii in np.arange(len(ndvi)):
+            #         #     year = 1982 + iii / 12
+            #         #     mon = iii % 12 + 1
+            #         #     mon = '%02d' % mon
+            #         #     xtick.append('{}.{}'.format(year, mon))
+            #         # # plt.xticks(range(len(xtick))[::3], xtick[::3], rotation=90)
+            #         # plt.xticks(range(len(xtick)), xtick, rotation=90)
+            #         plt.grid()
+            #         plt.xlim(minx - 5, maxx + 5)
+            #
+            #         lon, lat, address = Tools().pix_to_address(pix)
+            #         try:
+            #             plt.title('lon:{:0.2f} lat:{:0.2f} address:{}\n'.format(lon, lat, address) +
+            #                       'recovery_time:'+str(recovery_time)
+            #                       )
+            #
+            #         except:
+            #             plt.title('lon:{:0.2f} lat:{:0.2f}\n'.format(lon, lat)+
+            #                       'recovery_time:' + str(recovery_time)
+            #                       )
+            #         plt.show()
+            #         # #################plot end ##################
                 recovery_time_dic[pix] = recovery_time_result
             else:
                 recovery_time_dic[pix] = []
@@ -1235,108 +1242,72 @@ class Recovery_time:
         pass
 
 
-    def search1(self, ndvi,drought_indx, event_start_index, growing_date_range,timing):
-        normal_ndvi_threshold = -0.05
+    def __drought_indx_to_gs_indx(self,indx,gs_mons,vals_len):
+        void_list = [0] * vals_len
+        void_list[indx] = 1
+        selected_indx = []
+        for i in range(len(void_list)):
+            mon = i % 12 + 1
+            if mon in gs_mons:
+                selected_indx.append(void_list[i])
+        if 1 in selected_indx:
+            trans_indx = selected_indx.index(1)
+            return trans_indx
+        else:
+            return None
+        pass
 
-        # print 'drought_indx',drought_indx
-        # print 'ndvi',ndvi
-        # print 'event_start_index',event_start_index
-        # print 'growing_date_range',growing_date_range
-        # print 'timing',timing
+    def __pick_gs_vals(self,vals,gs_mons):
+        picked_vals = []
+        for i in range(len(vals)):
+            mon = i % 12 + 1
+            if mon in gs_mons:
+                picked_vals.append(vals[i])
+        return picked_vals
 
-        # seasonal cycle
-        picked_ndvi_vals = []
-        picked_ndvi_vals_i = []
 
-        picked_ndvi_index = []
-        picked_ndvi_index_i = []
-        # 从event start index 开始，选取后36个月的NDVI
-        for i in range(36):
-            if (event_start_index + i) >= len(ndvi):  # 到头了
-                break
-            search_ = event_start_index + i
-            search_mon = search_ % 12 + 1
-            if not search_mon in growing_date_range:
-                if len(picked_ndvi_vals_i) != 0:
-                    picked_ndvi_vals.append(picked_ndvi_vals_i)
-                    picked_ndvi_index.append(picked_ndvi_index_i)
-                picked_ndvi_vals_i = []
-                picked_ndvi_index_i = []
+    def __split_999999(self,selected_indx):
+        selected_indx_ = []
+        selected_indx_s = []
+        for i in selected_indx:
+            if i > 9999:
+                if len(selected_indx_) > 0:
+                    selected_indx_s.append(selected_indx_)
+                selected_indx_ = []
+                continue
             else:
-                ndvi_i = ndvi[search_]
-                picked_ndvi_vals_i.append(ndvi_i)
-                picked_ndvi_index_i.append(search_)
-            #################################
-        if len(picked_ndvi_vals) == 0:
-            return None, None, None, None, None
+                selected_indx_.append(i)
+        if len(selected_indx_s) == 0:
+            return None
+        return selected_indx_s[0]
+        pass
 
-        first_gs_min_ndvi = min(picked_ndvi_vals[0])
-        if len(picked_ndvi_vals) == 1:
-            second_gs_min_ndvi = 999
-        else:
-            second_gs_min_ndvi = min(picked_ndvi_vals[1])
-        # lag is in the first GS
-        if first_gs_min_ndvi < normal_ndvi_threshold:
-            min_ind = T.pick_min_indx_from_1darray(picked_ndvi_vals[0], range(len(picked_ndvi_vals[0])))
-            recovery_start = picked_ndvi_index[0][min_ind]
-            lag = recovery_start - event_start_index
-            recovery_range, winter_mark = \
-                self.kernel_search1(recovery_start,event_start_index,growing_date_range,ndvi,normal_ndvi_threshold)
-            # if winter_mark == 1:
-            #     recovery_start = picked_ndvi_index[1][0]
-            #     recovery_range, _ = \
-            #         self.kernel_search1(recovery_start,event_start_index,growing_date_range,ndvi,normal_ndvi_threshold)
-            recovery_start_gs = 'first'
+    def search1(self, ndvi,ndvi_pred,drought_indx, event_start_index,search_end_indx):
+        # print(event_start_index)
+        if event_start_index+search_end_indx >= len(ndvi):
+            return None
+        selected_indx = []
+        for i in range(event_start_index,event_start_index+search_end_indx):
+            ndvi_i = ndvi[i]
+            if ndvi_i < ndvi_pred[i]:
+                selected_indx.append(i)
+            else:
+                selected_indx.append(999999)
 
-        # lag is in the second GS
-        elif second_gs_min_ndvi < normal_ndvi_threshold:
-            recovery_start = picked_ndvi_index[1][0]
-            recovery_range, _ = \
-                self.kernel_search1(recovery_start, event_start_index, growing_date_range, ndvi, normal_ndvi_threshold)
-            winter_mark = 1
-            lag = None
-            recovery_start_gs = 'second'
-        else:
-            recovery_start = None
-            lag = None
-            recovery_range = None
-            recovery_start_gs = None
-            winter_mark = None
-
-        return recovery_range, lag, recovery_start_gs, recovery_start, winter_mark
-
-
+        recovery_indx_gs = self.__split_999999(selected_indx)
+        return recovery_indx_gs
+        # plt.scatter(event_start_index, [0])
+        # plt.plot(ndvi)
+        # plt.plot(drought_indx)
+        # plt.show()
 
         pass
 
 
-
-    def kernel_search1(self,recovery_start,event_start_index,growing_date_range,ndvi,normal_ndvi_threshold):
-        success = 0
-        winter_mark = 0
-        recovery_range = []
-        for i in range(recovery_start, event_start_index + 36):
-            mon = i % 12 + 1
-            if not mon in growing_date_range:
-                winter_mark = 1
-                continue
-
-            if event_start_index + 36 >= 408:
-                break
-            ndvi_i = ndvi[i]
-            mon = i % 12 + 1
-            if ndvi_i > normal_ndvi_threshold and mon in growing_date_range:
-                success = 1
-                break
-            recovery_range.append(i)
-
-        if success == 0:
-            return None, None
-        return recovery_range, winter_mark
-
 def main():
     # Main_flow_Legacy().run()
-    Main_flow_Legacy_decrease().run()
+    # Main_flow_Legacy_decrease().run()
+    Recovery_time_Legacy().run()
     pass
 
 if __name__ == '__main__':

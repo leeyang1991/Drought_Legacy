@@ -145,6 +145,12 @@ class Statistic:
         plt.savefig('test.png')
 
 
+    def legacy_change(self):
+
+
+        pass
+
+
 class Tif:
 
     def __init__(self):
@@ -160,8 +166,10 @@ class Tif:
     def tif_legacy(self):
         outtifdir = self.this_class_tif + 'tif_legacy\\'
         T.mk_dir(outtifdir)
-        outtif = outtifdir + 'tif_legacy.tif'
-        f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy.pkl'
+        # outtif = outtifdir + 'tif_legacy.tif'
+        outtif = outtifdir + 'tif_legacy_reg_sig.tif'
+        f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy_reg_sig.pkl'
+        # f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy.pkl'
         dic = T.load_dict_from_binary(f)
         spatial_dic = DIC_and_TIF().void_spatial_dic()
         for pix in dic:

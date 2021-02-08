@@ -897,9 +897,9 @@ class Main_flow_Legacy_decrease:
         pass
 
     def run(self):
-        # for y in range(1,4):
-        #     print(y)
-        #     self.cal_legacy_monthly(y)
+        for y in range(1,4):
+            print(y)
+            self.cal_legacy_monthly(y)
         self.plot_hist_spatial_mean()
         pass
 
@@ -1049,6 +1049,69 @@ class Main_flow_Legacy_decrease:
 
 
 
+
+class SPEI_NDVI_Reg:
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\SPEI_NDVI_Reg\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\SPEI_NDVI_Reg\\'
+        self.this_class_png = results_root_main_flow + 'png\\SPEI_NDVI_Reg\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        self.cal_pred_NDVI()
+        pass
+
+    def __pick_gs_vals(self,vals,gs_mons):
+        picked_vals = []
+        for i in range(len(vals)):
+            mon = i % 12 + 1
+            if mon in gs_mons:
+                picked_vals.append(vals[i])
+        return picked_vals
+
+    def cal_pred_NDVI(self):
+        outf = self.this_class_arr + 'pred_NDVI'
+        SIFdir = data_root + 'NDVI\\per_pix_clean_anomaly_smooth_detrend\\'
+        SIFdic = T.load_npy_dir(SIFdir)
+        SPEIdir = data_root + 'SPEI\\per_pix_408\\'
+        SPEIdic = T.load_npy_dir(SPEIdir)
+        # rf_model_dic = self.cal_linear_reg()
+        pred_sif_dic = {}
+        for pix in tqdm(SIFdic):
+            gs_mons = list(range(4,10))   ################## Todo: Need to calculate Growing season via phenology
+            if not pix in SPEIdic:
+                continue
+            sif = SIFdic[pix]
+            spei = SPEIdic[pix]
+
+            sif_gs = self.__pick_gs_vals(sif,gs_mons)
+            spei_gs = self.__pick_gs_vals(spei,gs_mons)
+
+            sif_gs = np.array(sif_gs)
+            spei_gs = np.array(spei_gs)
+            x = spei_gs.reshape(-1,1)
+            y = sif_gs
+            reg = LinearRegression()
+            reg.fit(x,y)
+            sif_gs_pred = reg.predict(x)
+            r2 = reg.score(x,y)
+            # if r2 < 0.3:
+            #     continue
+            pred_sif_dic[pix] = [sif_gs_pred,r2]
+            # plt.plot(sif_gs,c='g')
+            # plt.plot(sif_gs_pred,c='r')
+            # plt.title('{}'.format(r2))
+            # plt.show()
+        np.save(outf,pred_sif_dic)
+
+
+
+
 class Recovery_time_Legacy:
 
     def __init__(self):
@@ -1063,9 +1126,9 @@ class Recovery_time_Legacy:
 
     def run(self):
         # 1 cal recovery time
-        event_dic,spei_dic,sif_dic = self.load_data()
+        event_dic,spei_dic,sif_dic,pred_ndvi_dic = self.load_data()
         out_dir = self.this_class_arr + 'Recovery_time_Legacy\\'
-        self.gen_recovery_time_legacy(event_dic,spei_dic, sif_dic,out_dir)
+        self.gen_recovery_time_legacy(event_dic,spei_dic, sif_dic,pred_ndvi_dic,out_dir)
         pass
 
     def load_data(self,condition=''):
@@ -1076,12 +1139,14 @@ class Recovery_time_Legacy:
         events_dir = results_root_main_flow + 'arr\\SPEI_preprocess\\events_408\\spei\\'
         SPEI_dir = data_root + 'SPEI\\per_pix_408\\'
         SIF_dir = data_root + 'NDVI\\per_pix_clean_anomaly_smooth_detrend\\'
+        pred_ndvi_dir = SPEI_NDVI_Reg().this_class_arr + 'pred_NDVI.npy'
 
         event_dic = T.load_npy_dir(events_dir,condition)
         spei_dic = T.load_npy_dir(SPEI_dir,condition)
         sif_dic = T.load_npy_dir(SIF_dir,condition)
+        pred_ndvi_dic = T.load_npy(pred_ndvi_dir)
 
-        return event_dic,spei_dic,sif_dic
+        return event_dic,spei_dic,sif_dic,pred_ndvi_dic
         pass
 
 
@@ -1093,7 +1158,7 @@ class Recovery_time_Legacy:
         return legacy
         pass
 
-    def gen_recovery_time_legacy(self, events, spei_dic, ndvi_dic, out_dir):
+    def gen_recovery_time_legacy(self, events, spei_dic, ndvi_dic, pred_ndvi_dic, out_dir):
         '''
         生成全球恢复期
         :param interval: SPEI_{interval}
@@ -1104,17 +1169,21 @@ class Recovery_time_Legacy:
 
         growing_date_range = list(range(4,10))
         Tools().mk_dir(out_dir, force=True)
-        outf = out_dir + 'recovery_time_legacy'
+        outf = out_dir + 'recovery_time_legacy_reg_sig'
         # 1 加载事件
         # interval = '%02d' % interval
         # 2 加载NDVI 与 SPEI
         recovery_time_dic = {}
         for pix in tqdm(ndvi_dic):
             if pix in events:
-
                 ndvi = ndvi_dic[pix]
                 ndvi = np.array(ndvi)
-                ndvi_pred = [0] * len(ndvi)
+                if not pix in pred_ndvi_dic:
+                    continue
+                ndvi_pred,r2 = pred_ndvi_dic[pix]
+                if r2 < 0.1:
+                    continue
+                # ndvi_pred = [0] * len(ndvi)
                 ndvi_pred = np.array(ndvi_pred)
                 if not pix in spei_dic:
                     continue
@@ -1130,7 +1199,11 @@ class Recovery_time_Legacy:
                         continue
                     ndvi_gs = self.__pick_gs_vals(ndvi,growing_date_range)
                     spei_gs = self.__pick_gs_vals(spei,growing_date_range)
-                    ndvi_gs_pred = self.__pick_gs_vals(ndvi_pred,growing_date_range)
+                    # ndvi_gs_pred = self.__pick_gs_vals(ndvi_pred,growing_date_range)
+                    ndvi_gs_pred = ndvi_pred
+                    # print(len(ndvi_gs))
+                    # print(len(spei_gs))
+                    # print(len(ndvi_gs_pred))
                     date_range_new = []
                     for i in date_range:
                         i_trans = self.__drought_indx_to_gs_indx(i,growing_date_range,len(ndvi))
@@ -1307,6 +1380,7 @@ class Recovery_time_Legacy:
 def main():
     # Main_flow_Legacy().run()
     # Main_flow_Legacy_decrease().run()
+    # SPEI_NDVI_Reg().run()
     Recovery_time_Legacy().run()
     pass
 

@@ -81,7 +81,8 @@ class Statistic:
         pass
 
     def run(self):
-        self.vars_pairplot()
+        # self.vars_pairplot()
+        self.legacy_change()
         pass
 
 
@@ -146,6 +147,84 @@ class Statistic:
 
 
     def legacy_change(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Main_flow_Dataframe_NDVI_SPEI_legacy().drop_duplicated_sample(df)
+
+        df = df[df['lat'] > 30]
+        df = df[df['lat'] < 60]
+        # lc = 'Grasslands'
+        # lc = 'Forest'
+        xticks = []
+        xticks_num = []
+        flag = 0
+        flag1 = 0
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        # for lc in Global_vars().koppen_landuse():
+        for lc in Global_vars().koppen_list():
+        # for lc in Global_vars().landuse_list():
+            flag1 += 2
+            xticks_num.append(flag1)
+            xticks.append(lc)
+            # xticks.append(lc)
+            flag += 2
+            # df_selected = df[df['lc'] == lc]
+            # df_selected = df[df['climate_zone'] == lc]
+            df_selected = df[df['kp'] == lc]
+            # df = df[df['gs_sif_spei_corr'] > 0]
+            # df = df[df['gs_sif_spei_corr_p'] < 0.05]
+
+            total_year = len(list(range(1982,2016))) * 6
+            half_total_year = total_year / 2
+            # print(total_year)
+            # exit()
+            part1 = []
+            part2 = []
+            for i,row in tqdm(df_selected.iterrows(),total=len(df_selected)):
+                pix = row.pix
+                drought_event_date_range = row.drought_event_date_range
+                legacy = row.legacy
+                spatial_dic[pix].append(legacy)
+                # print(legacy)
+                event_start = drought_event_date_range[0]
+                if event_start<= half_total_year:
+                    part1.append(legacy)
+                else:
+                    part2.append(legacy)
+            plt.boxplot([part1,part2],positions=[flag,flag+1],showfliers=False)
+            ff, pp = f_oneway(part1, part2)
+            print(lc)
+            print(ff)
+            print(pp)
+            print('*'*8)
+            plt.ylim(-10,1)
+            # plt.title(lc)
+            plt.grid()
+        print(xticks_num)
+        print(xticks)
+        plt.xticks(xticks_num, xticks,rotation=90)
+        plt.tight_layout()
+        plt.figure()
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(spatial_dic)
+        plt.imshow(arr)
+        DIC_and_TIF().plot_back_ground_arr()
+        plt.show()
+        # plt.hist(part1)
+        # plt.figure()
+        # plt.hist(part2)
+        # plt.show()
+        # for hist in [part1,part2]:
+        #     hist = np.array(hist)
+        #     hist = T.remove_np_nan(hist)
+        #     n, x, _ = plt.hist(hist, bins=120, alpha=1.0, density=True, histtype=u'step',
+        #                        )
+        #     # density = stats.gaussian_kde(hist)
+        #     # plt.plot(x,density(x),label='legacy_{}'.format(year))
+        #     # print(n)
+        #     nn = SMOOTH().smooth_convolve(n, 21)
+        #     plt.plot(x, nn)
+        #
+        # plt.show()
 
 
         pass
@@ -184,10 +263,116 @@ class Tif:
         pass
 
 
+
+class Climate_Vars_delta_change:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.delta()
+        # self.CV()
+        self.check()
+        pass
+
+    def __pick_gs_vals(self,vals,gs_mons):
+        picked_vals = []
+        for i in range(len(vals)):
+            mon = i % 12 + 1
+            if mon in gs_mons:
+                picked_vals.append(vals[i])
+        return picked_vals
+
+    def delta(self):
+        gs_mons = list(range(4,10))
+        fdir = data_root + 'Climate_408\\'
+        for climate_var in os.listdir(fdir):
+            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean') + '\\'
+            outdir = fdir + climate_var + '\\' + 'delta\\'
+            T.mk_dir(outdir)
+            outf = outdir + 'delta_origin_val'
+            dic = T.load_npy_dir(npy_dir)
+            delta_dic = {}
+            for pix in tqdm(dic,desc=climate_var):
+                vals = dic[pix]
+                gs_vals = self.__pick_gs_vals(vals,gs_mons)
+                half = int(len(gs_vals)/2)
+                part1 = gs_vals[half:]
+                part2 = gs_vals[:half]
+                delta = np.mean(part2) - np.mean(part1)
+                delta_dic[pix] = delta
+            np.save(outf,delta_dic)
+        pass
+
+
+    def CV(self):
+        '''
+        Coefficient of variation
+        :return:
+        '''
+        gs_mons = list(range(4, 10))
+        fdir = data_root + 'Climate_408\\'
+        for climate_var in os.listdir(fdir):
+            # if climate_var != 'VPD':
+            #     continue
+            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
+            npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
+            outdir = fdir + climate_var + '\\' + 'CV\\'
+            T.mk_dir(outdir)
+            outf = outdir + 'CV'
+            dic = T.load_npy_dir(npy_dir,)
+            CV_dic = {}
+            for pix in tqdm(dic, desc=climate_var):
+                vals = dic[pix]
+                # gs_vals = self.__pick_gs_vals(vals, gs_mons)
+                gs_vals = vals
+                std = np.std(gs_vals)
+                # print(std)
+                # plt.plot(gs_vals)
+                # plt.figure()
+                # plt.hist(gs_vals,bins=20)
+                # plt.show()
+                # mean = np.mean(gs_vals)
+                # cv = std/mean
+                CV_dic[pix] = std
+            np.save(outf, CV_dic)
+
+        pass
+
+    def check(self):
+        fdir = data_root + 'Climate_408\\'
+        for climate_var in os.listdir(fdir):
+            # f = fdir + climate_var + '\\' + 'delta\\delta.npy'
+            f = fdir + climate_var + '\\' + 'CV\\CV.npy'
+            # f = fdir + climate_var + '\\' + 'delta\\delta_origin_val.npy'
+            dic = T.load_npy(f)
+            arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic)
+            DIC_and_TIF().plot_back_ground_arr()
+            # plt.imshow(arr,vmin=0,vmax=100)
+            # plt.imshow(arr,vmin=0,vmax=30)
+            plt.imshow(arr,vmin=0,vmax=1)
+            # plt.imshow(arr)
+            plt.colorbar()
+            plt.title(climate_var)
+            plt.show()
+        pass
+
+class Constant_Vars:
+
+    def __init__(self):
+        pass
+
+    def run(self):
+        pass
+
+
 def main():
     # Correlation_CSIF_SPEI().run()
     # Statistic().run()
-    Tif().run()
+    # Tif().run()
+    Climate_Vars_delta_change().run()
     pass
 
 

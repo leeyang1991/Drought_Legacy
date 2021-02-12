@@ -47,7 +47,11 @@ class Global_vars:
         }
         return line_color_dic
 
+    def gs_mons(self):
 
+        gs = list(range(4,10))
+
+        return gs
 
 class Main_Flow_Pick_drought_events:
 
@@ -507,8 +511,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df = self.__gen_df_init()
         # self._check_spatial(df)
         # exit()
-        # 1 add drought event into df
+        # 1 add drought event and delta legacy into df
         # df = self.legacy_to_df(df)
+        # df = self.delta_legacy_to_df(df)
         # 2 add lon lat into df
         # df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
@@ -529,8 +534,11 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 10 add kplc to df
         # df = self.add_koppen_landuse_to_df(df)
         # 11 add koppen to df
-        df = self.add_split_landuse_and_kp_to_df(df)
-
+        # df = self.add_split_landuse_and_kp_to_df(df)
+        # 12 add climate delta and cv into df
+        # df = self.add_climate_delta_to_df(df)
+        # df = self.add_climate_cv_to_df(df)
+        # 13 add sand to df
 
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
@@ -653,6 +661,35 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['recovery_date_range'] = recovery_date_range_list
         df['recovery_time'] = recovery_time_list
         df['legacy'] = legacy_list
+        return df
+        pass
+
+    def delta_legacy_to_df(self,df):
+        part1_dic = DIC_and_TIF().void_spatial_dic()
+        part2_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            gs_mon = Global_vars().gs_mons()
+            pix = row.pix
+            legacy = row.legacy
+            drought_event_date_range = row.drought_event_date_range
+            drought_start = drought_event_date_range[0]
+            drought_year = drought_start // len(gs_mon)
+            half = (2015 - 1982 + 1) / 2
+            if drought_year < half:
+                part1_dic[pix].append(legacy)
+            else:
+                part2_dic[pix].append(legacy)
+        delta_legacy_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            part1 = part1_dic[pix]
+            part2 = part2_dic[pix]
+            p1_mean = np.mean(part1)
+            p2_mean = np.mean(part2)
+            delta_legacy = p2_mean - p1_mean
+            delta_legacy_list.append(delta_legacy)
+
+        df['delta_legacy'] = delta_legacy_list
         return df
         pass
 
@@ -796,7 +833,41 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         pass
 
+    def add_climate_delta_to_df(self,df):
+        fdir = data_root + r'Climate_408\\'
+        for climate in os.listdir(fdir):
+            f = fdir + climate + '\\delta\\delta.npy'
+            dic = T.load_npy(f)
+            val_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
+                pix = row.pix
+                if not pix in dic:
+                    val_list.append(np.nan)
+                    continue
+                val = dic[pix]
+                val_list.append(val)
+            df['{}_delta'.format(climate)]=val_list
+        # exit()
+        return df
+        pass
 
+    def add_climate_cv_to_df(self, df):
+        fdir = data_root + r'Climate_408\\'
+        for climate in os.listdir(fdir):
+            f = fdir + climate + '\\CV\\CV.npy'
+            dic = T.load_npy(f)
+            val_list = []
+            for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
+                pix = row.pix
+                if not pix in dic:
+                    val_list.append(np.nan)
+                    continue
+                val = dic[pix]
+                val_list.append(val)
+            df['{}_cv'.format(climate)] = val_list
+        # exit()
+        return df
+        pass
 
 
 class Main_flow_Dataframe:

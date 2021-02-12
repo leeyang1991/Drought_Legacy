@@ -238,7 +238,8 @@ class Tif:
         pass
 
     def run(self):
-        self.tif_legacy()
+        # self.tif_legacy()
+        self.tif_delta_legacy()
         pass
 
 
@@ -262,6 +263,21 @@ class Tif:
         DIC_and_TIF().arr_to_tif(arr,outtif)
         pass
 
+    def tif_delta_legacy(self):
+        outtifdir = self.this_class_tif + 'tif_delta_legacy\\'
+        T.mk_dir(outtifdir)
+        # outtif = outtifdir + 'tif_legacy.tif'
+        outtif = outtifdir + 'delta_legacy.tif'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        spatial_dic = {}
+        for i,row in df.iterrows():
+            pix = row.pix
+
+            val = row.delta_legacy
+            spatial_dic[pix] = val
+        DIC_and_TIF().pix_dic_to_tif(spatial_dic,outtif)
+        pass
 
 
 class Climate_Vars_delta_change:
@@ -272,7 +288,7 @@ class Climate_Vars_delta_change:
 
     def run(self):
         # self.delta()
-        # self.CV()
+        self.CV()
         self.check()
         pass
 
@@ -326,8 +342,8 @@ class Climate_Vars_delta_change:
             CV_dic = {}
             for pix in tqdm(dic, desc=climate_var):
                 vals = dic[pix]
-                # gs_vals = self.__pick_gs_vals(vals, gs_mons)
-                gs_vals = vals
+                gs_vals = self.__pick_gs_vals(vals, gs_mons)
+                # gs_vals = vals
                 std = np.std(gs_vals)
                 # print(std)
                 # plt.plot(gs_vals)
@@ -352,8 +368,8 @@ class Climate_Vars_delta_change:
             DIC_and_TIF().plot_back_ground_arr()
             # plt.imshow(arr,vmin=0,vmax=100)
             # plt.imshow(arr,vmin=0,vmax=30)
-            plt.imshow(arr,vmin=0,vmax=1)
-            # plt.imshow(arr)
+            # plt.imshow(arr,vmin=0,vmax=1)
+            plt.imshow(arr)
             plt.colorbar()
             plt.title(climate_var)
             plt.show()
@@ -371,8 +387,8 @@ class Constant_Vars:
 def main():
     # Correlation_CSIF_SPEI().run()
     # Statistic().run()
-    # Tif().run()
-    Climate_Vars_delta_change().run()
+    Tif().run()
+    # Climate_Vars_delta_change().run()
     pass
 
 

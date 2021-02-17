@@ -539,7 +539,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_climate_delta_to_df(df)
         # df = self.add_climate_cv_to_df(df)
         # 13 add sand to df
-
+        # 14 add waterbalance to df
+        df = self.add_waterbalance(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -558,6 +559,13 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         plt.imshow(arr)
         plt.show()
         pass
+
+    def __load_HI(self):
+        HI_tif = data_root + '\\waterbalance\\HI_difference.tif'
+        HI_arr = to_raster.raster2array(HI_tif)[0]
+        HI_arr[HI_arr < -9999] = np.nan
+        HI_dic = DIC_and_TIF().spatial_arr_to_dic(HI_arr)
+        return HI_dic
 
     def __load_df(self):
         dff = self.dff
@@ -867,6 +875,22 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             df['{}_cv'.format(climate)] = val_list
         # exit()
         return df
+        pass
+
+    def add_waterbalance(self,df):
+        wb_dic = self.__load_HI()
+        wb_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            if pix in wb_dic:
+                wb = wb_dic[pix]
+                wb_list.append(wb)
+            else:
+                wb_list.append(np.nan)
+        df['waterbalance'] = wb_list
+        return df
+
+
         pass
 
 

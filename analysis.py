@@ -82,16 +82,20 @@ class Statistic:
 
     def run(self):
         # self.vars_pairplot()
-        self.legacy_change()
+        # self.legacy_change()
+        self.vars_pairplot()
         pass
 
 
 
     def load_df(self):
-        dff = Main_flow_Dataframe().dff
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
         T.print_head_n(df)
         return df,dff
+
+
+
 
     def vars_pairplot(self):
 
@@ -101,12 +105,12 @@ class Statistic:
         df = df[df['lat'] < 60]
         df = df[df['canopy_height'] > 0]
         # df = df[df['rooting_depth'] > 0]
-        df = df[df['gs_sif_spei_corr'] > 0]
-        df = df[df['gs_sif_spei_corr_p'] < 0.05]
+        # df = df[df['gs_sif_spei_corr'] > 0]
+        # df = df[df['gs_sif_spei_corr_p'] < 0.05]
         # df = df[df['rooting_depth']<30]
 
         # df = df[df['isohydricity']<0.6]
-        df = df[df['isohydricity']>0.9]
+        # df = df[df['isohydricity']>0.9]
         spatial_dic = {}
         for i,row in df.iterrows():
             pix = row.pix
@@ -118,32 +122,29 @@ class Statistic:
         new_df = pd.DataFrame()
         # rooting_depth = df['rooting_depth']
         canopy_height = df['canopy_height']
-        legacy1 = df['monthly_legacy_decrease_year_1']
-        legacy2 = df['monthly_legacy_decrease_year_2']
-        legacy3 = df['monthly_legacy_decrease_year_3']
+        legacy = df['legacy']
         isohydricity = df['isohydricity']
-        tws_minus_1 = df['TWS_-1']
-        tws1 = df['TWS_1']
-        tws2 = df['TWS_2']
-        tws3 = df['TWS_3']
-        is_gs = df['is_gs']
+        waterbalance = df['waterbalance']
+        PRE_cv = df['PRE_cv']
+        TMP_cv = df['TMP_cv']
         # new_df['rooting_depth'] = rooting_depth
         new_df['canopy height'] = canopy_height
         new_df['isohydricity'] = isohydricity
-        new_df['legacy1'] = legacy1
-        new_df['legacy2'] = legacy2
-        new_df['legacy3'] = legacy3
+        new_df['waterbalance'] = waterbalance
+        new_df['PRE_cv'] = PRE_cv
+        new_df['TMP_cv'] = TMP_cv
+        new_df['legacy'] = legacy
 
-        new_df['TWS_-1'] = tws_minus_1
-        new_df['TWS_1'] = tws1
-        new_df['TWS_2'] = tws2
-        new_df['TWS_3'] = tws3
-        new_df['is_gs'] = is_gs
+        # new_df['TWS_-1'] = tws_minus_1
+        # new_df['TWS_1'] = tws1
+        # new_df['TWS_2'] = tws2
+        # new_df['TWS_3'] = tws3
+        # new_df['is_gs'] = is_gs
 
-        new_df = new_df.dropna()
-        sns.pairplot(new_df,markers='.',kind='reg',diag_kind='kde',hue='is_gs')
+        # new_df = new_df.dropna()
+        sns.pairplot(new_df,markers='.',kind='reg',diag_kind='kde')
         # plt.show()
-        plt.savefig('test.png')
+        plt.savefig('test2.png')
 
 
     def legacy_change(self):
@@ -386,8 +387,8 @@ class Constant_Vars:
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    # Statistic().run()
-    Tif().run()
+    Statistic().run()
+    # Tif().run()
     # Climate_Vars_delta_change().run()
     pass
 

@@ -100,12 +100,21 @@ class Statistic:
     def vars_pairplot(self):
 
         df,dff = self.load_df()
-
+        lc_list = [
+            'Forest',
+            'Shrublands',
+            'Grasslands',
+        ]
+        # lc = lc_list[0]
+        # lc = lc_list[1]
+        lc = lc_list[2]
+        outf = lc + '.png'
+        df = df[df['lc'] == lc]
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
         df = df[df['canopy_height'] > 0]
         # df = df[df['rooting_depth'] > 0]
-        # df = df[df['gs_sif_spei_corr'] > 0]
+        df = df[df['gs_sif_spei_corr'] > 0]
         # df = df[df['gs_sif_spei_corr_p'] < 0.05]
         # df = df[df['rooting_depth']<30]
 
@@ -122,7 +131,7 @@ class Statistic:
         new_df = pd.DataFrame()
         # rooting_depth = df['rooting_depth']
         canopy_height = df['canopy_height']
-        legacy = df['legacy']
+        legacy = df['delta_legacy']
         isohydricity = df['isohydricity']
         waterbalance = df['waterbalance']
         PRE_cv = df['PRE_cv']
@@ -143,8 +152,10 @@ class Statistic:
 
         # new_df = new_df.dropna()
         sns.pairplot(new_df,markers='.',kind='reg',diag_kind='kde')
+        plt.suptitle(lc)
+        plt.tight_layout()
         # plt.show()
-        plt.savefig('test2.png')
+        plt.savefig(outf)
 
 
     def legacy_change(self):

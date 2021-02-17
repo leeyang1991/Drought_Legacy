@@ -540,7 +540,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_climate_cv_to_df(df)
         # 13 add sand to df
         # 14 add waterbalance to df
-        df = self.add_waterbalance(df)
+        # df = self.add_waterbalance(df)
+        # 15 add corr to df
+        df = self.add_gs_sif_spei_correlation_to_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -591,6 +593,26 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             df.to_excel('{}.xlsx'.format(dff))
 
         pass
+
+    def add_gs_sif_spei_correlation_to_df(self,df):
+
+        corr_dic = Correlation_CSIF_SPEI().correlation()
+        corr_list = []
+        corr_p_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            if not pix in corr_dic:
+                corr_list.append(np.nan)
+                corr_p_list.append(np.nan)
+                continue
+            corr,p = corr_dic[pix]
+            corr_list.append(corr)
+            corr_p_list.append(p)
+        df['gs_sif_spei_corr'] = corr_list
+        df['gs_sif_spei_corr_p'] = corr_p_list
+
+
+        return df
 
 
     def add_koppen_landuse_to_df(self,df):

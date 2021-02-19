@@ -300,8 +300,9 @@ class Climate_Vars_delta_change:
 
     def run(self):
         # self.delta()
-        self.CV()
-        self.check()
+        # self.CV()
+        self.spei_delta()
+        # self.check()
         pass
 
     def __pick_gs_vals(self,vals,gs_mons):
@@ -387,6 +388,33 @@ class Climate_Vars_delta_change:
             plt.show()
         pass
 
+    def spei_delta(self):
+        gs_mons = list(range(4, 10))
+        # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
+        npy_dir = data_root + 'SPEI\\per_pix_408\\'
+        outdir = data_root + 'SPEI\\' + 'delta\\'
+        T.mk_dir(outdir)
+        outf = outdir + 'delta'
+        dic = T.load_npy_dir(npy_dir)
+        delta_dic = {}
+        for pix in tqdm(dic, desc='spei delta'):
+            vals = dic[pix]
+            gs_vals = self.__pick_gs_vals(vals, gs_mons)
+            half = int(len(gs_vals) / 2)
+            part1 = gs_vals[half:]
+            part2 = gs_vals[:half]
+            # print(len(part1))
+            # print(len(part2))
+            # exit()
+            delta = np.mean(part2) - np.mean(part1)
+            # print(delta)
+            delta_dic[pix] = delta
+        np.save(outf, delta_dic)
+        pass
+
+        pass
+
+
 class Constant_Vars:
 
     def __init__(self):
@@ -398,9 +426,9 @@ class Constant_Vars:
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    Statistic().run()
+    # Statistic().run()
     # Tif().run()
-    # Climate_Vars_delta_change().run()
+    Climate_Vars_delta_change().run()
     pass
 
 

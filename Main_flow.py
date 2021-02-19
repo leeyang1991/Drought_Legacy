@@ -542,7 +542,11 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 14 add waterbalance to df
         # df = self.add_waterbalance(df)
         # 15 add corr to df
-        df = self.add_gs_sif_spei_correlation_to_df(df)
+        # df = self.add_gs_sif_spei_correlation_to_df(df)
+        # 16 add sand to df
+        # df = self.add_sand(df)
+        # 17 add delta spei to df
+        df = self.add_delta_SPEI(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -912,7 +916,52 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['waterbalance'] = wb_list
         return df
 
+    def __load_soil(self):
+        sand_tif = data_root + 'HWSD\\T_SAND_resample.tif'
+        silt_tif = data_root + 'HWSD\\T_SILT_resample.tif'
+        clay_tif = data_root + 'HWSD\\T_CLAY_resample.tif'
 
+        sand_arr = to_raster.raster2array(sand_tif)[0]
+        silt_arr = to_raster.raster2array(silt_tif)[0]
+        clay_arr = to_raster.raster2array(clay_tif)[0]
+
+        sand_arr[sand_arr < -9999] = np.nan
+        silt_arr[silt_arr < -9999] = np.nan
+        clay_arr[clay_arr < -9999] = np.nan
+
+        sand_dic = DIC_and_TIF().spatial_arr_to_dic(sand_arr)
+        silt_dic = DIC_and_TIF().spatial_arr_to_dic(silt_arr)
+        clay_dic = DIC_and_TIF().spatial_arr_to_dic(clay_arr)
+
+        return sand_dic
+
+    def add_sand(self,df):
+        sand_dic = self.__load_soil()
+        sand_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in sand_dic:
+                sand = sand_dic[pix]
+                sand_list.append(sand)
+            else:
+                sand_list.append(np.nan)
+        df['sand'] = sand_list
+        return df
+        pass
+
+    def add_delta_SPEI(self,df):
+        f = data_root + 'SPEI\\delta\\delta.npy'
+        dic = T.load_npy(f)
+        val_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df), desc='add_delta_SPEI'):
+            pix = row.pix
+            if not pix in dic:
+                val_list.append(np.nan)
+                continue
+            val = dic[pix]
+            val_list.append(val)
+        df['{}_delta'.format('SPEI')] = val_list
+        return df
         pass
 
 

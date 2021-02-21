@@ -1208,11 +1208,264 @@ class Main_flow_Dataframe:
         pass
 
 
+class Main_flow_RF:
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_RF\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_RF\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_RF\\'
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        # self.permutation_RF()
+        self.plot_results()
+        pass
+
+
+    def __variables(self):
+        X = [
+            'isohydricity',
+            'canopy_height',
+            'PRE_delta',
+            'TMP_delta',
+            'VPD_delta',
+            'PRE_cv',
+            'TMP_cv',
+            'VPD_cv',
+            'waterbalance',
+            'sand',
+            'SPEI_delta',
+             ]
+        Y = 'delta_legacy'
+
+        return X,Y
+
+        pass
+
+    def importance_train_results(self,X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        rf = RandomForestRegressor(n_estimators=100)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        r2 = rf.score(X_test, y_test)
+        importances = rf.feature_importances_
+        importances_dic = dict(zip(X.columns, importances))
+        return importances_dic, r2
+
+
+    def importance_train_results_linear(self,X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        # rf = RandomForestRegressor(n_estimators=100)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        reg = LinearRegression()
+        reg.fit(X_train, y_train)
+        y_pred = reg.predict(X_test)
+        r2 = reg.score(X_test, y_test)
+        importances = reg.coef_
+        importances_dic = dict(zip(X.columns, importances))
+        return importances_dic, r2
+
+    def permutation_train_results(self,X, y):
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        rf = RandomForestRegressor(n_estimators=300)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        r2 = rf.score(X_test, y_test)
+        result = permutation_importance(rf, X_train, y_train, scoring=None,
+                                        n_repeats=10, random_state=42,
+                                        n_jobs=5)
+        importances = result.importances_mean
+        importances_dic = dict(zip(X.columns, importances))
+        return importances_dic, r2
+
+    def importance_train_results(self,X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        rf = RandomForestRegressor(n_estimators=300)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        rf.fit(X_train, y_train)
+        y_pred = rf.predict(X_test)
+        r2 = rf.score(X_test, y_test)
+        importances = rf.feature_importances_
+        importances_dic = dict(zip(X.columns, importances))
+        return importances_dic, r2
+
+    def discard_hierarchical_clustering(self,df, var_list, dest_Y, t=0.0, isplot=False):
+        '''
+        url:
+        https://scikit-learn.org/stable/auto_examples/inspection/plot_permutation_importance_multicollinear.html#sphx-glr-auto-examples-inspection-plot-permutation-importance-multicollinear-py
+        '''
+        from collections import defaultdict
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from scipy.stats import spearmanr
+        from scipy.cluster import hierarchy
+
+        # print(df)
+        # exit()
+        df = df.dropna()
+        var_list_copy = copy.copy(var_list)
+        if dest_Y in var_list_copy:
+            var_list_copy.remove(dest_Y)
+        var_list = var_list_copy
+        X = df[var_list]
+        corr = np.array(X.corr())
+        corr_linkage = hierarchy.ward(corr)
+
+
+        cluster_ids = hierarchy.fcluster(corr_linkage, t=t, criterion='distance')
+        # cluster_ids = hierarchy.fcluster(corr_linkage, t=t, criterion='inconsistent')
+        cluster_id_to_feature_ids = defaultdict(list)
+        for idx, cluster_id in enumerate(cluster_ids):
+            cluster_id_to_feature_ids[cluster_id].append(idx)
+        selected_features_indx = [v[0] for v in cluster_id_to_feature_ids.values()]
+        selected_features = []
+        for i in selected_features_indx:
+            selected_features.append(var_list[i])
+
+        if isplot:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+            dendro = hierarchy.dendrogram(
+                corr_linkage, labels=var_list, ax=ax1, leaf_rotation=90
+            )
+            dendro_idx = np.arange(0, len(dendro['ivl']))
+            ax2.imshow(corr[dendro['leaves'], :][:, dendro['leaves']])
+            ax2.set_xticks(dendro_idx)
+            ax2.set_yticks(dendro_idx)
+            ax2.set_xticklabels(dendro['ivl'], rotation='vertical')
+            ax2.set_yticklabels(dendro['ivl'])
+            fig.tight_layout()
+        return selected_features
+
+    def discard_vif_vars(self,df, vars_list,dest_Y):
+        ################## µ ±º∆À„#####################
+        vars_list_copy = copy.copy(vars_list)
+        if dest_Y in vars_list_copy:
+            vars_list_copy.remove(dest_Y)
+        X = df[vars_list_copy]
+        X = X.dropna()
+        vif = pd.DataFrame()
+        vif["features"] = X.columns
+        vif["VIF Factor"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
+        vif.round(1)
+        selected_vif_list = []
+        for i in range(len(vif)):
+            feature = vif['features'][i]
+            VIF_val = vif['VIF Factor'][i]
+            if VIF_val < 5.:
+                selected_vif_list.append(feature)
+        return selected_vif_list
+
+        pass
+
+    def permutation_RF(self):
+
+        x_vars, Y_var = self.__variables()
+
+        dest_var = Y_var
+        outdir = self.this_class_arr + 'permutation_RF\\'
+        # outf = outdir + 'permutation_RF'
+        outf = outdir + 'linear'
+        T.mk_dir(outdir,force=True)
+        arr_dir = results_root + 'arr\\Main_flow_Prepare\\'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = df[df['lat'] > 30]
+        df = df[df['lat'] < 60]
+        print(df.columns)
+        # kl_list = list(set(list(df['lc'])))
+        kl_list = list(set(list(df['climate_zone'])))
+        kl_list.remove(None)
+        kl_list.sort()
+        results_dic = {}
+        for kl in kl_list:
+            print(kl)
+            vars_list = x_vars
+
+            # df_kl = df[df['lc'] == kl]
+            df_kl = df[df['climate_zone'] == kl]
+            df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
+            all_vars_list = copy.copy(vars_list)
+            all_vars_list.append(dest_var)
+            XXX = df_kl[vars_list]
+            if len(XXX) < 100:
+                print('{} sample number < 100'.format(kl))
+                continue
+
+            # vif_selected_features = self.discard_vif_vars(XXX, vars_list,dest_var)
+            # selected_features = self.discard_hierarchical_clustering(XXX, vif_selected_features,dest_var, t=1, isplot=False)
+            # print(vif_discard_vars)
+            # exit()
+            selected_features = x_vars
+            print(selected_features)
+            df1 = pd.DataFrame(df_kl)
+            vars_list1 = list(set(selected_features))
+            vars_list1.sort()
+            vars_list1.append(dest_var)
+            XX = df1[vars_list1]
+            XX = XX.dropna()
+            vars_list1.remove(dest_var)
+            X = XX[vars_list1]
+            Y = XX[dest_var]
+            if len(df1) < 100:
+                print('{} df1 sample number < 100'.format(kl))
+                continue
+            # X = X.dropna()
+            # importances_dic_permutation, r2 = self.importance_train_results(X, Y)
+            importances_dic_permutation, r2 = self.importance_train_results_linear(X, Y)
+            # importances_dic_permutation, r2 = self.permutation_train_results(X, Y)
+            results_dic[kl] = (importances_dic_permutation,r2)
+            labels = []
+            importance = []
+            for key in importances_dic_permutation:
+                labels.append(key)
+                importance.append(importances_dic_permutation[key])
+        fw = outf+'.txt'
+        fw = open(fw,'w')
+        fw.write(str(results_dic))
+        fw.close()
+
+
+        pass
+
+    def plot_results(self):
+        fdir = self.this_class_arr + 'permutation_RF\\'
+        # f = fdir + 'linear.txt'
+        # f = fdir + 'permutation_RF.txt'
+        f = fdir + 'RF.txt'
+        results_dic = T.load_dict_txt(f)
+        for i in results_dic:
+            imp = results_dic[i][0]
+            r2 = results_dic[i][1]
+            x_list = self.__variables()[0]
+            x_imp = []
+            for x in x_list:
+                x_imp.append(imp[x])
+            plt.figure()
+            plt.bar(list(range(len(x_imp))),x_imp)
+            plt.xticks(list(range(len(x_imp))),x_list,rotation=90)
+            plt.title(i)
+            plt.tight_layout()
+            # print(imp)
+        plt.show()
+        pass
+
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Dataframe().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
+    Main_flow_RF().run()
     pass
 
 

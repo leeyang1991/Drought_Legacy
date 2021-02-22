@@ -251,7 +251,8 @@ class Tif:
 
     def run(self):
         # self.tif_legacy()
-        self.tif_delta_legacy()
+        # self.tif_delta_legacy()
+        self.tif_legacy_trend()
         pass
 
 
@@ -292,6 +293,22 @@ class Tif:
         pass
 
 
+    def tif_legacy_trend(self):
+        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        T.mk_dir(outtifdir)
+        # outtif = outtifdir + 'tif_legacy.tif'
+        outtif = outtifdir + 'trend_legacy_sig.tif'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        spatial_dic = {}
+        for i, row in df.iterrows():
+            pix = row.pix
+            val = row.trend
+            score = row.trend_score
+            if score > 0.2:
+                spatial_dic[pix] = val
+        DIC_and_TIF().pix_dic_to_tif(spatial_dic, outtif)
+
 class Climate_Vars_delta_change:
 
     def __init__(self):
@@ -301,8 +318,9 @@ class Climate_Vars_delta_change:
     def run(self):
         # self.delta()
         # self.CV()
-        self.spei_delta()
-        # self.check()
+        # self.spei_delta()
+        # self.trend()
+        self.check()
         pass
 
     def __pick_gs_vals(self,vals,gs_mons):
@@ -311,6 +329,7 @@ class Climate_Vars_delta_change:
             mon = i % 12 + 1
             if mon in gs_mons:
                 picked_vals.append(vals[i])
+        picked_vals = np.array(picked_vals)
         return picked_vals
 
     def delta(self):
@@ -374,7 +393,8 @@ class Climate_Vars_delta_change:
         fdir = data_root + 'Climate_408\\'
         for climate_var in os.listdir(fdir):
             # f = fdir + climate_var + '\\' + 'delta\\delta.npy'
-            f = fdir + climate_var + '\\' + 'CV\\CV.npy'
+            # f = fdir + climate_var + '\\' + 'CV\\CV.npy'
+            f = fdir + climate_var + '\\' + 'trend\\trend.npy'
             # f = fdir + climate_var + '\\' + 'delta\\delta_origin_val.npy'
             dic = T.load_npy(f)
             arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic)
@@ -414,6 +434,38 @@ class Climate_Vars_delta_change:
 
         pass
 
+
+    def trend(self):
+        gs_mons = list(range(4, 10))
+        fdir = data_root + 'Climate_408\\'
+        for climate_var in os.listdir(fdir):
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
+            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
+            outdir = fdir + climate_var + '\\' + 'trend\\'
+            T.mk_dir(outdir)
+            outf = outdir + 'trend'
+            dic = T.load_npy_dir(npy_dir)
+            trend_dic = {}
+            for pix in tqdm(dic, desc=climate_var):
+                vals = dic[pix]
+                gs_vals = self.__pick_gs_vals(vals, gs_mons)
+                x_list = list(range(len(gs_vals)))
+                x_list = np.array(x_list)
+                x_list = x_list.reshape((-1,1))
+                reg = LinearRegression()
+                reg.fit(x_list,gs_vals)
+                coef = reg.coef_[0]
+                trend_dic[pix] = coef
+                # score = reg.score(x_list,gs_vals)
+                # if score > 0.2 and score < 0.9:
+                #     print(coef)
+                #     print(score)
+                #     print(len(gs_vals))
+                #     plt.plot(gs_vals)
+                #     plt.show()
+                # exit()
+            np.save(outf, trend_dic)
+        pass
 
 class Constant_Vars:
 

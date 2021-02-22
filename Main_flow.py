@@ -53,6 +53,47 @@ class Global_vars:
 
         return gs
 
+    def variables(self):
+        X = [
+            'isohydricity',
+            'canopy_height',
+            # 'PRE_delta',
+            # 'TMP_delta',
+            # 'VPD_delta',
+            'PRE_trend',
+            'TMP_trend',
+            'VPD_trend',
+            'PRE_cv',
+            'TMP_cv',
+            'VPD_cv',
+            'waterbalance',
+            'sand',
+            'SPEI_delta',
+            'awc',
+             ]
+        # Y = 'delta_legacy'
+        Y = 'trend'
+
+        return X,Y
+
+        pass
+
+    def clean_df(self,df):
+        df = df.drop_duplicates(subset=['pix', 'delta_legacy'])
+        # self.__df_to_excel(df,dff+'drop')
+
+        df = df[df['lat'] > 30]
+        df = df[df['lat'] < 60]
+        df = df[df['trend_score'] > 0.2]
+        trend = df['trend']
+        trend_mean = np.nanmean(trend)
+        trend_std = np.nanstd(trend)
+        up = trend_mean + trend_std
+        down = trend_mean - trend_std
+        df = df[df['trend'] > down]
+        df = df[df['trend'] < up]
+        return df
+
 class Main_Flow_Pick_drought_events:
 
     def __init__(self):
@@ -514,6 +555,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 1 add drought event and delta legacy into df
         # df = self.legacy_to_df(df)
         # df = self.delta_legacy_to_df(df)
+        # df = self.legacy_trend_to_df(df)
         # 2 add lon lat into df
         # df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
@@ -538,6 +580,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 12 add climate delta and cv into df
         # df = self.add_climate_delta_to_df(df)
         # df = self.add_climate_cv_to_df(df)
+        df = self.add_climate_trend_to_df(df)
         # 13 add sand to df
         # 14 add waterbalance to df
         # df = self.add_waterbalance(df)
@@ -546,7 +589,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 16 add sand to df
         # df = self.add_sand(df)
         # 17 add delta spei to df
-        df = self.add_delta_SPEI(df)
+        # df = self.add_delta_SPEI(df)
+        # 18 add awc to df
+        # df = self.add_AWC_to_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -727,6 +772,54 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
         pass
 
+
+    def legacy_trend_to_df(self,df):
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            legacy = row.legacy
+            drought_event_date_range = row.drought_event_date_range
+            drought_start = drought_event_date_range[0]
+            spatial_dic[pix].append((drought_start,legacy))
+
+        result_dic = {}
+        for pix in tqdm(spatial_dic):
+            vals = spatial_dic[pix]
+            if len(vals) <= 2:
+                continue
+            x_list = []
+            y_list = []
+            for x,y in vals:
+                x_list.append(x)
+                y_list.append(y)
+            x_list = np.array(x_list)
+            y_list = np.array(y_list)
+            reg = LinearRegression()
+            x_list = x_list.reshape((-1,1))
+            reg.fit(x_list,y_list)
+            coef = reg.coef_[0]
+            score = reg.score(x_list,y_list)
+            result_dic[pix] = (coef,score)
+            # plt.scatter(x_list,y_list)
+            # plt.title('len(vals) {} coef: {} score: {}'.format(len(vals),coef,score))
+            # plt.show()
+        coef_list = []
+        score_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            if not pix in result_dic:
+                coef_list.append(np.nan)
+                score_list.append(np.nan)
+                continue
+            coef, score = result_dic[pix]
+            coef_list.append(coef)
+            score_list.append(score)
+        df['trend'] = coef_list
+        df['trend_score'] = score_list
+        return df
+        pass
+
+
     def add_lon_lat_to_df(self, df):
         # DIC_and_TIF().spatial_tif_to_lon_lat_dic()
         pix_to_lon_lat_dic_f = DIC_and_TIF().this_class_arr + 'pix_to_lon_lat_dic.npy'
@@ -902,6 +995,23 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         return df
         pass
+    def add_climate_trend_to_df(self,df):
+        fdir = data_root + r'Climate_408\\'
+        for climate in os.listdir(fdir):
+            f = fdir + climate + '\\trend\\trend.npy'
+            dic = T.load_npy(f)
+            val_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
+                pix = row.pix
+                if not pix in dic:
+                    val_list.append(np.nan)
+                    continue
+                val = dic[pix]
+                val_list.append(val)
+            df['{}_trend'.format(climate)]=val_list
+        # exit()
+        return df
+        pass
 
     def add_waterbalance(self,df):
         wb_dic = self.__load_HI()
@@ -964,248 +1074,271 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
         pass
 
-
-class Main_flow_Dataframe:
-
-    def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Dataframe\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Dataframe\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Dataframe\\'
-
-        Tools().mk_dir(self.this_class_arr, force=True)
-        Tools().mk_dir(self.this_class_tif, force=True)
-        Tools().mk_dir(self.this_class_png, force=True)
-
-        self.dff = self.this_class_arr + 'data_frame.df'
-
-    def run(self):
-        # 0 generate a void dataframe
-        df = self.__gen_df_init()
-        # self._check_spatial(df)
-        # exit()
-        # 1 add drought event into df
-        df = self.events_to_df(df)
-        # 2 add lon lat into df
-        # df = self.add_lon_lat_to_df(df)
-        # 3 add iso-hydricity into df
-        # df = self.add_isohydricity_to_df(df)
-        # 4 add correlation into df
-        # df = self.add_gs_sif_spei_correlation_to_df(df)
-        # 5 add canopy height into df
-        # df = self.add_canopy_height_to_df(df)
-        # 6 add rooting depth into df
-        # df = self.add_rooting_depth_to_df(df)
-        # 7 add TWS into df
-        # for year in range(4):
-        #     print(year)
-        #     df = self.add_TWS_to_df(df,year)
-        # 8 add is gs into df
-        # self.add_is_gs_drought_to_df(df)
-
-        # -1 df to excel
-        T.save_df(df,self.dff)
-        self.__df_to_excel(df,self.dff)
-        pass
-
-
-    def drop_duplicated_sample(self,df):
-        df_drop_dup = df.drop_duplicates(subset=['pix','Y','recovery_date_range'])
-        return df_drop_dup
-        # df_drop_dup.to_excel(self.this_class_arr + 'drop_dup.xlsx')
-        pass
-
-
-    def _check_spatial(self,df):
-        spatial_dic = {}
-        for i,row in df.iterrows():
-            pix = row.pix
-            spatial_dic[pix] = row.lon
-            # spatial_dic[pix] = row.isohydricity
-        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
-        DIC_and_TIF().plot_back_ground_arr()
-        plt.imshow(arr)
-        plt.show()
-        pass
-
-    def __load_df(self):
-        dff = self.dff
-        df = T.load_df(dff)
-        T.print_head_n(df)
-        print('len(df):',len(df))
-        return df,dff
-
-    def __gen_df_init(self):
-        df = pd.DataFrame()
-        if not os.path.isfile(self.dff):
-            T.save_df(df,self.dff)
-        else:
-            df,dff = self.__load_df()
-            return df
-            # raise Warning('{} is already existed'.format(self.dff))
-
-    def __df_to_excel(self,df,dff,head=1000):
-        if head == None:
-            df.to_excel('{}.xlsx'.format(dff))
-        else:
-            df = df.head(head)
-            df.to_excel('{}.xlsx'.format(dff))
-
-        pass
-
-    def events_to_df(self,df):
-        fdir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events\\'
-        events_dic = T.load_npy_dir(fdir)
-        pix_list = []
-        event_list = []
-        for pix in tqdm(events_dic,desc='1. events_to_df'):
-            events = events_dic[pix]
-            for event in events:
-                pix_list.append(pix)
-                event_list.append(event)
-        df['pix'] = pix_list
-        df['event'] = event_list
-        return df
-        pass
-
-    def add_lon_lat_to_df(self, df):
-        # DIC_and_TIF().spatial_tif_to_lon_lat_dic()
-        pix_to_lon_lat_dic_f = DIC_and_TIF().this_class_arr + 'pix_to_lon_lat_dic.npy'
-        lon_lat_dic = T.load_npy(pix_to_lon_lat_dic_f)
-        # print(pix)
-        lon_list = []
-        lat_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df), desc='adding lon lat into df'):
-            pix = row.pix
-            lon, lat = lon_lat_dic[pix]
-            lon_list.append(lon)
-            lat_list.append(lat)
-        df['lon'] = lon_list
-        df['lat'] = lat_list
-
-        return df
-
-    def add_isohydricity_to_df(self,df):
-        fdir = data_root + r'Isohydricity\per_pix_all_year\\'
-        dic = T.load_npy_dir(fdir)
-        iso_hyd_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
-            pix = row.pix
-            if not pix in dic:
-                iso_hyd_list.append(np.nan)
-                continue
-            isohy = dic[pix]
-            iso_hyd_list.append(isohy)
-        df['isohydricity'] = iso_hyd_list
-
-        return df
-
-
-    def add_gs_sif_spei_correlation_to_df(self,df):
-
-        corr_dic = Correlation_CSIF_SPEI().correlation()
-        corr_list = []
-        corr_p_list = []
+    def add_AWC_to_df(self,df):
+        awc_class_val_dic = {
+            1:150,
+            2:125,
+            3:100,
+            4:75,
+            5:50,
+            6:15,
+            7:0,
+            127:np.nan,
+        }
+        tif = data_root + 'HWSD\\awc_05.tif'
+        arr = to_raster.raster2array(tif)[0]
+        spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+        awc_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
-            if not pix in corr_dic:
-                corr_list.append(np.nan)
-                corr_p_list.append(np.nan)
-                continue
-            corr,p = corr_dic[pix]
-            corr_list.append(corr)
-            corr_p_list.append(p)
-        df['gs_sif_spei_corr'] = corr_list
-        df['gs_sif_spei_corr_p'] = corr_p_list
-
-
+            awc_cls = spatial_dic[pix]
+            awc = awc_class_val_dic[awc_cls]
+            awc_list.append(awc)
+        df['awc'] = awc_list
         return df
 
 
-    def add_canopy_height_to_df(self,df):
-        f = data_root + 'Canopy_Height\\per_pix\\Canopy_Height.npy'
-        dic = T.load_npy(f)
-
-        val_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-
-            if not pix in dic:
-                val_list.append(np.nan)
-                continue
-
-            val = dic[pix]
-            val_list.append(val)
-
-        df['canopy_height'] = val_list
-        return df
-
-    def add_rooting_depth_to_df(self,df):
-        f = data_root + 'rooting_depth\\per_pix\\rooting_depth.npy'
-        dic = T.load_npy(f)
-
-        val_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-
-            if not pix in dic:
-                val_list.append(np.nan)
-                continue
-
-            val = dic[pix]
-            val_list.append(val)
-
-        df['rooting_depth'] = val_list
-        return df
-
-    def add_TWS_to_df(self,df,year):
-
-        fdir = data_root + 'TWS\\water_gap\\per_pix_anomaly\\'
-        tws_dic = T.load_npy_dir(fdir)
-        tws_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            drought_start = row.event[0]
-            pix = row.pix
-            if not pix in tws_dic:
-                tws_list.append(np.nan)
-                continue
-            vals = tws_dic[pix]
-            # print(len(vals))
-            # exit()
-            start_indx = drought_start + 12 * (year - 1)
-            end_indx = drought_start + 12 * (year)
-            if start_indx < 0:
-                tws_list.append(np.nan)
-                continue
-            if end_indx >= len(vals):
-                tws_list.append(np.nan)
-                continue
-            picked_indx = list(range(start_indx,end_indx))
-            picked_val = T.pick_vals_from_1darray(vals,picked_indx)
-            mean = np.nanmean(picked_val)
-            tws_list.append(mean)
-        if year == 0:
-            year = -1
-        df['TWS_{}'.format(year)] = tws_list
-
-        # exit()
-        return df
-
-    def add_is_gs_drought_to_df(self,df):
-
-        is_gs_list = []
-        gs_mon = list(range(4,11))
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            drought_start = row.event[0]
-            mon = drought_start % 12 + 1
-            if mon in gs_mon:
-                is_gs = 1
-            else:
-                is_gs = 0
-            is_gs_list.append(is_gs)
-        df['is_gs'] = is_gs_list
-        return df
-
-        pass
+# class Main_flow_Dataframe:
+#
+#     def __init__(self):
+#         self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Dataframe\\'
+#         self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Dataframe\\'
+#         self.this_class_png = results_root_main_flow + 'png\\Main_flow_Dataframe\\'
+#
+#         Tools().mk_dir(self.this_class_arr, force=True)
+#         Tools().mk_dir(self.this_class_tif, force=True)
+#         Tools().mk_dir(self.this_class_png, force=True)
+#
+#         self.dff = self.this_class_arr + 'data_frame.df'
+#
+#     def run(self):
+#         # 0 generate a void dataframe
+#         df = self.__gen_df_init()
+#         # self._check_spatial(df)
+#         # exit()
+#         # 1 add drought event into df
+#         df = self.events_to_df(df)
+#         # 2 add lon lat into df
+#         # df = self.add_lon_lat_to_df(df)
+#         # 3 add iso-hydricity into df
+#         # df = self.add_isohydricity_to_df(df)
+#         # 4 add correlation into df
+#         # df = self.add_gs_sif_spei_correlation_to_df(df)
+#         # 5 add canopy height into df
+#         # df = self.add_canopy_height_to_df(df)
+#         # 6 add rooting depth into df
+#         # df = self.add_rooting_depth_to_df(df)
+#         # 7 add TWS into df
+#         # for year in range(4):
+#         #     print(year)
+#         #     df = self.add_TWS_to_df(df,year)
+#         # 8 add is gs into df
+#         # self.add_is_gs_drought_to_df(df)
+#
+#         # -1 df to excel
+#         T.save_df(df,self.dff)
+#         self.__df_to_excel(df,self.dff)
+#         pass
+#
+#
+#     def drop_duplicated_sample(self,df):
+#         df_drop_dup = df.drop_duplicates(subset=['pix','Y','recovery_date_range'])
+#         return df_drop_dup
+#         # df_drop_dup.to_excel(self.this_class_arr + 'drop_dup.xlsx')
+#         pass
+#
+#
+#     def _check_spatial(self,df):
+#         spatial_dic = {}
+#         for i,row in df.iterrows():
+#             pix = row.pix
+#             spatial_dic[pix] = row.lon
+#             # spatial_dic[pix] = row.isohydricity
+#         arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+#         DIC_and_TIF().plot_back_ground_arr()
+#         plt.imshow(arr)
+#         plt.show()
+#         pass
+#
+#     def __load_df(self):
+#         dff = self.dff
+#         df = T.load_df(dff)
+#         T.print_head_n(df)
+#         print('len(df):',len(df))
+#         return df,dff
+#
+#     def __gen_df_init(self):
+#         df = pd.DataFrame()
+#         if not os.path.isfile(self.dff):
+#             T.save_df(df,self.dff)
+#         else:
+#             df,dff = self.__load_df()
+#             return df
+#             # raise Warning('{} is already existed'.format(self.dff))
+#
+#     def __df_to_excel(self,df,dff,head=1000):
+#         if head == None:
+#             df.to_excel('{}.xlsx'.format(dff))
+#         else:
+#             df = df.head(head)
+#             df.to_excel('{}.xlsx'.format(dff))
+#
+#         pass
+#
+#     def events_to_df(self,df):
+#         fdir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events\\'
+#         events_dic = T.load_npy_dir(fdir)
+#         pix_list = []
+#         event_list = []
+#         for pix in tqdm(events_dic,desc='1. events_to_df'):
+#             events = events_dic[pix]
+#             for event in events:
+#                 pix_list.append(pix)
+#                 event_list.append(event)
+#         df['pix'] = pix_list
+#         df['event'] = event_list
+#         return df
+#         pass
+#
+#     def add_lon_lat_to_df(self, df):
+#         # DIC_and_TIF().spatial_tif_to_lon_lat_dic()
+#         pix_to_lon_lat_dic_f = DIC_and_TIF().this_class_arr + 'pix_to_lon_lat_dic.npy'
+#         lon_lat_dic = T.load_npy(pix_to_lon_lat_dic_f)
+#         # print(pix)
+#         lon_list = []
+#         lat_list = []
+#         for i, row in tqdm(df.iterrows(), total=len(df), desc='adding lon lat into df'):
+#             pix = row.pix
+#             lon, lat = lon_lat_dic[pix]
+#             lon_list.append(lon)
+#             lat_list.append(lat)
+#         df['lon'] = lon_list
+#         df['lat'] = lat_list
+#
+#         return df
+#
+#     def add_isohydricity_to_df(self,df):
+#         fdir = data_root + r'Isohydricity\per_pix_all_year\\'
+#         dic = T.load_npy_dir(fdir)
+#         iso_hyd_list = []
+#         for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
+#             pix = row.pix
+#             if not pix in dic:
+#                 iso_hyd_list.append(np.nan)
+#                 continue
+#             isohy = dic[pix]
+#             iso_hyd_list.append(isohy)
+#         df['isohydricity'] = iso_hyd_list
+#
+#         return df
+#
+#
+#     def add_gs_sif_spei_correlation_to_df(self,df):
+#
+#         corr_dic = Correlation_CSIF_SPEI().correlation()
+#         corr_list = []
+#         corr_p_list = []
+#         for i,row in tqdm(df.iterrows(),total=len(df)):
+#             pix = row.pix
+#             if not pix in corr_dic:
+#                 corr_list.append(np.nan)
+#                 corr_p_list.append(np.nan)
+#                 continue
+#             corr,p = corr_dic[pix]
+#             corr_list.append(corr)
+#             corr_p_list.append(p)
+#         df['gs_sif_spei_corr'] = corr_list
+#         df['gs_sif_spei_corr_p'] = corr_p_list
+#
+#
+#         return df
+#
+#
+#     def add_canopy_height_to_df(self,df):
+#         f = data_root + 'Canopy_Height\\per_pix\\Canopy_Height.npy'
+#         dic = T.load_npy(f)
+#
+#         val_list = []
+#         for i, row in tqdm(df.iterrows(), total=len(df)):
+#             pix = row.pix
+#
+#             if not pix in dic:
+#                 val_list.append(np.nan)
+#                 continue
+#
+#             val = dic[pix]
+#             val_list.append(val)
+#
+#         df['canopy_height'] = val_list
+#         return df
+#
+#     def add_rooting_depth_to_df(self,df):
+#         f = data_root + 'rooting_depth\\per_pix\\rooting_depth.npy'
+#         dic = T.load_npy(f)
+#
+#         val_list = []
+#         for i,row in tqdm(df.iterrows(),total=len(df)):
+#             pix = row.pix
+#
+#             if not pix in dic:
+#                 val_list.append(np.nan)
+#                 continue
+#
+#             val = dic[pix]
+#             val_list.append(val)
+#
+#         df['rooting_depth'] = val_list
+#         return df
+#
+#     def add_TWS_to_df(self,df,year):
+#
+#         fdir = data_root + 'TWS\\water_gap\\per_pix_anomaly\\'
+#         tws_dic = T.load_npy_dir(fdir)
+#         tws_list = []
+#         for i,row in tqdm(df.iterrows(),total=len(df)):
+#             drought_start = row.event[0]
+#             pix = row.pix
+#             if not pix in tws_dic:
+#                 tws_list.append(np.nan)
+#                 continue
+#             vals = tws_dic[pix]
+#             # print(len(vals))
+#             # exit()
+#             start_indx = drought_start + 12 * (year - 1)
+#             end_indx = drought_start + 12 * (year)
+#             if start_indx < 0:
+#                 tws_list.append(np.nan)
+#                 continue
+#             if end_indx >= len(vals):
+#                 tws_list.append(np.nan)
+#                 continue
+#             picked_indx = list(range(start_indx,end_indx))
+#             picked_val = T.pick_vals_from_1darray(vals,picked_indx)
+#             mean = np.nanmean(picked_val)
+#             tws_list.append(mean)
+#         if year == 0:
+#             year = -1
+#         df['TWS_{}'.format(year)] = tws_list
+#
+#         # exit()
+#         return df
+#
+#     def add_is_gs_drought_to_df(self,df):
+#
+#         is_gs_list = []
+#         gs_mon = list(range(4,11))
+#         for i,row in tqdm(df.iterrows(),total=len(df)):
+#             drought_start = row.event[0]
+#             mon = drought_start % 12 + 1
+#             if mon in gs_mon:
+#                 is_gs = 1
+#             else:
+#                 is_gs = 0
+#             is_gs_list.append(is_gs)
+#         df['is_gs'] = is_gs_list
+#         return df
+#
+#         pass
 
 
 class Main_flow_RF:
@@ -1220,32 +1353,13 @@ class Main_flow_RF:
         pass
 
     def run(self):
-        # self.permutation_RF()
-        self.plot_results()
+        self.get_feature_importance()
+        # self.plot_results()
         pass
 
 
-    def __variables(self):
-        X = [
-            'isohydricity',
-            'canopy_height',
-            'PRE_delta',
-            'TMP_delta',
-            'VPD_delta',
-            'PRE_cv',
-            'TMP_cv',
-            'VPD_cv',
-            'waterbalance',
-            'sand',
-            'SPEI_delta',
-             ]
-        Y = 'delta_legacy'
 
-        return X,Y
-
-        pass
-
-    def importance_train_results(self,X, y):
+    def rf_importance_train_results(self,X, y):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, random_state=42, test_size=0.2)
         rf = RandomForestRegressor(n_estimators=100)
@@ -1255,6 +1369,26 @@ class Main_flow_RF:
         r2 = rf.score(X_test, y_test)
         importances = rf.feature_importances_
         importances_dic = dict(zip(X.columns, importances))
+        return importances_dic, r2
+
+
+
+    def importance_train_results_BRT(self,X, y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        reg = GradientBoostingRegressor()
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        reg.fit(X_train, y_train)
+        y_pred = reg.predict(X_test)
+        r2 = reg.score(X_test, y_test)
+
+        importances = reg.feature_importances_
+        importances_dic = dict(zip(X.columns, importances))
+        # print(r2)
+        # plt.scatter(y_test, y_pred)
+        # plt.figure()
+        # plt.bar(X.columns,importances)
+        # plt.show()
         return importances_dic, r2
 
 
@@ -1272,10 +1406,10 @@ class Main_flow_RF:
         return importances_dic, r2
 
     def permutation_train_results(self,X, y):
-
+        # print(X.columns)
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, random_state=42, test_size=0.2)
-        rf = RandomForestRegressor(n_estimators=300)
+        rf = RandomForestRegressor(n_estimators=100)
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
         rf.fit(X_train, y_train)
         y_pred = rf.predict(X_test)
@@ -1285,19 +1419,10 @@ class Main_flow_RF:
                                         n_jobs=5)
         importances = result.importances_mean
         importances_dic = dict(zip(X.columns, importances))
+        # plt.scatter(y_test,y_pred)
+        # plt.show()
         return importances_dic, r2
 
-    def importance_train_results(self,X, y):
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, random_state=42, test_size=0.2)
-        rf = RandomForestRegressor(n_estimators=300)
-        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        rf.fit(X_train, y_train)
-        y_pred = rf.predict(X_test)
-        r2 = rf.score(X_test, y_test)
-        importances = rf.feature_importances_
-        importances_dic = dict(zip(X.columns, importances))
-        return importances_dic, r2
 
     def discard_hierarchical_clustering(self,df, var_list, dest_Y, t=0.0, isplot=False):
         '''
@@ -1367,33 +1492,44 @@ class Main_flow_RF:
         return selected_vif_list
 
         pass
+    def drop_duplicated_delta_legacy(self,df):
+        df_drop_dup = df.drop_duplicates(subset=['pix','delta_legacy'])
+        return df_drop_dup
 
-    def permutation_RF(self):
+    def __df_to_excel(self,df,dff,head=1000):
+        if head == None:
+            df.to_excel('{}.xlsx'.format(dff))
+        else:
+            df = df.head(head)
+            df.to_excel('{}.xlsx'.format(dff))
 
-        x_vars, Y_var = self.__variables()
+        pass
+
+    def get_feature_importance(self):
+
+        x_vars, Y_var = Global_vars().variables()
 
         dest_var = Y_var
-        outdir = self.this_class_arr + 'permutation_RF\\'
+        outdir = self.this_class_arr + 'get_feature_importance\\'
         # outf = outdir + 'permutation_RF'
-        outf = outdir + 'linear'
+        # outf = outdir + 'BRT'
+        outf = outdir + 'RF'
+        # outf = outdir + 'linear'
         T.mk_dir(outdir,force=True)
-        arr_dir = results_root + 'arr\\Main_flow_Prepare\\'
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
-        df = df[df['lat'] > 30]
-        df = df[df['lat'] < 60]
+        df = Global_vars().clean_df(df)
         print(df.columns)
-        # kl_list = list(set(list(df['lc'])))
-        kl_list = list(set(list(df['climate_zone'])))
+        kl_list = list(set(list(df['lc'])))
+        # kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
         for kl in kl_list:
             print(kl)
             vars_list = x_vars
-
-            # df_kl = df[df['lc'] == kl]
-            df_kl = df[df['climate_zone'] == kl]
+            df_kl = df[df['lc'] == kl]
+            # df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1401,7 +1537,19 @@ class Main_flow_RF:
             if len(XXX) < 100:
                 print('{} sample number < 100'.format(kl))
                 continue
-
+            spatial_dic = {}
+            for i,row in df_kl.iterrows():
+                pix = row.pix
+                spatial_dic[pix] = 1
+            ############################################
+            ############################################
+            # DIC_and_TIF().plot_back_ground_arr()
+            # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+            # plt.imshow(arr,cmap='gray')
+            # print(len(df_kl))
+            # plt.show()
+            ############################################
+            ############################################
             # vif_selected_features = self.discard_vif_vars(XXX, vars_list,dest_var)
             # selected_features = self.discard_hierarchical_clustering(XXX, vif_selected_features,dest_var, t=1, isplot=False)
             # print(vif_discard_vars)
@@ -1417,13 +1565,25 @@ class Main_flow_RF:
             vars_list1.remove(dest_var)
             X = XX[vars_list1]
             Y = XX[dest_var]
+            # flag = 0
+            # for x in X:
+            #     flag += 1
+            #     plt.subplot(3,4,flag)
+            #     plt.scatter(X[x],Y)
+            #     plt.title(x)
+            # # plt.suptitle('{} no drop'.format(kl))
+            # plt.suptitle('{} drop'.format(kl))
+            # plt.show()
+
+
             if len(df1) < 100:
                 print('{} df1 sample number < 100'.format(kl))
                 continue
             # X = X.dropna()
-            # importances_dic_permutation, r2 = self.importance_train_results(X, Y)
-            importances_dic_permutation, r2 = self.importance_train_results_linear(X, Y)
+            importances_dic_permutation, r2 = self.rf_importance_train_results(X, Y)
+            # importances_dic_permutation, r2 = self.importance_train_results_linear(X, Y)
             # importances_dic_permutation, r2 = self.permutation_train_results(X, Y)
+            # importances_dic_permutation, r2 = self.importance_train_results_BRT(X, Y)
             results_dic[kl] = (importances_dic_permutation,r2)
             labels = []
             importance = []
@@ -1441,8 +1601,8 @@ class Main_flow_RF:
     def plot_results(self):
         fdir = self.this_class_arr + 'permutation_RF\\'
         # f = fdir + 'linear.txt'
-        # f = fdir + 'permutation_RF.txt'
-        f = fdir + 'RF.txt'
+        f = fdir + 'permutation_RF.txt'
+        # f = fdir + 'RF.txt'
         results_dic = T.load_dict_txt(f)
         for i in results_dic:
             imp = results_dic[i][0]
@@ -1460,12 +1620,430 @@ class Main_flow_RF:
         plt.show()
         pass
 
+class Main_flow_correlation:
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_correlation\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_correlation\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_correlation\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+
+    def run(self):
+        self.run_corr()
+        pass
+
+    def load_df(self):
+
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        T.print_head_n(df)
+        return df
+
+
+    def single_corr(self,X, y):
+        corr_dic = {}
+        for i,x in enumerate(X):
+            val = X[x]
+            # print(y)
+            r, p = stats.pearsonr(val, y)
+            # corr_list.append((r,p))
+            corr_dic[x] = (r,p)
+        return corr_dic
+        # return r, p
+
+
+    def run_corr(self):
+
+        x_vars, Y_var = Global_vars().variables()
+
+        dest_var = Y_var
+        outdir = self.this_class_arr + 'corr\\'
+        outf = outdir + 'corr'
+        # outf = outdir + 'linear'
+        T.mk_dir(outdir,force=True)
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        print(df.columns)
+        kl_list = list(set(list(df['lc'])))
+        # kl_list = list(set(list(df['climate_zone'])))
+        kl_list.remove(None)
+        kl_list.sort()
+        results_dic = {}
+        for kl in kl_list:
+            print(kl)
+            vars_list = x_vars
+
+            df_kl = df[df['lc'] == kl]
+            # df_kl = df[df['climate_zone'] == kl]
+            df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
+            all_vars_list = copy.copy(vars_list)
+            all_vars_list.append(dest_var)
+            XXX = df_kl[vars_list]
+            if len(XXX) < 100:
+                print('{} sample number < 100'.format(kl))
+                continue
+            selected_features = x_vars
+            print(selected_features)
+            df1 = pd.DataFrame(df_kl)
+            vars_list1 = list(set(selected_features))
+            vars_list1.sort()
+            vars_list1.append(dest_var)
+            XX = df1[vars_list1]
+            XX = XX.dropna()
+            vars_list1.remove(dest_var)
+            X = XX[vars_list1]
+            Y = XX[dest_var]
+            if len(df1) < 100:
+                print('{} df1 sample number < 100'.format(kl))
+                continue
+            # X = X.dropna()
+            corr_dic = self.single_corr(X, Y)
+            results_dic[kl] = corr_dic
+        fw = outf+'.txt'
+        fw = open(fw,'w')
+        fw.write(str(results_dic))
+        fw.close()
+
+
+        pass
+
+
+class Main_flow_Hot_Map_corr_RF:
+    '''
+    permutation importance
+    RF Work flow
+    '''
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Hot_Map_corr_RF\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Hot_Map_corr_RF\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Hot_Map_corr_RF\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        self.hotmap()
+        pass
+
+    def load_df(self):
+
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        T.print_head_n(df)
+        return df
+
+
+    def sort_dic(self,indic):
+
+        val_list = []
+        dic_label = []
+        for key in indic:
+            dic_label.append(key)
+            val_list.append(indic[key])
+        sort_indx = np.argsort(val_list)
+        val_list = np.array(val_list)
+        dic_label = np.array(dic_label)
+        sort_dic = dict(zip(dic_label[sort_indx], range(1, len(dic_label) + 1)))
+        return sort_dic
+        pass
+
+
+
+    def __r_to_color(self,importance,xmin=-0.3,xmax=0.3,color_class=256):
+        if np.isnan(importance):
+            importance = 0.
+        importance_range = np.linspace(xmin, xmax, color_class)
+        if importance < xmin:
+            pos_indx = 0
+        elif importance > xmax:
+            pos_indx = len(importance_range) - 1
+        else:
+            pos_indx = int(round(((importance - xmin) / (xmax - xmin) * len(importance_range)), 0)) - 1
+
+        cmap = sns.diverging_palette(236, 0, s=99, l=50, n=color_class, center="light")
+        # plt.figure()
+        # sns.palplot(cmap)
+        # plt.show()
+        c = cmap[pos_indx]
+        return c
+        pass
+
+
+
+    def __imp_to_size_permutation(self,imp):
+        if imp <= 5:
+            size = 1
+        elif 5 <= imp < 10:
+            size = 20
+        elif 10 <= imp < 20:
+            size = 70
+        elif 20 <= imp:
+            size = 120
+        elif np.isnan(imp):
+            size = 0.
+        else:
+            # print imp
+            size = imp
+            # raise UserWarning('error')
+        return size
+        pass
+
+    def __imp_to_size_jenks_normalized(self,var_input,result_dic,var_list):
+        # from math import isfinite
+        # print np.isfinite(123)
+        import jenkspy
+        from jenkspy import JenksNaturalBreaks
+        if not var_input in result_dic:
+            return 0,[]
+        imp_list = []
+        for var in var_list:
+            if not var in result_dic:
+                imp = 0
+            else:
+                imp = result_dic[var]
+            imp_list.append(imp)
+
+
+        jnb = JenksNaturalBreaks(nb_class=4)
+        jnb.fit(imp_list)
+        breaks = jnb.inner_breaks_
+        size_list = [1,10,50,150]
+        # print breaks
+        # plt.bar(var_list,imp_list)
+        # plt.show()
+        # max_imp = np.max(imp_list)
+        # min_imp = np.min(imp_list)
+        # ref_imp_dic = {}
+        # for var in result_dic:
+        #     imp = result_dic[var]
+        #     ref_imp = (imp - min_imp)/(max_imp - min_imp)
+        #     ref_imp = ref_imp * 100
+        #     ref_imp_dic[var] = ref_imp
+        imp = result_dic[var_input]
+        if imp <= breaks[0]:
+            size = size_list[0]
+        elif imp >= breaks[-1]:
+            size = size_list[-1]
+        else:
+            size = -999
+            for i in range(len(breaks)):
+                if breaks[i] <= imp < breaks[i+1]:
+                    size_class = i + 1
+                    size = size_list[size_class]
+                    break
+        # for i in range(len(breaks)):
+
+
+        # if imp <= breaks[0]:
+        #     size = 1
+        # elif breaks[0] <= imp < breaks[1]:
+        #     size = 10
+        # elif breaks[1] <= imp < breaks[2]:
+        #     size = 40
+        # elif breaks[2] <= imp:
+        #     size = 180
+        # else:
+        #     size = -1
+        if size == -999:
+            print(imp,breaks)
+            exit()
+        return size,breaks
+        # return imp
+
+
+    def __imp_to_size_rank(self,var,result_dic,var_list):
+
+
+        rank_list = []
+        for i in var_list:
+            rank = result_dic[i]
+            rank_list.append(rank)
+        size_list = [1,20,70,120]
+        size_dic = {}
+        for ii,rank in enumerate(rank_list):
+            size = size_list[(rank*len(size_list))//(len(var_list)+1)]
+            # print imp,size
+            size_dic[var_list[ii]] = size
+
+        return size_dic[var]
+        pass
+
+
+
+    def hotmap(self):
+        x_list,dest_Y = Global_vars().variables()
+        outpngdir = self.this_class_png + 'hotmap_lc\\'
+        T.mk_dir(outpngdir)
+        ##########################################################   È¦   ###########################################################################
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\permutation_RF.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\BRT.txt'
+        rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\RF.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\linear.txt'
+        ##########################################################   È¦   ###########################################################################
+        ##########################################################  ±³¾°  ###########################################################################
+        partial_corr_result_f = Main_flow_correlation().this_class_arr + 'corr\\corr.txt'
+        ##########################################################  ±³¾°  ###########################################################################
+
+
+        var_list = x_list
+        var_list = var_list[::-1]
+        # print rf_result_f
+        # rf_result_dic = T.load_npy(rf_result_f)
+        rf_result_dic = eval(open(rf_result_f,'r').read())
+        # partial_corr_result_dic = T.load_npy(partial_corr_result_f)
+        partial_corr_result_dic = T.load_dict_txt(partial_corr_result_f)
+
+        # print rf_result_dic
+        # pause()
+        print(partial_corr_result_dic)
+        # exit()
+        # continue
+        # df = self.load_df()
+        # print df.columns
+        # eln_lc_list = []
+        # # for timing in Global_vars().timing_list():
+        # for lc in Global_vars().landuse_list():
+        #     for timing in range(11):
+        #         key = '{}_{}'.format(timing,lc)
+        #         eln_lc_list.append(key)
+        # lc_list = Global_vars().koppen_landuse()
+        lc_list = Global_vars().landuse_list()
+        # plt.figure(figsize=(4,6.2))
+        y = 0
+        y_labels = []
+        imps_list = []
+        R2_list = []
+        x_labels = []
+        for key in lc_list:
+            # for key in rf_result_dic:
+            # print key
+            if not key in partial_corr_result_dic:
+                continue
+            corr_dic = partial_corr_result_dic[key]
+            # print(corr_dic)
+            # exit()
+            if not key in rf_result_dic:
+                y += 1
+                y_labels.append('')
+                continue
+            result_dic,r2 = rf_result_dic[key]
+            R2_list.append(r2)
+            x_labels.append(key)
+
+            # print result_dic
+            # exit()
+
+            y_labels.append('{}_r2:{:0.2f}'.format(key,r2))
+
+            importance_list = []
+            importance_label = []
+            for var in result_dic:
+                importance_label.append(var)
+                importance_list.append(result_dic[var])
+            sort_indx = np.argsort(importance_list)
+            importance_list = np.array(importance_list)
+            importance_label = np.array(importance_label)
+            sort_dic = dict(zip(importance_label[sort_indx],range(1,len(importance_label)+1)))
+            # print sort_dic
+            # print corr_dic
+            # exit()
+
+            # result_dic = sort_dic
+            print(result_dic)
+            x = 0
+            for var in var_list:
+                if not var in result_dic:
+                    # print 'aaa'
+                    imp = np.nan
+                else:
+                    # permutation importance
+                    imp = result_dic[var]/r2*10.
+                    # impurity importance
+                    # imp = result_dic[var]
+                r,p = corr_dic[var]
+                color = self.__r_to_color(r)
+                imps_list.append(imp)
+                # permutation importance
+                size = self.__imp_to_size_permutation(imp)
+                # impurity importance
+                # size = self.__imp_to_size_rank(var,result_dic,var_list)
+                # size,breaks = self.__imp_to_size_jenks_normalized(var,result_dic,var_list)
+
+                # print breaks
+                # exit()
+                # if size == 0.:
+                #     plt.scatter(y, x, marker='x', alpha=1, c='black', zorder=99, edgecolors='black', s=20,
+                #                 linewidths=2)
+                # else:
+                # if p < 0.1:
+                #     plt.scatter(y, x, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=size, linewidths=2)
+                # else:
+                #     plt.scatter(y, x, marker='s', alpha=1, c=color, zorder=0, s=200)
+                #     plt.scatter(y, x, marker='x', alpha=1, zorder=99, c='black', s=50, linewidth=2)
+                plt.scatter(y, x, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=size, linewidths=2)
+                plt.scatter(y, x, marker='s', alpha=1, c=color, zorder=0,s=200)
+
+                x += 1
+            y += 1
+        plt.yticks(range(len(var_list)),var_list)
+        plt.xticks(range(len(y_labels)),y_labels,rotation=90)
+        plt.axis('equal')
+        # plt.title()
+        # plt.scatter(-1, 0, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=2, linewidths=2, label='<5%')
+        # plt.scatter(-1, 1, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=20, linewidths=2,
+        #             label='5%<10%')
+        # plt.scatter(-1, 2, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=70, linewidths=2,
+        #             label='10%<20%')
+        # plt.scatter(-1, 3, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=120, linewidths=2,
+        #             label='>20%')
+        #
+        # plt.scatter(-1, 0, marker='o', alpha=1, c='white', zorder=99, edgecolors='white', s=2, linewidths=4)
+        # plt.scatter(-1, 1, marker='o', alpha=1, c='', zorder=99, edgecolors='white', s=20, linewidths=4,
+        #            )
+        # plt.scatter(-1, 2, marker='o', alpha=1, c='', zorder=99, edgecolors='white', s=70, linewidths=4,
+        #             )
+        # plt.scatter(-1, 3, marker='o', alpha=1, c='', zorder=99, edgecolors='white', s=120, linewidths=4,
+        #             )
+        # plt.legend()
+        # plt.title('{} winter'.format(with_winter_str))
+        # plt.tight_layout()
+        # plt.savefig(outpngdir + 'hotmap.pdf')
+        # plt.close()
+        # plt.show()
+        # plt.figure()
+        # imps_list = np.array(imps_list)
+        # imps_list[imps_list<=0] = 0.
+        # imps_list = T.remove_np_nan(imps_list)
+        # plt.hist(imps_list,bins=30)
+
+        plt.figure()
+        plt.bar(x_labels,R2_list)
+        plt.xticks(rotation=90)
+        # plt.ylim(0,0.5)
+        plt.tight_layout()
+        plt.show()
+        # plt.savefig(outpngdir + 'r2.pdf')
+        # plt.close()
+
+
+
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Dataframe().run()
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
-    Main_flow_RF().run()
+    # Main_flow_RF().run()
+    # Main_flow_correlation().run()
+    Main_flow_Hot_Map_corr_RF().run()
+
     pass
 
 

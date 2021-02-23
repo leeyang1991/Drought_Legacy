@@ -1364,9 +1364,16 @@ class Main_flow_RF:
             X, y, random_state=42, test_size=0.2)
         rf = RandomForestRegressor(n_estimators=100)
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        rf.fit(X_train, y_train)
-        y_pred = rf.predict(X_test)
-        r2 = rf.score(X_test, y_test)
+        # rf.fit(X_train, y_train)
+        rf.fit(X, y)
+        # y_pred = rf.predict(X)
+        # y_pred = rf.predict(X_test)
+        # r2 = rf.score(X_test, y_test)
+        r2 = rf.score(X, y)
+        # plt.scatter(y_pred,y)
+        # plt.show()
+        # KDE_plot().plot_scatter(y_test,y_pred,plot_fit_line=True,max_n=10000,is_plot_1_1_line=True,title='aaa')
+        # plt.show()
         importances = rf.feature_importances_
         importances_dic = dict(zip(X.columns, importances))
         return importances_dic, r2
@@ -1378,9 +1385,11 @@ class Main_flow_RF:
             X, y, random_state=42, test_size=0.2)
         reg = GradientBoostingRegressor()
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        reg.fit(X_train, y_train)
+        # reg.fit(X_train, y_train)
+        reg.fit(X, y)
         y_pred = reg.predict(X_test)
-        r2 = reg.score(X_test, y_test)
+        # r2 = reg.score(X_test, y_test)
+        r2 = reg.score(X, y)
 
         importances = reg.feature_importances_
         importances_dic = dict(zip(X.columns, importances))
@@ -1411,9 +1420,11 @@ class Main_flow_RF:
             X, y, random_state=42, test_size=0.2)
         rf = RandomForestRegressor(n_estimators=100)
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        rf.fit(X_train, y_train)
+        # rf.fit(X_train, y_train)
+        rf.fit(X, y)
         y_pred = rf.predict(X_test)
-        r2 = rf.score(X_test, y_test)
+        # r2 = rf.score(X_test, y_test)
+        r2 = rf.score(X, y)
         result = permutation_importance(rf, X_train, y_train, scoring=None,
                                         n_repeats=10, random_state=42,
                                         n_jobs=5)
@@ -1511,25 +1522,25 @@ class Main_flow_RF:
 
         dest_var = Y_var
         outdir = self.this_class_arr + 'get_feature_importance\\'
-        # outf = outdir + 'permutation_RF'
+        outf = outdir + 'permutation_RF'
         # outf = outdir + 'BRT'
-        outf = outdir + 'RF'
+        # outf = outdir + 'RF'
         # outf = outdir + 'linear'
         T.mk_dir(outdir,force=True)
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        kl_list = list(set(list(df['lc'])))
-        # kl_list = list(set(list(df['climate_zone'])))
+        # kl_list = list(set(list(df['lc'])))
+        kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
         for kl in kl_list:
             print(kl)
             vars_list = x_vars
-            df_kl = df[df['lc'] == kl]
-            # df_kl = df[df['climate_zone'] == kl]
+            # df_kl = df[df['lc'] == kl]
+            df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1580,9 +1591,9 @@ class Main_flow_RF:
                 print('{} df1 sample number < 100'.format(kl))
                 continue
             # X = X.dropna()
-            importances_dic_permutation, r2 = self.rf_importance_train_results(X, Y)
+            # importances_dic_permutation, r2 = self.rf_importance_train_results(X, Y)
             # importances_dic_permutation, r2 = self.importance_train_results_linear(X, Y)
-            # importances_dic_permutation, r2 = self.permutation_train_results(X, Y)
+            importances_dic_permutation, r2 = self.permutation_train_results(X, Y)
             # importances_dic_permutation, r2 = self.importance_train_results_BRT(X, Y)
             results_dic[kl] = (importances_dic_permutation,r2)
             labels = []
@@ -1599,22 +1610,22 @@ class Main_flow_RF:
         pass
 
     def plot_results(self):
-        fdir = self.this_class_arr + 'permutation_RF\\'
+        fdir = self.this_class_arr + 'get_feature_importance\\'
         # f = fdir + 'linear.txt'
-        f = fdir + 'permutation_RF.txt'
-        # f = fdir + 'RF.txt'
+        # f = fdir + 'permutation_RF.txt'
+        f = fdir + 'RF.txt'
         results_dic = T.load_dict_txt(f)
         for i in results_dic:
             imp = results_dic[i][0]
             r2 = results_dic[i][1]
-            x_list = self.__variables()[0]
+            x_list = Global_vars().variables()[0]
             x_imp = []
             for x in x_list:
                 x_imp.append(imp[x])
             plt.figure()
             plt.bar(list(range(len(x_imp))),x_imp)
             plt.xticks(list(range(len(x_imp))),x_list,rotation=90)
-            plt.title(i)
+            plt.title('{} r2:{}'.format(i,r2))
             plt.tight_layout()
             # print(imp)
         plt.show()
@@ -1670,8 +1681,8 @@ class Main_flow_correlation:
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        kl_list = list(set(list(df['lc'])))
-        # kl_list = list(set(list(df['climate_zone'])))
+        # kl_list = list(set(list(df['lc'])))
+        kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
@@ -1679,8 +1690,8 @@ class Main_flow_correlation:
             print(kl)
             vars_list = x_vars
 
-            df_kl = df[df['lc'] == kl]
-            # df_kl = df[df['climate_zone'] == kl]
+            # df_kl = df[df['lc'] == kl]
+            df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1883,9 +1894,9 @@ class Main_flow_Hot_Map_corr_RF:
         outpngdir = self.this_class_png + 'hotmap_lc\\'
         T.mk_dir(outpngdir)
         ##########################################################   È¦   ###########################################################################
-        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\permutation_RF.txt'
+        rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\permutation_RF.txt'
         # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\BRT.txt'
-        rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\RF.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\RF.txt'
         # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\linear.txt'
         ##########################################################   È¦   ###########################################################################
         ##########################################################  ±³¾°  ###########################################################################
@@ -1914,8 +1925,8 @@ class Main_flow_Hot_Map_corr_RF:
         #     for timing in range(11):
         #         key = '{}_{}'.format(timing,lc)
         #         eln_lc_list.append(key)
-        # lc_list = Global_vars().koppen_landuse()
-        lc_list = Global_vars().landuse_list()
+        lc_list = Global_vars().koppen_landuse()
+        # lc_list = Global_vars().landuse_list()
         # plt.figure(figsize=(4,6.2))
         y = 0
         y_labels = []
@@ -1965,7 +1976,7 @@ class Main_flow_Hot_Map_corr_RF:
                     imp = np.nan
                 else:
                     # permutation importance
-                    imp = result_dic[var]/r2*10.
+                    imp = result_dic[var]/r2*50.
                     # impurity importance
                     # imp = result_dic[var]
                 r,p = corr_dic[var]
@@ -1988,8 +1999,8 @@ class Main_flow_Hot_Map_corr_RF:
                 # else:
                 #     plt.scatter(y, x, marker='s', alpha=1, c=color, zorder=0, s=200)
                 #     plt.scatter(y, x, marker='x', alpha=1, zorder=99, c='black', s=50, linewidth=2)
-                plt.scatter(y, x, marker='o', alpha=1, c='', zorder=99, edgecolors='black', s=size, linewidths=2)
-                plt.scatter(y, x, marker='s', alpha=1, c=color, zorder=0,s=200)
+                plt.scatter(y, x, marker='o', alpha=1, color='', zorder=99, edgecolors='black', s=size, linewidths=2)
+                plt.scatter(y, x, marker='s', alpha=1, color=color, zorder=0,s=200)
 
                 x += 1
             y += 1

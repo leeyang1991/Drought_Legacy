@@ -82,8 +82,8 @@ class Statistic:
 
     def run(self):
         # self.vars_pairplot()
-        # self.legacy_change()
-        self.vars_pairplot()
+        self.legacy_change()
+        # self.vars_pairplot()
         pass
 
 
@@ -173,16 +173,16 @@ class Statistic:
         flag1 = 0
         spatial_dic = DIC_and_TIF().void_spatial_dic()
         # for lc in Global_vars().koppen_landuse():
-        for lc in Global_vars().koppen_list():
-        # for lc in Global_vars().landuse_list():
+        # for lc in Global_vars().koppen_list():
+        for lc in Global_vars().landuse_list():
             flag1 += 2
             xticks_num.append(flag1)
             xticks.append(lc)
             # xticks.append(lc)
             flag += 2
-            # df_selected = df[df['lc'] == lc]
+            df_selected = df[df['lc'] == lc]
             # df_selected = df[df['climate_zone'] == lc]
-            df_selected = df[df['kp'] == lc]
+            # df_selected = df[df['kp'] == lc]
             # df = df[df['gs_sif_spei_corr'] > 0]
             # df = df[df['gs_sif_spei_corr_p'] < 0.05]
 
@@ -196,6 +196,8 @@ class Statistic:
                 pix = row.pix
                 drought_event_date_range = row.drought_event_date_range
                 legacy = row.legacy
+                if np.isnan(legacy):
+                    continue
                 spatial_dic[pix].append(legacy)
                 # print(legacy)
                 event_start = drought_event_date_range[0]
@@ -252,7 +254,8 @@ class Tif:
     def run(self):
         # self.tif_legacy()
         # self.tif_delta_legacy()
-        self.tif_legacy_trend()
+        # self.tif_legacy_trend()
+        self.shp_legacy_trend_sig_star()
         pass
 
 
@@ -308,6 +311,30 @@ class Tif:
             if score > 0.2:
                 spatial_dic[pix] = val
         DIC_and_TIF().pix_dic_to_tif(spatial_dic, outtif)
+
+
+    def shp_legacy_trend_sig_star(self):
+        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        T.mk_dir(outtifdir)
+        # outtif = outtifdir + 'tif_legacy.tif'
+        outtif = outtifdir + 'trend_legacy_sig.tif'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        spatial_dic = {}
+        for i, row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = row.trend
+            score = row.trend_score
+            if score > 0.7:
+                spatial_dic[pix] = val
+        outf = self.this_class_tif + 'shp_legacy_trend_sig_star'
+        DIC_and_TIF().pix_dic_to_shp(spatial_dic,outf)
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # plt.imshow(arr)
+        # DIC_and_TIF().plot_back_ground_arr()
+        # plt.show()
+        # DIC_and_TIF().pix_dic_to_tif(spatial_dic, outtif)
+
 
 class Climate_Vars_delta_change:
 
@@ -479,8 +506,8 @@ class Constant_Vars:
 def main():
     # Correlation_CSIF_SPEI().run()
     # Statistic().run()
-    # Tif().run()
-    Climate_Vars_delta_change().run()
+    Tif().run()
+    # Climate_Vars_delta_change().run()
     pass
 
 

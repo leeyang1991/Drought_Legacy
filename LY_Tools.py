@@ -799,20 +799,41 @@ class DIC_and_TIF:
         # spatial = np.array(spatial)
         self.arr_to_tif(spatial, out_tif)
 
+
+
+    def pix_dic_to_shp(self,spatial_dic,outf):
+        pix_to_lon_lat_dic = DIC_and_TIF().spatial_tif_to_lon_lat_dic()
+        inlist = []
+        for pix in spatial_dic:
+            lon, lat = pix_to_lon_lat_dic[pix]
+            val = spatial_dic[pix]
+            if np.isnan(val):
+                continue
+            inlist.append((lon, lat, val))
+        Tools().point_to_shp(inlist, outf)
+
+        pass
+
     def spatial_tif_to_lon_lat_dic(self):
-        tif_template = self.tif_template
-        arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
-        # print(originX, originY, pixelWidth, pixelHeight)
-        # exit()
-        pix_to_lon_lat_dic = {}
-        for i in tqdm(list(range(len(arr)))):
-            for j in range(len(arr[0])):
-                pix = (i, j)
-                lon = originX + pixelWidth * j
-                lat = originY + pixelHeight * i
-                pix_to_lon_lat_dic[pix] = [lon, lat]
-        print('saving')
-        np.save(self.this_class_arr + 'pix_to_lon_lat_dic', pix_to_lon_lat_dic)
+        outf = self.this_class_arr + 'pix_to_lon_lat_dic.npy'
+        if os.path.isfile(outf):
+            dic = Tools().load_npy(outf)
+            return dic
+        else:
+            tif_template = self.tif_template
+            arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
+            # print(originX, originY, pixelWidth, pixelHeight)
+            # exit()
+            pix_to_lon_lat_dic = {}
+            for i in tqdm(list(range(len(arr)))):
+                for j in range(len(arr[0])):
+                    pix = (i, j)
+                    lon = originX + pixelWidth * j
+                    lat = originY + pixelHeight * i
+                    pix_to_lon_lat_dic[pix] = [lon, lat]
+            print('saving')
+            np.save(outf, pix_to_lon_lat_dic)
+            return pix_to_lon_lat_dic
 
 
     def spatial_tif_to_dic(self,tif):

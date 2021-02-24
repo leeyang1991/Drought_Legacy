@@ -1576,15 +1576,15 @@ class Main_flow_RF:
             vars_list1.remove(dest_var)
             X = XX[vars_list1]
             Y = XX[dest_var]
-            # flag = 0
-            # for x in X:
-            #     flag += 1
-            #     plt.subplot(3,4,flag)
-            #     plt.scatter(X[x],Y)
-            #     plt.title(x)
-            # # plt.suptitle('{} no drop'.format(kl))
-            # plt.suptitle('{} drop'.format(kl))
-            # plt.show()
+            flag = 0
+            for x in X:
+                flag += 1
+                plt.subplot(3,4,flag)
+                plt.scatter(X[x],Y)
+                plt.title(x)
+            # plt.suptitle('{} no drop'.format(kl))
+            plt.suptitle('{} drop'.format(kl))
+            plt.show()
 
 
             if len(df1) < 100:
@@ -2051,9 +2051,9 @@ def main():
     # Main_flow_Dataframe().run()
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
-    # Main_flow_RF().run()
+    Main_flow_RF().run()
     # Main_flow_correlation().run()
-    Main_flow_Hot_Map_corr_RF().run()
+    # Main_flow_Hot_Map_corr_RF().run()
 
     pass
 

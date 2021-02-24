@@ -66,7 +66,7 @@ class Global_vars:
             'PRE_cv',
             'TMP_cv',
             'VPD_cv',
-            'waterbalance',
+            # 'waterbalance',
             'sand',
             'SPEI_delta',
             'awc',
@@ -85,6 +85,7 @@ class Global_vars:
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
         df = df[df['trend_score'] > 0.2]
+        df = df[df['gs_sif_spei_corr'] > 0]
         trend = df['trend']
         trend_mean = np.nanmean(trend)
         trend_std = np.nanstd(trend)
@@ -1531,16 +1532,16 @@ class Main_flow_RF:
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        # kl_list = list(set(list(df['lc'])))
-        kl_list = list(set(list(df['climate_zone'])))
+        kl_list = list(set(list(df['lc'])))
+        # kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
         for kl in kl_list:
             print(kl)
             vars_list = x_vars
-            # df_kl = df[df['lc'] == kl]
-            df_kl = df[df['climate_zone'] == kl]
+            df_kl = df[df['lc'] == kl]
+            # df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1576,15 +1577,6 @@ class Main_flow_RF:
             vars_list1.remove(dest_var)
             X = XX[vars_list1]
             Y = XX[dest_var]
-            flag = 0
-            for x in X:
-                flag += 1
-                plt.subplot(3,4,flag)
-                plt.scatter(X[x],Y)
-                plt.title(x)
-            # plt.suptitle('{} no drop'.format(kl))
-            plt.suptitle('{} drop'.format(kl))
-            plt.show()
 
 
             if len(df1) < 100:
@@ -1681,8 +1673,8 @@ class Main_flow_correlation:
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        # kl_list = list(set(list(df['lc'])))
-        kl_list = list(set(list(df['climate_zone'])))
+        kl_list = list(set(list(df['lc'])))
+        # kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
@@ -1690,8 +1682,8 @@ class Main_flow_correlation:
             print(kl)
             vars_list = x_vars
 
-            # df_kl = df[df['lc'] == kl]
-            df_kl = df[df['climate_zone'] == kl]
+            df_kl = df[df['lc'] == kl]
+            # df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1925,8 +1917,8 @@ class Main_flow_Hot_Map_corr_RF:
         #     for timing in range(11):
         #         key = '{}_{}'.format(timing,lc)
         #         eln_lc_list.append(key)
-        lc_list = Global_vars().koppen_landuse()
-        # lc_list = Global_vars().landuse_list()
+        # lc_list = Global_vars().koppen_landuse()
+        lc_list = Global_vars().landuse_list()
         # plt.figure(figsize=(4,6.2))
         y = 0
         y_labels = []
@@ -2052,8 +2044,8 @@ def main():
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
     Main_flow_RF().run()
-    # Main_flow_correlation().run()
-    # Main_flow_Hot_Map_corr_RF().run()
+    Main_flow_correlation().run()
+    Main_flow_Hot_Map_corr_RF().run()
 
     pass
 

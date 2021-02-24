@@ -82,8 +82,9 @@ class Statistic:
 
     def run(self):
         # self.vars_pairplot()
-        self.legacy_change()
+        # self.legacy_change()
         # self.vars_pairplot()
+        self.plot_scatter()
         pass
 
 
@@ -244,6 +245,84 @@ class Statistic:
         pass
 
 
+    def plot_scatter(self):
+        x_vars, Y_var = Global_vars().variables()
+
+        dest_var = Y_var
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        print(df.columns)
+        kl_list = list(set(list(df['lc'])))
+        # kl_list = list(set(list(df['climate_zone'])))
+        kl_list.remove(None)
+        kl_list.sort()
+        results_dic = {}
+        for kl in kl_list:
+            print(kl)
+            vars_list = x_vars
+            df_kl = df[df['lc'] == kl]
+            # df_kl = df[df['climate_zone'] == kl]
+            df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
+            all_vars_list = copy.copy(vars_list)
+            all_vars_list.append(dest_var)
+            XXX = df_kl[vars_list]
+            if len(XXX) < 100:
+                print('{} sample number < 100'.format(kl))
+                continue
+            spatial_dic = {}
+            for i, row in df_kl.iterrows():
+                pix = row.pix
+                spatial_dic[pix] = 1
+            ############################################
+            ############################################
+            # DIC_and_TIF().plot_back_ground_arr()
+            # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+            # plt.imshow(arr,cmap='gray')
+            # print(len(df_kl))
+            # plt.show()
+            ############################################
+            ############################################
+            # vif_selected_features = self.discard_vif_vars(XXX, vars_list,dest_var)
+            # selected_features = self.discard_hierarchical_clustering(XXX, vif_selected_features,dest_var, t=1, isplot=False)
+            # print(vif_discard_vars)
+            # exit()
+            selected_features = x_vars
+            print(selected_features)
+            df1 = pd.DataFrame(df_kl)
+            vars_list1 = list(set(selected_features))
+            vars_list1.sort()
+            vars_list1.append(dest_var)
+            XX = df1[vars_list1]
+            XX = XX.dropna()
+            vars_list1.remove(dest_var)
+            X = XX[vars_list1]
+            Y = XX[dest_var]
+            flag = 0
+            plt.figure(figsize=(12, 8))
+            for x in X:
+                flag += 1
+                ax = plt.subplot(3, 4, flag)
+                KDE_plot().plot_scatter(X[x], Y, ax=ax, plot_fit_line=True, s=1.2)
+                # plt.scatter(X[x],Y)
+                plt.xlabel(x)
+                plt.ylabel('legacy trend')
+                plt.title(' ')
+                plt.subplots_adjust(
+                    top=0.956,
+                    bottom=0.068,
+                    left=0.064,
+                    right=0.987,
+                    hspace=0.402,
+                    wspace=0.461
+                )
+            # plt.suptitle('{} no drop'.format(kl))
+            # plt.tight_layout()
+            plt.suptitle('{}'.format(kl))
+            plt.show()
+
+        pass
+
 class Tif:
 
     def __init__(self):
@@ -254,8 +333,8 @@ class Tif:
     def run(self):
         # self.tif_legacy()
         # self.tif_delta_legacy()
-        # self.tif_legacy_trend()
-        self.shp_legacy_trend_sig_star()
+        self.tif_legacy_trend()
+        # self.shp_legacy_trend_sig_star()
         pass
 
 
@@ -299,18 +378,56 @@ class Tif:
     def tif_legacy_trend(self):
         outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
         T.mk_dir(outtifdir)
-        # outtif = outtifdir + 'tif_legacy.tif'
-        outtif = outtifdir + 'trend_legacy_sig.tif'
+        outtif = outtifdir + 'trend_legacy.tif'
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
         spatial_dic = {}
-        for i, row in df.iterrows():
+        for i, row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
             val = row.trend
             score = row.trend_score
-            if score > 0.2:
+            corr = row.gs_sif_spei_corr
+            if corr < 0:
+                continue
+            # if score > 0.5:
+            spatial_dic[pix] = val
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+
+        DIC_and_TIF().arr_to_tif(arr,outtif)
+
+    def tif_legacy_trend_byte(self):
+        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        T.mk_dir(outtifdir)
+        # outtif = outtifdir + 'tif_legacy.tif'
+        outtif = outtifdir + 'trend_legacy_sig_byte.tif'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        spatial_dic = {}
+        for i, row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = row.trend
+            score = row.trend_score
+            corr = row.gs_sif_spei_corr
+            if corr < 0:
+                continue
+            if score > 0.5:
                 spatial_dic[pix] = val
-        DIC_and_TIF().pix_dic_to_tif(spatial_dic, outtif)
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        new_arr = []
+        for i in range(len(arr)):
+            temp = []
+            for j in range(len(arr[0])):
+                val = arr[i][j]
+                if np.isnan(val):
+                    temp.append(255)
+                else:
+                    temp.append(1)
+            new_arr.append(temp)
+        new_arr = np.array(new_arr)
+
+        tif_template = DIC_and_TIF().tif_template
+        arr_template, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
+        to_raster.array2raster_GDT_Byte(outtif,originX,originY,pixelWidth,pixelHeight,new_arr)
 
 
     def shp_legacy_trend_sig_star(self):
@@ -505,8 +622,8 @@ class Constant_Vars:
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    # Statistic().run()
-    Tif().run()
+    Statistic().run()
+    # Tif().run()
     # Climate_Vars_delta_change().run()
     pass
 

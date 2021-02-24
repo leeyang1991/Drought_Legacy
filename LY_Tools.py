@@ -1145,7 +1145,7 @@ class KDE_plot:
             if is_plot_1_1_line:
                 plt.plot([np.min([val1,val2]), np.max([val1,val2])], [np.min([val1,val2]), np.max([val1,val2])], '--', c='black')
             self.plot_fit_line(a,b,r,val1,val2)
-            plt.legend()
+            # plt.legend()
             return a,b,r
 
 class Pre_Process:

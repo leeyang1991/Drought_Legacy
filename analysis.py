@@ -314,12 +314,37 @@ class Statistic:
             vars_list1.remove(dest_var)
             X = XX[vars_list1]
             Y = XX[dest_var]
+            # print(XX)
             flag = 0
             plt.figure(figsize=(12, 8))
             for x in X:
+                # print(x)
                 flag += 1
                 ax = plt.subplot(3, 4, flag)
-                KDE_plot().plot_scatter(X[x], Y, ax=ax, plot_fit_line=True, s=1.2)
+                x_val = X[x]
+                std = np.std(x_val)
+                mean = np.mean(x_val)
+                up = mean + std
+                down = mean - std
+                x_val_new = []
+                for v in x_val:
+                    if v > up:
+                        x_val_new.append(np.nan)
+                        continue
+                    if v < down:
+                        x_val_new.append(np.nan)
+                        continue
+                    x_val_new.append(v)
+                temp_df = pd.DataFrame()
+                temp_df['x'] = x_val_new
+                temp_df['y'] = np.array(Y)
+                temp_df = temp_df.dropna()
+                x_ = np.array(temp_df.x)
+                y_ = np.array(temp_df.y)
+                if x in ['rooting_depth','sand','canopy_height']:
+                    KDE_plot().plot_scatter(x_, y_, ax=ax, plot_fit_line=True, s=1.2)
+                else:
+                    KDE_plot().plot_scatter(X[x], Y, ax=ax, plot_fit_line=True, s=1.2)
                 # plt.scatter(X[x],Y)
                 plt.xlabel(x)
                 plt.ylabel('legacy trend')

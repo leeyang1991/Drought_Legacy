@@ -85,6 +85,7 @@ class Statistic:
         # self.legacy_change()
         # self.vars_pairplot()
         self.plot_scatter()
+        # self.legacy_trend_box()
         pass
 
 
@@ -241,6 +242,21 @@ class Statistic:
         #
         # plt.show()
 
+
+        pass
+
+
+    def legacy_trend_box(self):
+        df,dff = self.load_df()
+        df = Global_vars().clean_df(df)
+        box = []
+        for lc in Global_vars().landuse_list():
+            df_lc = df[df['lc']==lc]
+            # spatial_dic = {}
+            trend = df_lc.trend
+            box.append(trend)
+        plt.boxplot(box,labels=Global_vars().landuse_list())
+        plt.show()
 
         pass
 
@@ -462,9 +478,10 @@ class Climate_Vars_delta_change:
     def run(self):
         # self.delta()
         # self.CV()
+        self.CV_delta()
         # self.spei_delta()
         # self.trend()
-        self.check()
+        # self.check()
         pass
 
     def __pick_gs_vals(self,vals,gs_mons):
@@ -530,6 +547,47 @@ class Climate_Vars_delta_change:
                 # cv = std/mean
                 CV_dic[pix] = std
             np.save(outf, CV_dic)
+
+        pass
+
+
+
+    def CV_delta(self):
+        '''
+        Coefficient of variation
+        :return:
+        '''
+        gs_mons = list(range(4, 10))
+        fdir = data_root + 'Climate_408\\'
+        for climate_var in os.listdir(fdir):
+            # if climate_var != 'VPD':
+            #     continue
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
+            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
+            outdir = fdir + climate_var + '\\' + 'CV\\'
+            T.mk_dir(outdir)
+            outf = outdir + 'CV_delta'
+            dic = T.load_npy_dir(npy_dir,)
+            delta_CV_dic = {}
+            for pix in tqdm(dic, desc=climate_var):
+                vals = dic[pix]
+                gs_vals = self.__pick_gs_vals(vals, gs_mons)
+                gs_vals = signal.detrend(gs_vals)
+                gs_vals_reshape = np.reshape(gs_vals,(2,-1))
+                # exit()
+                # gs_vals = vals
+                std1 = np.std(gs_vals_reshape[0])
+                std2 = np.std(gs_vals_reshape[1])
+                delta_CV = std2 - std1
+                # print(delta_CV)
+                # plt.plot(gs_vals)
+                # plt.figure()
+                # plt.hist(gs_vals,bins=20)
+                # plt.show()
+                # mean = np.mean(gs_vals)
+                # cv = std/mean
+                delta_CV_dic[pix] = delta_CV
+            np.save(outf, delta_CV_dic)
 
         pass
 

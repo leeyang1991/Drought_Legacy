@@ -57,15 +57,19 @@ class Global_vars:
         X = [
             'isohydricity',
             'canopy_height',
+            'rooting_depth',
             # 'PRE_delta',
             # 'TMP_delta',
             # 'VPD_delta',
             'PRE_trend',
             'TMP_trend',
             'VPD_trend',
-            'PRE_cv',
-            'TMP_cv',
-            'VPD_cv',
+            'PRE_cv_delta',
+            'TMP_cv_delta',
+            'VPD_cv_delta',
+            # 'PRE_cv',
+            # 'TMP_cv',
+            # 'VPD_cv',
             # 'waterbalance',
             'sand',
             'SPEI_delta',
@@ -581,7 +585,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 12 add climate delta and cv into df
         # df = self.add_climate_delta_to_df(df)
         # df = self.add_climate_cv_to_df(df)
-        df = self.add_climate_trend_to_df(df)
+        df = self.add_climate_delta_cv_to_df(df)
+        # df = self.add_climate_trend_to_df(df)
         # 13 add sand to df
         # 14 add waterbalance to df
         # df = self.add_waterbalance(df)
@@ -996,6 +1001,25 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         return df
         pass
+
+    def add_climate_delta_cv_to_df(self, df):
+        fdir = data_root + r'Climate_408\\'
+        for climate in os.listdir(fdir):
+            f = fdir + climate + '\\CV\\CV_delta.npy'
+            dic = T.load_npy(f)
+            val_list = []
+            for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
+                pix = row.pix
+                if not pix in dic:
+                    val_list.append(np.nan)
+                    continue
+                val = dic[pix]
+                val_list.append(val)
+            df['{}_cv_delta'.format(climate)] = val_list
+        # exit()
+        return df
+        pass
+
     def add_climate_trend_to_df(self,df):
         fdir = data_root + r'Climate_408\\'
         for climate in os.listdir(fdir):
@@ -1099,6 +1123,22 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
 
+    def add_AGB_to_df(self,df):
+        sand_dic = self.__load_soil()
+        sand_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in sand_dic:
+                sand = sand_dic[pix]
+                sand_list.append(sand)
+            else:
+                sand_list.append(np.nan)
+        df['AGB'] = sand_list
+        return df
+        pass
+
+
+
 # class Main_flow_Dataframe:
 #
 #     def __init__(self):
@@ -1128,7 +1168,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #         # 5 add canopy height into df
 #         # df = self.add_canopy_height_to_df(df)
 #         # 6 add rooting depth into df
-#         # df = self.add_rooting_depth_to_df(df)
+        df = self.add_rooting_depth_to_df(df)
 #         # 7 add TWS into df
 #         # for year in range(4):
 #         #     print(year)
@@ -1418,15 +1458,34 @@ class Main_flow_RF:
     def permutation_train_results(self,X, y):
         # print(X.columns)
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, random_state=42, test_size=0.2)
+            X, y, random_state=42, test_size=0.5)
         rf = RandomForestRegressor(n_estimators=100)
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        # rf.fit(X_train, y_train)
-        rf.fit(X, y)
+        rf.fit(X_train, y_train)
+        # rf.fit(X, y)
         y_pred = rf.predict(X_test)
-        # r2 = rf.score(X_test, y_test)
-        r2 = rf.score(X, y)
-        result = permutation_importance(rf, X_train, y_train, scoring=None,
+        # y_pred = rf.predict(X_train)
+        # y_pred = rf.predict(X)
+        # print(y_test)
+        # y_test = np.array(y_test)
+        # y_test = np.reshape(y_test,(-1,1))
+        # y_pred = np.reshape(y_pred,(-1,1))
+        # print(y_pred)
+        r2 = rf.score(X_test,y_test)
+        # r2 = rf.score(X,y)
+        # plt.scatter(y_test,y_pred)
+        KDE_plot().plot_scatter(y_test,y_pred,plot_fit_line=True,is_plot_1_1_line=True,title='r2:{:0.2f}'.format(r2),s=2)
+        # KDE_plot().plot_scatter(y_train,y_pred,plot_fit_line=True,is_plot_1_1_line=True,title='r2:{:0.2f}'.format(r2),s=2)
+        # KDE_plot().plot_scatter(y,y_pred,plot_fit_line=True,is_plot_1_1_line=True,title='r2:{:0.2f}'.format(r2),s=2)
+        plt.show()
+        # r2 = rf.score(X, y)
+        # result = permutation_importance(rf, X_train, y_train, scoring=None,
+        #                                 n_repeats=10, random_state=42,
+        #                                 n_jobs=5)
+        # result = permutation_importance(rf, X_test, y_test, scoring=None,
+        #                                 n_repeats=10, random_state=42,
+        #                                 n_jobs=5)
+        result = permutation_importance(rf, X, y, scoring=None,
                                         n_repeats=10, random_state=42,
                                         n_jobs=5)
         importances = result.importances_mean
@@ -1532,16 +1591,16 @@ class Main_flow_RF:
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        kl_list = list(set(list(df['lc'])))
-        # kl_list = list(set(list(df['climate_zone'])))
+        # kl_list = list(set(list(df['lc'])))
+        kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
         for kl in kl_list:
             print(kl)
             vars_list = x_vars
-            df_kl = df[df['lc'] == kl]
-            # df_kl = df[df['climate_zone'] == kl]
+            # df_kl = df[df['lc'] == kl]
+            df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1673,8 +1732,8 @@ class Main_flow_correlation:
         df = T.load_df(dff)
         df = Global_vars().clean_df(df)
         print(df.columns)
-        kl_list = list(set(list(df['lc'])))
-        # kl_list = list(set(list(df['climate_zone'])))
+        # kl_list = list(set(list(df['lc'])))
+        kl_list = list(set(list(df['climate_zone'])))
         kl_list.remove(None)
         kl_list.sort()
         results_dic = {}
@@ -1682,8 +1741,8 @@ class Main_flow_correlation:
             print(kl)
             vars_list = x_vars
 
-            df_kl = df[df['lc'] == kl]
-            # df_kl = df[df['climate_zone'] == kl]
+            # df_kl = df[df['lc'] == kl]
+            df_kl = df[df['climate_zone'] == kl]
             df_kl = df_kl.replace([np.inf, -np.inf], np.nan)
             all_vars_list = copy.copy(vars_list)
             all_vars_list.append(dest_var)
@@ -1917,8 +1976,8 @@ class Main_flow_Hot_Map_corr_RF:
         #     for timing in range(11):
         #         key = '{}_{}'.format(timing,lc)
         #         eln_lc_list.append(key)
-        # lc_list = Global_vars().koppen_landuse()
-        lc_list = Global_vars().landuse_list()
+        lc_list = Global_vars().koppen_landuse()
+        # lc_list = Global_vars().landuse_list()
         # plt.figure(figsize=(4,6.2))
         y = 0
         y_labels = []
@@ -1968,7 +2027,9 @@ class Main_flow_Hot_Map_corr_RF:
                     imp = np.nan
                 else:
                     # permutation importance
-                    imp = result_dic[var]/r2*50.
+                    # imp = result_dic[var]/r2*50.
+                    # imp = result_dic[var]*50.
+                    imp = result_dic[var]*100.
                     # impurity importance
                     # imp = result_dic[var]
                 r,p = corr_dic[var]

@@ -1106,7 +1106,7 @@ class KDE_plot:
             plt.plot(x, y, linestyle='dashed', c='black', linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
         else:
             plt.plot(x,y,linestyle='dashed',c='black',alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
-        plt.title(title)
+        # plt.title(title)
 
 
     def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,**kwargs):

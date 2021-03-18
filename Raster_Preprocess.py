@@ -13,9 +13,9 @@ class CSIF:
         # self.nc_to_tif()
         # self.monthly_compose()
         # self.plot_monthly_clear()
-        # self.per_pix()
+        self.per_pix()
         # self.clean_per_pix()
-        # self.cal_per_pix_anomaly()
+        self.cal_per_pix_anomaly()
         # self.detrend()
         # self.check_per_pix()
         pass

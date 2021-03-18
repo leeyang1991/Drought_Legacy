@@ -74,6 +74,7 @@ class Global_vars:
             'sand',
             'SPEI_delta',
             'awc',
+            # 'ratio_of_forest',
              ]
         # Y = 'delta_legacy'
         Y = 'trend'
@@ -86,6 +87,7 @@ class Global_vars:
         df = df.drop_duplicates(subset=['pix', 'delta_legacy'])
         # self.__df_to_excel(df,dff+'drop')
 
+        df = df[df['ratio_of_forest'] > 0.90]
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
         df = df[df['trend_score'] > 0.2]
@@ -585,7 +587,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 12 add climate delta and cv into df
         # df = self.add_climate_delta_to_df(df)
         # df = self.add_climate_cv_to_df(df)
-        df = self.add_climate_delta_cv_to_df(df)
+        # df = self.add_climate_delta_cv_to_df(df)
         # df = self.add_climate_trend_to_df(df)
         # 13 add sand to df
         # 14 add waterbalance to df
@@ -598,6 +600,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_delta_SPEI(df)
         # 18 add awc to df
         # df = self.add_AWC_to_df(df)
+        # 19 add forest ratio to df
+        df = self.add_forest_ratio_in_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1137,6 +1141,23 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
         pass
 
+
+    def add_forest_ratio_in_df(self,df):
+        ratio_f = Main_flow_pick_pure_forest_pixels().this_class_tif + 'ratio_of_forest.tif'
+        arr = to_raster.raster2array(ratio_f)[0]
+        spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+
+        ratio_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in spatial_dic:
+                ratio = spatial_dic[pix]
+                ratio_list.append(ratio)
+            else:
+                ratio_list.append(np.nan)
+        df['ratio_of_forest'] = ratio_list
+
+        return df
 
 
 # class Main_flow_Dataframe:
@@ -2098,15 +2119,103 @@ class Main_flow_Hot_Map_corr_RF:
         # plt.close()
 
 
+class Main_flow_pick_pure_forest_pixels():
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_pick_pure_forest_pixels\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_pick_pure_forest_pixels\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_pick_pure_forest_pixels\\'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+
+    def run(self):
+        self.ratio_of_forest()
+        pass
+
+
+    def ratio_of_forest(self):
+
+        outf = self.this_class_tif + 'ratio_of_forest.tif'
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        pix = df.pix
+        valid_pix = set(list(pix))
+        glc_f = data_root + 'landcover\\glc2000_v1_1.tif'
+        glc_arr,originX,originY,pixelWidth,pixelHeight = to_raster.raster2array(glc_f)
+
+        rows = len(glc_arr)
+        cols = len(glc_arr[0])
+
+        start_lat = originY
+        end_lat = originY+ pixelHeight * rows
+
+        start_lon = originX
+        end_lon = originX + pixelWidth * cols
+
+        rows_resample = int(np.ceil((start_lat - end_lat)/0.5))
+        cols_resample = int(np.ceil((end_lon - start_lon)/0.5))
+
+        cols_dic = {}
+        for c in range(cols_resample):
+            cols_dic[c] = []
+        rows_dic = {}
+        for r in range(rows_resample):
+            rows_dic[r] = []
+
+        for c in range(cols):
+            c_key = int(c // (cols/cols_resample))
+            cols_dic[c_key].append(c)
+
+        for r in range(rows):
+            r_key = int(r // (rows/rows_resample))
+            rows_dic[r_key].append(r)
+
+        spatial_ratio_dic = {}
+        for r_key in tqdm(rows_dic):
+            for c_key in cols_dic:
+                # print(c_key)
+                # print(r_key)
+                key = (r_key,c_key)
+                if not key in valid_pix:
+                    continue
+                c_pix_list = cols_dic[c_key]
+                r_pix_list = rows_dic[r_key]
+                tot = 0.
+                forest = 0.
+                for c_high in c_pix_list:
+                    for r_high in r_pix_list:
+                        tot += 1
+                        glc_val = glc_arr[r_high][c_high]
+                        if glc_val <= 10:
+                            forest += 1
+                ratio = forest / tot
+                spatial_ratio_dic[key] = ratio
+                # print(key,ratio)
+                        # pix_high_res = (c_high,r_high)
+                        # pix_high_res_list.append(pix_high_res)
+                # spatial_indx_dic[key] = pix_high_res_list
+        ratio_arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_ratio_dic)
+        DIC_and_TIF().arr_to_tif(ratio_arr,outf)
+
+
+
+
+
+        pass
+
+
 
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Dataframe().run()
-    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
-    Main_flow_RF().run()
-    Main_flow_correlation().run()
-    Main_flow_Hot_Map_corr_RF().run()
+    # Main_flow_RF().run()
+    # Main_flow_correlation().run()
+    # Main_flow_Hot_Map_corr_RF().run()
+    # Main_flow_pick_pure_forest_pixels().run()
 
     pass
 

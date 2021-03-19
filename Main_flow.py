@@ -76,8 +76,8 @@ class Global_vars:
             'awc',
             # 'ratio_of_forest',
              ]
-        # Y = 'delta_legacy'
-        Y = 'trend'
+        Y = 'delta_legacy'
+        # Y = 'trend'
 
         return X,Y
 
@@ -90,15 +90,16 @@ class Global_vars:
         df = df[df['ratio_of_forest'] > 0.90]
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
-        df = df[df['trend_score'] > 0.2]
-        df = df[df['gs_sif_spei_corr'] > 0]
-        trend = df['trend']
-        trend_mean = np.nanmean(trend)
-        trend_std = np.nanstd(trend)
-        up = trend_mean + trend_std
-        down = trend_mean - trend_std
-        df = df[df['trend'] > down]
-        df = df[df['trend'] < up]
+        # df = df[df['delta_legacy'] < -0]
+        # df = df[df['trend_score'] > 0.2]
+        # df = df[df['gs_sif_spei_corr'] > 0]
+        # trend = df['trend']
+        # trend_mean = np.nanmean(trend)
+        # trend_std = np.nanstd(trend)
+        # up = trend_mean + trend_std
+        # down = trend_mean - trend_std
+        # df = df[df['trend'] > down]
+        # df = df[df['trend'] < up]
         return df
 
 class Main_Flow_Pick_drought_events:
@@ -2205,17 +2206,126 @@ class Main_flow_pick_pure_forest_pixels():
 
         pass
 
+class Main_flow_Partial_Dependence_Plots:
+    '''
+    Ref:
+    https://towardsdatascience.com/looking-beyond-feature-importance-37d2807aaaa7
+    '''
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Partial_Dependence_Plots\\'
+        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Partial_Dependence_Plots\\'
+        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Partial_Dependence_Plots\\'
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+
+    def run(self):
+        df_f = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(df_f)
+        df = Global_vars().clean_df(df)
+        self.partial_dependent_plot(df)
+
+        pass
+
+
+    def partial_dependent_plot(self,df):
+        outpngdir = self.this_class_png + 'partial_dependent_plot\\'
+        T.mk_dir(outpngdir)
+        x_vars,y_vars = Global_vars().variables()
+        outdir = self.this_class_png + 'partial_dependent_plot\\'
+        T.mk_dir(outdir,force=True)
+
+        flag = 0
+        plt.figure(figsize=(12, 8))
+        for var in tqdm(x_vars):
+            flag += 1
+            ax = plt.subplot(3, 4, flag)
+            vars_list = x_vars
+            # print(timing)
+            XXX = df[vars_list]
+            if len(XXX) < 100:
+                continue
+            selected_features = vars_list
+            vars_list1 = copy.copy(selected_features)
+            vars_list1.append(y_vars)
+            XX = df[vars_list1]
+            XX = XX.dropna()
+            vars_list1.remove(y_vars)
+            X = XX[vars_list1]
+            Y = XX[y_vars]
+            if len(df) < 100:
+                continue
+            # print(X)
+            # print(Y)
+            # exit()
+            model = self.train_model(X, Y)
+            df_partial_plot = self.__get_PDPvalues(var, X, model)
+            ppx = df_partial_plot[var]
+            ppy = df_partial_plot['PDs']
+            ppx_smooth = SMOOTH().smooth_convolve(ppx,window_len=11)
+            ppy_smooth = SMOOTH().smooth_convolve(ppy,window_len=11)
+            plt.plot(ppx_smooth, ppy_smooth, lw=2,)
+            plt.xlabel(var)
+            plt.ylabel(y_vars)
+            title = var
+            # plt.title(title)
+            plt.tight_layout()
+            # plt.legend()
+            # plt.show()
+            # plt.savefig(outpngdir + title + '.pdf',dpi=300)
+            # plt.close()
+        plt.show()
+
+
+
+
+    def train_model(self,X,y):
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.2)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        rf = RandomForestRegressor(n_estimators=300, random_state=42)
+        rf.fit(X_train, y_train)
+        return rf
+
+    def __get_PDPvalues(self, col_name, data, model, grid_resolution=50):
+        Xnew = data.copy()
+        sequence = np.linspace(np.min(data[col_name]), np.max(data[col_name]), grid_resolution)
+        Y_pdp = []
+        for each in sequence:
+            Xnew[col_name] = each
+            Y_temp = model.predict(Xnew)
+            Y_pdp.append(np.mean(Y_temp))
+        return pd.DataFrame({col_name: sequence, 'PDs': Y_pdp})
+
+    def __plot_PDP(self,col_name, data, model):
+        df = self.__get_PDPvalues(col_name, data, model)
+        plt.rcParams.update({'font.size': 16})
+        plt.rcParams["figure.figsize"] = (6,5)
+        fig, ax = plt.subplots()
+        # ax.plot(data[col_name], np.zeros(data[col_name].shape)+min(df['PDs'])-1, 'k|', ms=15)  # rug plot
+        ax.plot(df[col_name], df['PDs'], lw = 2)
+        ax.set_ylabel('Recovery time')
+        ax.set_xlabel(col_name)
+        plt.tight_layout()
+        return ax
+
+
+
+
 
 
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Dataframe().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
     # Main_flow_RF().run()
     # Main_flow_correlation().run()
     # Main_flow_Hot_Map_corr_RF().run()
     # Main_flow_pick_pure_forest_pixels().run()
+    Main_flow_Partial_Dependence_Plots().run()
 
     pass
 

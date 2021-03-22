@@ -320,7 +320,7 @@ class Statistic:
             for x in X:
                 # print(x)
                 flag += 1
-                ax = plt.subplot(3, 4, flag)
+                ax = plt.subplot(4,5, flag)
                 x_val = X[x]
                 std = np.std(x_val)
                 mean = np.mean(x_val)
@@ -342,20 +342,20 @@ class Statistic:
                 x_ = np.array(temp_df.x)
                 y_ = np.array(temp_df.y)
                 if x in ['rooting_depth','sand','canopy_height']:
-                    KDE_plot().plot_scatter(x_, y_, ax=ax, plot_fit_line=True, s=1.2)
+                    KDE_plot().plot_scatter(x_, y_, ax=ax, plot_fit_line=True, s=0.5)
                 else:
-                    KDE_plot().plot_scatter(X[x], Y, ax=ax, plot_fit_line=True, s=1.2)
+                    KDE_plot().plot_scatter(X[x], Y, ax=ax, plot_fit_line=True, s=0.5)
                 # plt.scatter(X[x],Y)
                 plt.xlabel(x)
-                plt.ylabel('legacy trend')
+                plt.ylabel(Y_var)
                 plt.title(' ')
                 plt.subplots_adjust(
                     top=0.956,
                     bottom=0.068,
-                    left=0.064,
-                    right=0.987,
-                    hspace=0.402,
-                    wspace=0.461
+                    left=0.053,
+                    right=0.988,
+                    hspace=0.619,
+                    wspace=0.402
                 )
             # plt.suptitle('{} no drop'.format(kl))
             # plt.tight_layout()

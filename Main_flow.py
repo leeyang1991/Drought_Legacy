@@ -58,26 +58,25 @@ class Global_vars:
             'isohydricity',
             'canopy_height',
             'rooting_depth',
-            # 'PRE_delta',
-            # 'TMP_delta',
-            # 'VPD_delta',
+            'PRE_delta',
+            'TMP_delta',
+            'VPD_delta',
+            'SPEI_delta',
             'PRE_trend',
             'TMP_trend',
             'VPD_trend',
             'PRE_cv_delta',
             'TMP_cv_delta',
             'VPD_cv_delta',
-            # 'PRE_cv',
-            # 'TMP_cv',
-            # 'VPD_cv',
-            # 'waterbalance',
+            'PRE_cv',
+            'TMP_cv',
+            'VPD_cv',
+            'waterbalance',
             'sand',
-            'SPEI_delta',
             'awc',
-            # 'ratio_of_forest',
              ]
-        Y = 'delta_legacy'
-        # Y = 'trend'
+        # Y = 'delta_legacy'
+        Y = 'trend'
 
         return X,Y
 
@@ -91,15 +90,29 @@ class Global_vars:
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
         # df = df[df['delta_legacy'] < -0]
-        # df = df[df['trend_score'] > 0.2]
+        df = df[df['trend_score'] > 0.2]
         # df = df[df['gs_sif_spei_corr'] > 0]
-        # trend = df['trend']
-        # trend_mean = np.nanmean(trend)
-        # trend_std = np.nanstd(trend)
-        # up = trend_mean + trend_std
-        # down = trend_mean - trend_std
-        # df = df[df['trend'] > down]
-        # df = df[df['trend'] < up]
+
+        trend = df['trend']
+        trend_mean = np.nanmean(trend)
+        trend_std = np.nanstd(trend)
+        up = trend_mean + trend_std
+        down = trend_mean - trend_std
+        df = df[df['trend'] > down]
+        df = df[df['trend'] < up]
+
+        # quantile = 0.4
+        # delta_legacy = df['delta_legacy']
+        # delta_legacy = delta_legacy.dropna()
+        #
+        # # print(delta_legacy)
+        # q = np.quantile(delta_legacy,quantile)
+        # # print(q)
+        # df = df[df['delta_legacy']<q]
+        # T.print_head_n(df)
+        print(len(df))
+        # exit()
+
         return df
 
 class Main_Flow_Pick_drought_events:
@@ -2224,16 +2237,16 @@ class Main_flow_Partial_Dependence_Plots:
     def run(self):
         df_f = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(df_f)
+        x_vars,y_vars = Global_vars().variables()
         df = Global_vars().clean_df(df)
-        self.partial_dependent_plot(df)
+        self.partial_dependent_plot(df,x_vars,y_vars)
 
         pass
 
 
-    def partial_dependent_plot(self,df):
+    def partial_dependent_plot(self,df,x_vars,y_vars):
         outpngdir = self.this_class_png + 'partial_dependent_plot\\'
         T.mk_dir(outpngdir)
-        x_vars,y_vars = Global_vars().variables()
         outdir = self.this_class_png + 'partial_dependent_plot\\'
         T.mk_dir(outdir,force=True)
 
@@ -2241,10 +2254,11 @@ class Main_flow_Partial_Dependence_Plots:
         plt.figure(figsize=(12, 8))
         for var in tqdm(x_vars):
             flag += 1
-            ax = plt.subplot(3, 4, flag)
+            ax = plt.subplot(4, 4, flag)
             vars_list = x_vars
             # print(timing)
             XXX = df[vars_list]
+            # print(len(XXX))
             if len(XXX) < 100:
                 continue
             selected_features = vars_list
@@ -2260,7 +2274,9 @@ class Main_flow_Partial_Dependence_Plots:
             # print(X)
             # print(Y)
             # exit()
-            model = self.train_model(X, Y)
+            model, r2 = self.train_model(X, Y)
+            print(r2)
+            # exit()
             df_partial_plot = self.__get_PDPvalues(var, X, model)
             ppx = df_partial_plot[var]
             ppy = df_partial_plot['PDs']
@@ -2269,7 +2285,7 @@ class Main_flow_Partial_Dependence_Plots:
             plt.plot(ppx_smooth, ppy_smooth, lw=2,)
             plt.xlabel(var)
             plt.ylabel(y_vars)
-            title = var
+            # title = 'r2: {}'.format(r2)
             # plt.title(title)
             plt.tight_layout()
             # plt.legend()
@@ -2282,12 +2298,22 @@ class Main_flow_Partial_Dependence_Plots:
 
 
     def train_model(self,X,y):
+        print(len(X))
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, random_state=42, test_size=0.2)
+            X, y, random_state=42, test_size=0.1)
         # rf = RandomForestClassifier(n_estimators=300, random_state=42)
-        rf = RandomForestRegressor(n_estimators=300, random_state=42)
+        rf = RandomForestRegressor(n_estimators=100, random_state=42)
+        # rf = LinearRegression()
         rf.fit(X_train, y_train)
-        return rf
+        r2 = rf.score(X_test,y_test)
+        y_pred = rf.predict(X_test)
+        # y_pred = rf.predict(X_train)
+        # plt.scatter(y_pred,y_test)
+        print(r2)
+        # plt.scatter(y_pred,y_train)
+        # plt.show()
+
+        return rf,r2
 
     def __get_PDPvalues(self, col_name, data, model, grid_resolution=50):
         Xnew = data.copy()

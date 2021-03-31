@@ -705,7 +705,7 @@ class Constant_Vars:
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    Statistic().run()
+    # Statistic().run()
     # Tif().run()
     # Climate_Vars_delta_change().run()
     pass

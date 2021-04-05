@@ -347,40 +347,54 @@ class pre_poecess_daily:
         # plt.show()
             np.save(out_dir+f,data_dic)
 
+    def kernel_get_thaw(self,params):
+
+        f,outdir,fdir,window = params
+
+        year = f.split('.')[0]
+        outf = outdir + year + '.tif'
+        thaw_date_dic = {}
+        dic = T.load_npy(fdir + f)
+        for pix in dic:
+            val = dic[pix]
+            val = np.array(val)
+            val_origin = copy.copy(val)
+            val[val < 1] = np.nan
+            if np.isnan(np.nanmean(val)):
+                continue
+            thaw_date = -999999
+            for i in range(len(val)):
+                if i + window >= len(val):
+                    break
+                picked_vals = val[i:i + window]
+                is_nan_list = list(np.isnan(picked_vals))
+                True_count = is_nan_list.count(True)
+                if True_count == window:
+                    thaw_date = i
+                    break
+
+            thaw_date_dic[pix] = thaw_date
+            # if thaw_date == 0:
+            #     # plt.scatter(range(len(val)),val,c='r')
+            #     print(len(val_origin))
+            #     val_origin[val_origin<-1] = np.nan
+            #     plt.scatter(range(len(val_origin)),val_origin,c='b')
+            #     # plt.plot(range(len(interp_val)),interp_val)
+            #     plt.show()
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(thaw_date_dic)
+        DIC_and_TIF().arr_to_tif(arr, outf)
+
+        pass
+
     def get_thaw(self):
-        window = 30 # days
+        window = 60 # days
         fdir = data_root + 'GLOBSWE\\per_pix_annual\\'
         outdir = data_root + 'GLOBSWE\\thaw_tif\\'
         T.mk_dir(outdir)
+        params = []
         for f in os.listdir(fdir):
-            year = f.split('.')[0]
-            outf = outdir + year + '.tif'
-            thaw_date_dic = {}
-            dic = T.load_npy(fdir + f)
-            for pix in tqdm(dic,desc=f):
-                val = dic[pix]
-                val = np.array(val)
-                val[val<1] = np.nan
-                if np.isnan(np.nanmean(val)):
-                    continue
-                thaw_date = -999999
-                for i in range(len(val)):
-                    if i+window >= len(val):
-                        break
-                    picked_vals = val[i:i+window]
-                    is_nan_list = list(np.isnan(picked_vals))
-                    True_count = is_nan_list.count(True)
-                    if True_count == window:
-                        thaw_date = i
-                        break
-                thaw_date_dic[pix] = thaw_date
-                # plt.scatter(range(len(val)),val,c='r')
-                # interp_val = T.interp_nan(val,valid_percent=0)
-                # # plt.plot(range(len(interp_val)),interp_val)
-                # plt.scatter(range(len(interp_val)),interp_val,zorder=-1)
-                # plt.show()
-            arr = DIC_and_TIF().pix_dic_to_spatial_arr(thaw_date_dic)
-            DIC_and_TIF().arr_to_tif(arr,outf)
+            params.append((f,outdir,fdir,window))
+        MULTIPROCESS(self.kernel_get_thaw,params).run(process=5)
         pass
 
 

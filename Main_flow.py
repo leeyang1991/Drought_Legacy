@@ -58,22 +58,23 @@ class Global_vars:
             'isohydricity',
             'canopy_height',
             'rooting_depth',
-            'PRE_delta',
-            'TMP_delta',
-            'VPD_delta',
-            'SPEI_delta',
+            # 'PRE_delta',
+            # 'TMP_delta',
+            # 'VPD_delta',
+            # 'SPEI_delta',
             'PRE_trend',
             'TMP_trend',
             'VPD_trend',
             'PRE_cv_delta',
             'TMP_cv_delta',
             'VPD_cv_delta',
-            'PRE_cv',
-            'TMP_cv',
-            'VPD_cv',
+            # 'PRE_cv',
+            # 'TMP_cv',
+            # 'VPD_cv',
             'waterbalance',
             'sand',
             'awc',
+            'drought_year_sos_std_anomaly',
              ]
         # Y = 'delta_legacy'
         Y = 'trend'
@@ -1151,7 +1152,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 19 add forest ratio to df
         # df = self.add_forest_ratio_in_df(df)
         # 20 add phenology info to df (from recovery project)
-        df = self.add_drought_year_SOS(df)
+        # df = self.add_drought_year_SOS(df)
+        # 21 add thaw data into df
+        df = self.add_thaw_date(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1766,6 +1769,31 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             anomaly[i] = anomaly_i
             std_anomaly[i] = std_anomaly_i
         return anomaly, std_anomaly
+
+    def add_thaw_date(self,df):
+        fdir = data_root + 'GLOBSWE\\thaw_tif\\'
+        thaw_year_dic = {}
+        for tif in tqdm(os.listdir(fdir),desc='loading thaw tif ...'):
+            year = tif.split('.')[0]
+            year = int(year)
+            arr = to_raster.raster2array(fdir + tif)[0]
+            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+            thaw_year_dic[year] = spatial_dic
+
+        thaw_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            drought_year = drought_event_date_range[0]//12 + 1982
+            thaw = thaw_year_dic[drought_year][pix]
+            if thaw <= 0:
+                thaw_list.append(np.nan)
+            else:
+                thaw_list.append(thaw)
+
+        df['thaw_date'] = thaw_list
+
+        return df
 
         # class Main_flow_Dataframe:
 #
@@ -2847,7 +2875,7 @@ class Main_flow_Partial_Dependence_Plots:
         plt.figure(figsize=(12, 8))
         for var in tqdm(x_vars):
             flag += 1
-            ax = plt.subplot(4, 4, flag)
+            ax = plt.subplot(4, 5, flag)
             vars_list = x_vars
             # print(timing)
             XXX = df[vars_list]

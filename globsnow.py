@@ -43,22 +43,29 @@ def check_zip(path):
 class pre_poecess_daily:
     def __init__(self):
         # 0 下载数据
-        self.download()
+        # self.download()
         # 1 *.gz解压数据
         # unzip()
         # 2 生成tif
         # 2.1 nc to tif
-        # nc_to_tif('SWE_max')
+        # self.nc_to_tif()
         # nc_to_tif('SWE_avg')
-        # 2.2 hdf to tif
-        # hdf_to_tif(data='swe_average')
-        # hdf_to_tif(data='swe_maximum')
         # 3 定义投影
         # arcpy_func.define_swe_projection()
         # 4 转换成84
         # arcpy_func.re_projection_swe()
-        # 5 转换为per_pix
-        # self.data_transform()
+        # 5 split_year
+        # self.split_annual()
+        # 6 转换为per_pix
+        # fdir = data_root + 'GLOBSWE\\reproj\\swe_annual\\'
+        # for folder in os.listdir(fdir):
+        #     print(folder)
+        #     print('\n')
+        #     fdir_i = data_root + 'GLOBSWE\\reproj\\swe_annual\\{}\\'.format(folder)
+        #     outf = data_root + 'GLOBSWE\\per_pix_annual\\'+folder
+        #     self.data_transform(fdir_i,outf)
+        # 7 计算 thaw融雪日
+        self.get_thaw()
         # self.insert_per_pix()
         # 6 计算 anomaly
         # analysis.Pre_Process().cal_anomaly()
@@ -96,16 +103,23 @@ class pre_poecess_daily:
         #     print f
         if not os.path.isfile(f):
             # print(f)
-            self.downloadFILE(url, f)
+            try:
+                # print(1/0)
+                self.downloadFILE(url, f)
+            except:
+                fw = open(f + '.error','wb')
+                fw.close()
+                print(f,'error')
+                # time.sleep(1)
+
 
     def downloadFILE(self,url, name):
         resp = requests.get(url=url, stream=True)
         # stream=True的作用是仅让响应头被下载，连接保持打开状态，
         # content_size = int(resp.headers['Content-Length'])/1024        #确定整个安装包的大小
-        with open(name, "wb") as f:
-            # for data in tqdm(iterable=resp.iter_content(1024),total=content_size,unit='k',desc=name):
-            # for data in resp.iter_content(1024):
-            f.write(resp.content)
+        con = resp.content
+        fw = open(name, "wb")
+        fw.write(con)
 
     def unzip(self):
         fdir = this_root + 'GLOBSWE\\download\\'
@@ -122,14 +136,14 @@ class pre_poecess_daily:
                 except:
                     pass
 
-    def nc_to_tif(self,data='SWE_avg'):
+    def nc_to_tif(self,data='swe'):
         # data = 'SWE_avg'
         # data = 'SWE_max'
         # 可行
-        ncdir = this_root + 'GLOBSWE\\nc\\'
-        out_dir = this_root + 'GLOBSWE\\nc_to_tif\\' + data + '\\'
+        ncdir = data_root + 'GLOBSWE\\download\\'
+        out_dir = data_root + 'GLOBSWE\\nc_to_tif\\' + data + '\\'
         analysis.Tools().mk_dir(out_dir, force=True)
-        for f in os.listdir(ncdir):
+        for f in tqdm(os.listdir(ncdir)):
             # print f
             nc = ncdir + f
             ncin = Dataset(nc, 'r')
@@ -138,7 +152,8 @@ class pre_poecess_daily:
             swe_avg = np.array(ncin[data])
             swe_avg = np.array(swe_avg)
             longitude_start, latitude_start, pixelWidth, pixelHeight = x[0], y[0], x[1] - x[0], y[1] - y[0]
-            fname = f.split('.')[0] + '.tif'
+            fname = f.split('_')[0] + '.tif'
+            # print(fname)
             to_raster.array2raster_polar(out_dir + fname, longitude_start, latitude_start, pixelWidth, pixelHeight,
                                          swe_avg, ndv=-1)
             # plt.imshow(swe_avg)
@@ -179,6 +194,20 @@ class pre_poecess_daily:
                 to_raster.array2raster_polar(out_dir + out_fname, longitude_start, latitude_start, pixelWidth,
                                              pixelHeight, swe, ndv=-1)
 
+        pass
+
+
+    def split_annual(self):
+        fdir = data_root + 'GLOBSWE\\reproj\\' + 'swe' + '\\'
+        outdir = data_root + 'GLOBSWE\\reproj\\' + 'swe_annual' + '\\'
+        T.mk_dir(outdir)
+
+        for f in tqdm(os.listdir(fdir)):
+            if f.endswith('.tif'):
+                year = f[:4]
+                outdir_i = outdir + year + '\\'
+                T.mk_dir(outdir_i)
+                shutil.copy(fdir + f,outdir_i + f)
         pass
 
     def proj_trans1(self):
@@ -232,37 +261,36 @@ class pre_poecess_daily:
         plt.imshow(grid)
         plt.show()
 
-    def data_transform(self):
-        # 不可并行，内存不足
-        mode = 'SWE_max'
-        # mode = 'SWE_avg'
-        fdir = this_root+'GLOBSWE\\tif\\'+mode+'\\'
-        outdir = this_root+'GLOBSWE\\per_pix\\'+mode+'\\'
-        analysis.Tools().mk_dir(outdir,force=True)
-        # 将空间图转换为数组
-        # per_pix_data
-        flist = os.listdir(fdir)
+    def data_transform(self,fdir,outf):
         date_list = []
-        for y in range(1982,2016):
-            for mon in range(1,13):
-                if mon in range(5,10):
-                    continue
-                date_list.append('{}{}'.format(y,'%02d'%mon))
-        # for i in date_list:
-        #     print i
-        # exit()
+        date_start = outf.split('\\')[-1]
+        date_start = int(date_start)
+        date_end = date_start + 1
+
+        date_start_obj = datetime.datetime(date_start,1,1)
+        date_end_obj = datetime.datetime(date_end,1,1)
+        delta_day = date_end_obj - date_start_obj
+        delta_day = delta_day.days
+        for d in range(delta_day):
+            date_delta = datetime.timedelta(d)
+            date = date_start_obj + date_delta
+            year, mon, day = date.year, date.month, date.day
+            date_str = '{:d}{:02d}{:02d}'.format(year, mon, day)
+            date_list.append(date_str)
+        template_f = os.path.join(fdir, os.listdir(fdir)[0])
+        template_arr = to_raster.raster2array(template_f)[0]
+        void_arr = np.ones_like(template_arr) * -999999
         all_array = []
         for d in tqdm(date_list, 'loading...'):
-
-            for f in flist:
-                # if not d in f:
-                #     continue
-                if f.endswith('.tif'):
-                    if f.split('.')[0] == d:
-                        array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(fdir + f)
-                        all_array.append(array)
+            fname = fdir + d + '.tif'
+            # print(fname)
+            if os.path.isfile(fname):
+                array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(fname)
+                all_array.append(array)
+            else:
+                all_array.append(void_arr)
         # print len(all_array)
-        # exit()
+        all_array = np.array(all_array)
         row = len(all_array[0])
         col = len(all_array[0][0])
 
@@ -270,31 +298,18 @@ class pre_poecess_daily:
         void_dic_list = []
         for r in range(row):
             for c in range(col):
-                void_dic['%03d.%03d' % (r, c)] = []
-                void_dic_list.append('%03d.%03d' % (r, c))
+                void_dic[(r, c)] = []
+                void_dic_list.append((r, c))
 
-        # print(len(void_dic))
-        # exit()
-        for r in tqdm(range(row), 'transforming...'):
+        for r in tqdm(range(row), desc='transforming...'):
             for c in range(col):
                 for arr in all_array:
                     val = arr[r][c]
-                    void_dic['%03d.%03d' % (r, c)].append(val)
-
-        # for i in void_dic_list:
-        #     print(i)
-        # exit()
-        flag = 0
-        temp_dic = {}
-        for key in tqdm(void_dic_list, 'saving...'):
-            flag += 1
-            # print('saving ',flag,'/',len(void_dic)/100000)
-            temp_dic[key] = void_dic[key]
-            if flag % 10000 == 0:
-                # print('\nsaving %02d' % (flag / 10000)+'\n')
-                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
-                temp_dic = {}
-        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+                    void_dic[(r, c)].append(val)
+        for pix in tqdm(void_dic,desc='list to np.array...'):
+            void_dic[pix] = np.array(void_dic[pix])
+        print('saving...')
+        np.save(outf, void_dic)
 
     def insert_nan_vals(self,vals):
         # input [1,2,3,4,10,11,12,1,2,3,4]
@@ -332,6 +347,41 @@ class pre_poecess_daily:
         # plt.show()
             np.save(out_dir+f,data_dic)
 
+    def get_thaw(self):
+        window = 30 # days
+        fdir = data_root + 'GLOBSWE\\per_pix_annual\\'
+        outdir = data_root + 'GLOBSWE\\thaw_tif\\'
+        T.mk_dir(outdir)
+        for f in os.listdir(fdir):
+            year = f.split('.')[0]
+            outf = outdir + year + '.tif'
+            thaw_date_dic = {}
+            dic = T.load_npy(fdir + f)
+            for pix in tqdm(dic,desc=f):
+                val = dic[pix]
+                val = np.array(val)
+                val[val<1] = np.nan
+                if np.isnan(np.nanmean(val)):
+                    continue
+                thaw_date = -999999
+                for i in range(len(val)):
+                    if i+window >= len(val):
+                        break
+                    picked_vals = val[i:i+window]
+                    is_nan_list = list(np.isnan(picked_vals))
+                    True_count = is_nan_list.count(True)
+                    if True_count == window:
+                        thaw_date = i
+                        break
+                thaw_date_dic[pix] = thaw_date
+                # plt.scatter(range(len(val)),val,c='r')
+                # interp_val = T.interp_nan(val,valid_percent=0)
+                # # plt.plot(range(len(interp_val)),interp_val)
+                # plt.scatter(range(len(interp_val)),interp_val,zorder=-1)
+                # plt.show()
+            arr = DIC_and_TIF().pix_dic_to_spatial_arr(thaw_date_dic)
+            DIC_and_TIF().arr_to_tif(arr,outf)
+        pass
 
 
 

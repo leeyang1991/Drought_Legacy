@@ -1,7 +1,10 @@
 # coding=utf-8
 
-import osr, ogr
-import gdal
+# import osr, ogr
+from osgeo import osr
+from osgeo import ogr
+from osgeo import gdal
+# import gdal
 import numpy as np
 import os
 

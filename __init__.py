@@ -9,7 +9,8 @@ from scipy import signal
 import time
 import to_raster
 import os
-import ogr, osr
+# import gdal
+# import ogr, osr
 from tqdm import tqdm
 import datetime
 from scipy import stats, linalg
@@ -47,7 +48,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import pickle
 from dateutil import relativedelta
 from sklearn.inspection import permutation_importance
-from statsmodels.stats.outliers_influence import variance_inflation_factor
+# from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 np.seterr('ignore')
 
@@ -61,7 +62,7 @@ results_root = 'G:\Drought_legacy\\results\\'
 results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
 # from HANTS import *
 
-plt.rcParams['font.sans-serif'] = ['SimHei']
+# plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 from LY_Tools import *
 T = Tools()

@@ -212,7 +212,7 @@ class Tools:
 
 
 
-    def interp_nan(self,val,kind='nearest'):
+    def interp_nan(self,val,kind='nearest',valid_percent=0.3):
         if len(val) == 0 or np.std(val) == 0:
             return [None]
 
@@ -227,7 +227,7 @@ class Tools:
                 x.append(index)
                 # val_new = np.append(val_new, val[i])
                 val_new.append(val[i])
-        if flag / len(val) < 0.3:
+        if flag / len(val) < valid_percent:
             return [None]
         interp = interpolate.interp1d(x, val_new, kind=kind, fill_value="extrapolate")
 

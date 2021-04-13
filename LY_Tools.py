@@ -8,7 +8,7 @@ class Tools:
     '''
 
     def __init__(self):
-        self.this_class_arr = results_root + 'arr\\Tools\\'
+        self.this_class_arr = results_root + 'arr/Tools/'
         self.mk_dir(self.this_class_arr, force=True)
         pass
 
@@ -673,9 +673,9 @@ class DIC_and_TIF:
     '''
 
     def __init__(self):
-        self.this_class_arr = results_root + 'arr\\DIC_and_TIF\\'
+        self.this_class_arr = results_root + 'arr/DIC_and_TIF/'
         Tools().mk_dir(self.this_class_arr, force=True)
-        self.tif_template = this_root + 'conf\\tif_template.tif'
+        self.tif_template = this_root + 'conf/tif_template.tif'
         pass
 
 
@@ -1224,7 +1224,7 @@ class Pre_Process:
     def data_transform_with_date_list(self, fdir, outdir,date_list):
         # 不可并行，内存不足
         Tools().mk_dir(outdir)
-        outdir = outdir + '\\'
+        outdir = outdir + '/'
         # 将空间图转换为数组
         template_f = os.path.join(fdir,os.listdir(fdir)[0])
         template_arr = to_raster.raster2array(template_f)[0]
@@ -1344,8 +1344,8 @@ class Pre_Process:
         np.save(save_dir + f, anomaly_pix_dic)
 
     def cal_anomaly(self,fdir,save_dir):
-        # fdir = this_root + 'NDVI\\per_pix\\'
-        # save_dir = this_root + 'NDVI\\per_pix_anomaly\\'
+        # fdir = this_root + 'NDVI/per_pix/'
+        # save_dir = this_root + 'NDVI/per_pix_anomaly/'
         Tools().mk_dir(save_dir)
         flist = os.listdir(fdir)
         # flag = 0
@@ -1362,8 +1362,8 @@ class Pre_Process:
 
 
     def smooth_anomaly(self):
-        fdir = this_root+'NDVI\\per_pix_anomaly\\'
-        outdir = this_root+'NDVI\\per_pix_anomaly_smooth\\'
+        fdir = this_root+'NDVI/per_pix_anomaly/'
+        outdir = this_root+'NDVI/per_pix_anomaly_smooth/'
         Tools().mk_dir(outdir)
         for f in tqdm(os.listdir(fdir)):
             dic = dict(np.load(fdir+f).item())

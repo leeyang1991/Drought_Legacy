@@ -75,6 +75,9 @@ class Global_vars:
             'sand',
             'awc',
             'drought_year_sos_std_anomaly',
+            'thaw_date_std_anomaly',
+            'thaw_date_anomaly',
+            'thaw_date',
              ]
         # Y = 'delta_legacy'
         Y = 'trend'
@@ -91,7 +94,7 @@ class Global_vars:
         df = df[df['lat'] > 30]
         df = df[df['lat'] < 60]
         # df = df[df['delta_legacy'] < -0]
-        df = df[df['trend_score'] > 0.2]
+        # df = df[df['trend_score'] > 0.2]
         # df = df[df['gs_sif_spei_corr'] > 0]
 
         trend = df['trend']
@@ -118,8 +121,8 @@ class Global_vars:
 class Main_flow_Early_Peak_Late_Dormant:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Early_Peak_Late_Dormant\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Early_Peak_Late_Dormant\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Early_Peak_Late_Dormant/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Early_Peak_Late_Dormant/'
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
         pass
@@ -164,12 +167,12 @@ class Main_flow_Early_Peak_Late_Dormant:
         pass
 
     def return_phenology(self):
-        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term\\early_peak_late_dormant_period_long_term.npy'
+        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term/early_peak_late_dormant_period_long_term.npy'
         dic = T.load_npy(f)
         return dic
 
     def return_gs(self):
-        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term\\early_peak_late_dormant_period_long_term.npy'
+        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term/early_peak_late_dormant_period_long_term.npy'
         dic = T.load_npy(f)
         gs_dic = {}
         for pix in dic:
@@ -180,9 +183,9 @@ class Main_flow_Early_Peak_Late_Dormant:
 
 
     def check_early_peak_late_dormant_period_long_term(self):
-        outtifdir = self.this_class_tif + 'early_peak_late_dormant_period_long_term\\'
+        outtifdir = self.this_class_tif + 'early_peak_late_dormant_period_long_term/'
         T.mk_dir(outtifdir)
-        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term\\early_peak_late_dormant_period_long_term.npy'
+        f = self.this_class_arr + 'early_peak_late_dormant_period_long_term/early_peak_late_dormant_period_long_term.npy'
         dic = T.load_npy(f)
 
         # result = {
@@ -228,7 +231,7 @@ class Main_flow_Early_Peak_Late_Dormant:
 
 
     def check_get_early_peak_late_dormant_period_long_term(self):
-        fdir = self.this_class_arr + 'transform_early_peak_late_dormant_period_annual\\'
+        fdir = self.this_class_arr + 'transform_early_peak_late_dormant_period_annual/'
         for var in os.listdir(fdir):
             # print var
             dic = T.load_npy(fdir + var)
@@ -285,9 +288,9 @@ class Main_flow_Early_Peak_Late_Dormant:
         }
 
 
-        outdir = self.this_class_arr + 'transform_early_peak_late_dormant_period_annual\\'
+        outdir = self.this_class_arr + 'transform_early_peak_late_dormant_period_annual/'
         T.mk_dir(outdir)
-        fdir = self.this_class_arr + 'early_peak_late_dormant_period_annual\\'
+        fdir = self.this_class_arr + 'early_peak_late_dormant_period_annual/'
         #
         for var in vars_dic:
             spatial_dic = DIC_and_TIF().void_spatial_dic()
@@ -334,14 +337,14 @@ class Main_flow_Early_Peak_Late_Dormant:
         pass
 
     def hants_smooth_annual(self):
-        outdir = self.this_class_arr + 'hants_smooth_annual\\'
+        outdir = self.this_class_arr + 'hants_smooth_annual/'
         T.mk_dir(outdir)
         gs_f = Phenology_based_on_Temperature_NDVI().this_class_arr + 'growing_season_index.npy'
         gs_dic = T.load_npy(gs_f)
-        per_pix_dir = self.this_class_arr + 'data_transform_annual\\'
+        per_pix_dir = self.this_class_arr + 'data_transform_annual/'
         for year in os.listdir(per_pix_dir):
             # print year
-            per_pix_dir_i = per_pix_dir + year + '\\'
+            per_pix_dir_i = per_pix_dir + year + '/'
             outf = outdir + year
             ndvi_dic = {}
             for f in os.listdir(per_pix_dir_i):
@@ -359,21 +362,21 @@ class Main_flow_Early_Peak_Late_Dormant:
 
     def data_transform_annual(self):
 
-        fdir = self.this_class_tif + 'tif_bi_weekly_annual\\'
-        outdir = self.this_class_arr + 'data_transform_annual\\'
+        fdir = self.this_class_tif + 'tif_bi_weekly_annual/'
+        outdir = self.this_class_arr + 'data_transform_annual/'
         T.mk_dir(outdir)
         for year in os.listdir(fdir):
             # print year,'\n'
             # for f in os.listdir(fdir + year):
             #     print f
-            outdir_i = outdir + year + '\\'
+            outdir_i = outdir + year + '/'
             T.mk_dir(outdir_i)
-            Pre_Process().data_transform(fdir + year + '\\', outdir_i)
+            Pre_Process().data_transform(fdir + year + '/', outdir_i)
         pass
 
     def early_peak_late_dormant_period_annual(self,threshold_i=0.2):
-        hants_smooth_dir = self.this_class_arr + 'hants_smooth_annual\\'
-        outdir = self.this_class_arr + 'early_peak_late_dormant_period_annual\\'
+        hants_smooth_dir = self.this_class_arr + 'hants_smooth_annual/'
+        outdir = self.this_class_arr + 'early_peak_late_dormant_period_annual/'
         T.mk_dir(outdir)
 
         for f in os.listdir(hants_smooth_dir):
@@ -430,8 +433,8 @@ class Main_flow_Early_Peak_Late_Dormant:
             np.save(outf_i,result_dic)
 
     def early_peak_late_dormant_period_long_term(self,threshold_i=0.2):
-        hants_smooth_f = self.this_class_arr + 'hants_smooth\\hants_smooth.npy'
-        outdir = self.this_class_arr + 'early_peak_late_dormant_period_long_term\\'
+        hants_smooth_f = self.this_class_arr + 'hants_smooth/hants_smooth.npy'
+        outdir = self.this_class_arr + 'early_peak_late_dormant_period_long_term/'
         T.mk_dir(outdir)
         outf = outdir + 'early_peak_late_dormant_period_long_term'
         hants_dic = T.load_npy(hants_smooth_f)
@@ -475,12 +478,12 @@ class Main_flow_Early_Peak_Late_Dormant:
         np.save(outf,result_dic)
 
     def hants_smooth(self):
-        outdir = self.this_class_arr + 'hants_smooth\\'
+        outdir = self.this_class_arr + 'hants_smooth/'
         outf = outdir + 'hants_smooth'
         T.mk_dir(outdir)
         gs_f = Phenology_based_on_Temperature_NDVI().this_class_arr + 'growing_season_index.npy'
         gs_dic = T.load_npy(gs_f)
-        per_pix_dir = self.this_class_arr + 'NDVI_bi_weekly_per_pix\\'
+        per_pix_dir = self.this_class_arr + 'NDVI_bi_weekly_per_pix/'
         ndvi_dic = {}
         for f in os.listdir(per_pix_dir):
             dic = T.load_npy(per_pix_dir+f)
@@ -497,8 +500,8 @@ class Main_flow_Early_Peak_Late_Dormant:
 
 
     def tif_bi_weekly_annual(self):
-        fdir = data_root + 'NDVI\\tif_05deg_bi_weekly\\'
-        outdir = self.this_class_tif + 'tif_bi_weekly_annual\\'
+        fdir = data_root + 'NDVI/tif_05deg_bi_weekly/'
+        outdir = self.this_class_tif + 'tif_bi_weekly_annual/'
         T.mk_dir(outdir)
         date_list = []
         for y in range(1982, 2016):
@@ -510,7 +513,7 @@ class Main_flow_Early_Peak_Late_Dormant:
         for annual in date_list:
             yyyy = annual[0].split('.')[0][:4]
             # print yyyy
-            outdir_i = outdir + yyyy + '\\'
+            outdir_i = outdir + yyyy + '/'
             T.mk_dir(outdir_i)
             for mon in annual:
                 f = fdir + mon
@@ -518,8 +521,8 @@ class Main_flow_Early_Peak_Late_Dormant:
 
 
     def tif_bi_weekly_mean_long_term(self):
-        fdir = data_root + 'NDVI\\tif_05deg_bi_weekly\\'
-        outdir = self.this_class_tif + 'tif_bi_weekly_mean\\'
+        fdir = data_root + 'NDVI/tif_05deg_bi_weekly/'
+        outdir = self.this_class_tif + 'tif_bi_weekly_mean/'
         T.mk_dir(outdir)
         date_list = []
         for m in range(1, 13):
@@ -545,8 +548,8 @@ class Main_flow_Early_Peak_Late_Dormant:
 
 
     def data_transform(self):
-        fdir = self.this_class_tif + 'tif_bi_weekly_mean\\'
-        outdir = self.this_class_arr + 'NDVI_bi_weekly_per_pix\\'
+        fdir = self.this_class_tif + 'tif_bi_weekly_mean/'
+        outdir = self.this_class_arr + 'NDVI_bi_weekly_per_pix/'
         Pre_Process().data_transform(fdir,outdir)
 
     def __interp__(self, vals):
@@ -653,9 +656,9 @@ class Main_flow_Early_Peak_Late_Dormant:
 class Main_Flow_Pick_drought_events:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\SPEI_preprocess\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\SPEI_preprocess\\'
-        self.this_class_png = results_root_main_flow + 'png\\SPEI_preprocess\\'
+        self.this_class_arr = results_root_main_flow + 'arr/SPEI_preprocess/'
+        self.this_class_tif = results_root_main_flow + 'tif/SPEI_preprocess/'
+        self.this_class_png = results_root_main_flow + 'png/SPEI_preprocess/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -667,8 +670,8 @@ class Main_Flow_Pick_drought_events:
         pass
 
     def do_pick(self):
-        outdir = self.this_class_arr + 'drought_events\\'
-        fdir = data_root + 'SPEI\\per_pix_clean\\'
+        outdir = self.this_class_arr + 'drought_events/'
+        fdir = data_root + 'SPEI/per_pix_clean/'
         for f in os.listdir(fdir):
             # if not '015' in f:
             #     continue
@@ -828,9 +831,9 @@ class Main_Flow_Pick_drought_events:
 class Main_flow_Recovery_time_Legacy:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Recovery_time_Legacy\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Recovery_time_Legacy\\'
-        self.this_class_png = results_root_main_flow + 'png\\Recovery_time_Legacy\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Recovery_time_Legacy/'
+        self.this_class_tif = results_root_main_flow + 'tif/Recovery_time_Legacy/'
+        self.this_class_png = results_root_main_flow + 'png/Recovery_time_Legacy/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -840,18 +843,18 @@ class Main_flow_Recovery_time_Legacy:
     def run(self):
         # 1 cal recovery time
         event_dic,spei_dic,sif_dic,pred_ndvi_dic = self.load_data()
-        out_dir = self.this_class_arr + 'Recovery_time_Legacy\\'
+        out_dir = self.this_class_arr + 'Recovery_time_Legacy/'
         self.gen_recovery_time_legacy(event_dic,spei_dic, sif_dic,pred_ndvi_dic,out_dir)
         pass
 
     def load_data(self,condition=''):
-        # events_dir = results_root_main_flow + 'arr\\SPEI_preprocess\\drought_events\\'
-        # SPEI_dir = data_root + 'SPEI\\per_pix_clean\\'
-        # SIF_dir = data_root + 'CSIF\\per_pix_anomaly_detrend\\'
+        # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
+        # SPEI_dir = data_root + 'SPEI/per_pix_clean/'
+        # SIF_dir = data_root + 'CSIF/per_pix_anomaly_detrend/'
 
-        events_dir = results_root_main_flow + 'arr\\SPEI_preprocess\\events_408\\spei\\'
-        SPEI_dir = data_root + 'SPEI\\per_pix_408\\'
-        SIF_dir = data_root + 'NDVI\\per_pix_clean_anomaly_smooth_detrend\\'
+        events_dir = results_root_main_flow + 'arr/SPEI_preprocess/events_408/spei/'
+        SPEI_dir = data_root + 'SPEI/per_pix_408/'
+        SIF_dir = data_root + 'NDVI/per_pix_clean_anomaly_smooth_detrend/'
         pred_ndvi_dir = SPEI_NDVI_Reg().this_class_arr + 'pred_NDVI.npy'
 
         event_dic = T.load_npy_dir(events_dir,condition)
@@ -1092,10 +1095,10 @@ class Main_flow_Recovery_time_Legacy:
 
 class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
-    def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Dataframe_NDVI_SPEI_legacy\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Dataframe_NDVI_SPEI_legacy\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Dataframe_NDVI_SPEI_legacy\\'
+    def __init__(self) -> object:
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Dataframe_NDVI_SPEI_legacy/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Dataframe_NDVI_SPEI_legacy/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_Dataframe_NDVI_SPEI_legacy/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -1154,7 +1157,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 20 add phenology info to df (from recovery project)
         # df = self.add_drought_year_SOS(df)
         # 21 add thaw data into df
-        df = self.add_thaw_date(df)
+        # df = self.add_thaw_date(df)
+        df = self.add_thaw_date_anomaly(df)
+        df = self.add_thaw_date_std_anomaly(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1175,7 +1180,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def __load_HI(self):
-        HI_tif = data_root + '\\waterbalance\\HI_difference.tif'
+        HI_tif = data_root + '/waterbalance/HI_difference.tif'
         HI_arr = to_raster.raster2array(HI_tif)[0]
         HI_arr[HI_arr < -9999] = np.nan
         HI_dic = DIC_and_TIF().spatial_arr_to_dic(HI_arr)
@@ -1228,7 +1233,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
 
     def add_koppen_landuse_to_df(self,df):
-        kp_f = data_root + 'Koppen\\cross_koppen_landuse_pix.npy'
+        kp_f = data_root + 'Koppen/cross_koppen_landuse_pix.npy'
         koppen_landuse_dic = T.load_npy(kp_f)
         koppen_landuse_dic_set = {}
         for kl in koppen_landuse_dic:
@@ -1250,7 +1255,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def add_split_landuse_and_kp_to_df(self,df):
-        # df_f = Prepare_CWD_X_pgs_egs_lgs2().this_class_arr + 'prepare\\data_frame.df'
+        # df_f = Prepare_CWD_X_pgs_egs_lgs2().this_class_arr + 'prepare/data_frame.df'
         # df = T.load_df(df_f)
         kp_list = []
         lc_list = []
@@ -1274,7 +1279,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def legacy_to_df(self,df):
-        f = Main_flow_Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy_reg.pkl'
+        f = Main_flow_Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy_reg.pkl'
         events_dic = T.load_dict_from_binary(f)
         pix_list = []
         recovery_time_list = []
@@ -1401,7 +1406,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def add_isohydricity_to_df(self,df):
-        fdir = data_root + r'Isohydricity\per_pix_all_year\\'
+        fdir = data_root + r'Isohydricity\per_pix_all_year/'
         dic = T.load_npy_dir(fdir)
         iso_hyd_list = []
         for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
@@ -1438,7 +1443,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
 
     def add_canopy_height_to_df(self,df):
-        f = data_root + 'Canopy_Height\\per_pix\\Canopy_Height.npy'
+        f = data_root + 'Canopy_Height/per_pix/Canopy_Height.npy'
         dic = T.load_npy(f)
 
         val_list = []
@@ -1456,7 +1461,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def add_rooting_depth_to_df(self,df):
-        f = data_root + 'rooting_depth\\per_pix\\rooting_depth.npy'
+        f = data_root + 'rooting_depth/per_pix/rooting_depth.npy'
         dic = T.load_npy(f)
 
         val_list = []
@@ -1475,7 +1480,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
     def add_TWS_to_df(self,df,year):
 
-        fdir = data_root + 'TWS\\water_gap\\per_pix_anomaly\\'
+        fdir = data_root + 'TWS/water_gap/per_pix_anomaly/'
         tws_dic = T.load_npy_dir(fdir)
         tws_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
@@ -1524,9 +1529,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_climate_delta_to_df(self,df):
-        fdir = data_root + r'Climate_408\\'
+        fdir = data_root + r'Climate_408/'
         for climate in os.listdir(fdir):
-            f = fdir + climate + '\\delta\\delta.npy'
+            f = fdir + climate + '/delta/delta.npy'
             dic = T.load_npy(f)
             val_list = []
             for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
@@ -1542,9 +1547,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_climate_cv_to_df(self, df):
-        fdir = data_root + r'Climate_408\\'
+        fdir = data_root + r'Climate_408/'
         for climate in os.listdir(fdir):
-            f = fdir + climate + '\\CV\\CV.npy'
+            f = fdir + climate + '/CV/CV.npy'
             dic = T.load_npy(f)
             val_list = []
             for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
@@ -1560,9 +1565,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_climate_delta_cv_to_df(self, df):
-        fdir = data_root + r'Climate_408\\'
+        fdir = data_root + r'Climate_408/'
         for climate in os.listdir(fdir):
-            f = fdir + climate + '\\CV\\CV_delta.npy'
+            f = fdir + climate + '/CV/CV_delta.npy'
             dic = T.load_npy(f)
             val_list = []
             for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
@@ -1578,9 +1583,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_climate_trend_to_df(self,df):
-        fdir = data_root + r'Climate_408\\'
+        fdir = data_root + r'Climate_408/'
         for climate in os.listdir(fdir):
-            f = fdir + climate + '\\trend\\trend.npy'
+            f = fdir + climate + '/trend/trend.npy'
             dic = T.load_npy(f)
             val_list = []
             for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
@@ -1609,9 +1614,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def __load_soil(self):
-        sand_tif = data_root + 'HWSD\\T_SAND_resample.tif'
-        silt_tif = data_root + 'HWSD\\T_SILT_resample.tif'
-        clay_tif = data_root + 'HWSD\\T_CLAY_resample.tif'
+        sand_tif = data_root + 'HWSD/T_SAND_resample.tif'
+        silt_tif = data_root + 'HWSD/T_SILT_resample.tif'
+        clay_tif = data_root + 'HWSD/T_CLAY_resample.tif'
 
         sand_arr = to_raster.raster2array(sand_tif)[0]
         silt_arr = to_raster.raster2array(silt_tif)[0]
@@ -1642,7 +1647,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_delta_SPEI(self,df):
-        f = data_root + 'SPEI\\delta\\delta.npy'
+        f = data_root + 'SPEI/delta/delta.npy'
         dic = T.load_npy(f)
         val_list = []
         for i, row in tqdm(df.iterrows(), total=len(df), desc='add_delta_SPEI'):
@@ -1667,7 +1672,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             7:0,
             127:np.nan,
         }
-        tif = data_root + 'HWSD\\awc_05.tif'
+        tif = data_root + 'HWSD/awc_05.tif'
         arr = to_raster.raster2array(tif)[0]
         spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
         awc_list = []
@@ -1714,7 +1719,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
     def add_drought_year_SOS(self, df):
         sos_f = Main_flow_Early_Peak_Late_Dormant().this_class_arr + \
-                'transform_early_peak_late_dormant_period_annual\\early_start.npy'
+                'transform_early_peak_late_dormant_period_annual/early_start.npy'
         sos_dic = T.load_npy(sos_f)
         sos_list = []
         sos_anomaly_list = []
@@ -1771,7 +1776,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return anomaly, std_anomaly
 
     def add_thaw_date(self,df):
-        fdir = data_root + 'GLOBSWE\\thaw_tif\\'
+        fdir = data_root + 'GLOBSWE/thaw_tif/'
         thaw_year_dic = {}
         for tif in tqdm(os.listdir(fdir),desc='loading thaw tif ...'):
             year = tif.split('.')[0]
@@ -1795,12 +1800,67 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
 
-        # class Main_flow_Dataframe:
+    def add_thaw_date_std_anomaly(self,df):
+        fdir = data_root + 'GLOBSWE/thaw_tif_std_anomaly/'
+        thaw_year_dic = {}
+        for tif in tqdm(sorted(os.listdir(fdir)),desc='loading thaw tif ...'):
+            # print(tif)
+            if not tif.endswith('tif'):
+                continue
+            year = tif.split('.')[0]
+            year = int(year)
+            arr = to_raster.raster2array(fdir + tif)[0]
+            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+            thaw_year_dic[year] = spatial_dic
+        # exit()
+        thaw_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            drought_year = drought_event_date_range[0]//12 + 1982
+            thaw = thaw_year_dic[drought_year][pix]
+            if thaw < -9999:
+                thaw_list.append(np.nan)
+            else:
+                thaw_list.append(thaw)
+
+        df['thaw_date_std_anomaly'] = thaw_list
+
+        return df
+
+    def add_thaw_date_anomaly(self,df):
+        fdir = data_root + 'GLOBSWE/thaw_tif_anomaly/'
+        thaw_year_dic = {}
+        for tif in tqdm(sorted(os.listdir(fdir)),desc='loading thaw tif ...'):
+            # print(tif)
+            if not tif.endswith('tif'):
+                continue
+            year = tif.split('.')[0]
+            year = int(year)
+            arr = to_raster.raster2array(fdir + tif)[0]
+            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+            thaw_year_dic[year] = spatial_dic
+        # exit()
+        thaw_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            drought_year = drought_event_date_range[0]//12 + 1982
+            thaw = thaw_year_dic[drought_year][pix]
+            if thaw < -9999:
+                thaw_list.append(np.nan)
+            else:
+                thaw_list.append(thaw)
+        df['thaw_date_anomaly'] = thaw_list
+
+        return df
+
+# class Main_flow_Dataframe:
 #
 #     def __init__(self):
-#         self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Dataframe\\'
-#         self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Dataframe\\'
-#         self.this_class_png = results_root_main_flow + 'png\\Main_flow_Dataframe\\'
+#         self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Dataframe/'
+#         self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Dataframe/'
+#         self.this_class_png = results_root_main_flow + 'png/Main_flow_Dataframe/'
 #
 #         Tools().mk_dir(self.this_class_arr, force=True)
 #         Tools().mk_dir(self.this_class_tif, force=True)
@@ -1824,7 +1884,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #         # 5 add canopy height into df
 #         # df = self.add_canopy_height_to_df(df)
 #         # 6 add rooting depth into df
-        df = self.add_rooting_depth_to_df(df)
+#         df = self.add_rooting_depth_to_df(df)
 #         # 7 add TWS into df
 #         # for year in range(4):
 #         #     print(year)
@@ -1883,7 +1943,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #         pass
 #
 #     def events_to_df(self,df):
-#         fdir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events\\'
+#         fdir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events/'
 #         events_dic = T.load_npy_dir(fdir)
 #         pix_list = []
 #         event_list = []
@@ -1915,7 +1975,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #         return df
 #
 #     def add_isohydricity_to_df(self,df):
-#         fdir = data_root + r'Isohydricity\per_pix_all_year\\'
+#         fdir = data_root + r'Isohydricity\per_pix_all_year/'
 #         dic = T.load_npy_dir(fdir)
 #         iso_hyd_list = []
 #         for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
@@ -1952,7 +2012,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #
 #
 #     def add_canopy_height_to_df(self,df):
-#         f = data_root + 'Canopy_Height\\per_pix\\Canopy_Height.npy'
+#         f = data_root + 'Canopy_Height/per_pix/Canopy_Height.npy'
 #         dic = T.load_npy(f)
 #
 #         val_list = []
@@ -1970,7 +2030,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #         return df
 #
 #     def add_rooting_depth_to_df(self,df):
-#         f = data_root + 'rooting_depth\\per_pix\\rooting_depth.npy'
+#         f = data_root + 'rooting_depth/per_pix/rooting_depth.npy'
 #         dic = T.load_npy(f)
 #
 #         val_list = []
@@ -1989,7 +2049,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 #
 #     def add_TWS_to_df(self,df,year):
 #
-#         fdir = data_root + 'TWS\\water_gap\\per_pix_anomaly\\'
+#         fdir = data_root + 'TWS/water_gap/per_pix_anomaly/'
 #         tws_dic = T.load_npy_dir(fdir)
 #         tws_list = []
 #         for i,row in tqdm(df.iterrows(),total=len(df)):
@@ -2041,9 +2101,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 class Main_flow_RF:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_RF\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_RF\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_RF\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_RF/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_RF/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_RF/'
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
         Tools().mk_dir(self.this_class_png, force=True)
@@ -2237,7 +2297,7 @@ class Main_flow_RF:
         x_vars, Y_var = Global_vars().variables()
 
         dest_var = Y_var
-        outdir = self.this_class_arr + 'get_feature_importance\\'
+        outdir = self.this_class_arr + 'get_feature_importance/'
         outf = outdir + 'permutation_RF'
         # outf = outdir + 'BRT'
         # outf = outdir + 'RF'
@@ -2317,7 +2377,7 @@ class Main_flow_RF:
         pass
 
     def plot_results(self):
-        fdir = self.this_class_arr + 'get_feature_importance\\'
+        fdir = self.this_class_arr + 'get_feature_importance/'
         # f = fdir + 'linear.txt'
         # f = fdir + 'permutation_RF.txt'
         f = fdir + 'RF.txt'
@@ -2341,9 +2401,9 @@ class Main_flow_RF:
 class Main_flow_correlation:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_correlation\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_correlation\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_correlation\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_correlation/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_correlation/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_correlation/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -2380,7 +2440,7 @@ class Main_flow_correlation:
         x_vars, Y_var = Global_vars().variables()
 
         dest_var = Y_var
-        outdir = self.this_class_arr + 'corr\\'
+        outdir = self.this_class_arr + 'corr/'
         outf = outdir + 'corr'
         # outf = outdir + 'linear'
         T.mk_dir(outdir,force=True)
@@ -2438,9 +2498,9 @@ class Main_flow_Hot_Map_corr_RF:
     RF Work flow
     '''
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Hot_Map_corr_RF\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Hot_Map_corr_RF\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Hot_Map_corr_RF\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Hot_Map_corr_RF/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Hot_Map_corr_RF/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_Hot_Map_corr_RF/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -2598,16 +2658,16 @@ class Main_flow_Hot_Map_corr_RF:
 
     def hotmap(self):
         x_list,dest_Y = Global_vars().variables()
-        outpngdir = self.this_class_png + 'hotmap_lc\\'
+        outpngdir = self.this_class_png + 'hotmap_lc/'
         T.mk_dir(outpngdir)
         ##########################################################   È¦   ###########################################################################
-        rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\permutation_RF.txt'
-        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\BRT.txt'
-        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\RF.txt'
-        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance\\linear.txt'
+        rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance/permutation_RF.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance/BRT.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance/RF.txt'
+        # rf_result_f = Main_flow_RF().this_class_arr + 'get_feature_importance/linear.txt'
         ##########################################################   È¦   ###########################################################################
         ##########################################################  ±³¾°  ###########################################################################
-        partial_corr_result_f = Main_flow_correlation().this_class_arr + 'corr\\corr.txt'
+        partial_corr_result_f = Main_flow_correlation().this_class_arr + 'corr/corr.txt'
         ##########################################################  ±³¾°  ###########################################################################
 
 
@@ -2757,9 +2817,9 @@ class Main_flow_Hot_Map_corr_RF:
 class Main_flow_pick_pure_forest_pixels():
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_pick_pure_forest_pixels\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_pick_pure_forest_pixels\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_pick_pure_forest_pixels\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_pick_pure_forest_pixels/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_pick_pure_forest_pixels/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_pick_pure_forest_pixels/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -2777,7 +2837,7 @@ class Main_flow_pick_pure_forest_pixels():
         df = T.load_df(dff)
         pix = df.pix
         valid_pix = set(list(pix))
-        glc_f = data_root + 'landcover\\glc2000_v1_1.tif'
+        glc_f = data_root + 'landcover/glc2000_v1_1.tif'
         glc_arr,originX,originY,pixelWidth,pixelHeight = to_raster.raster2array(glc_f)
 
         rows = len(glc_arr)
@@ -2846,9 +2906,9 @@ class Main_flow_Partial_Dependence_Plots:
     https://towardsdatascience.com/looking-beyond-feature-importance-37d2807aaaa7
     '''
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Main_flow_Partial_Dependence_Plots\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Main_flow_Partial_Dependence_Plots\\'
-        self.this_class_png = results_root_main_flow + 'png\\Main_flow_Partial_Dependence_Plots\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Partial_Dependence_Plots/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Partial_Dependence_Plots/'
+        self.this_class_png = results_root_main_flow + 'png/Main_flow_Partial_Dependence_Plots/'
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
         Tools().mk_dir(self.this_class_png, force=True)
@@ -2866,9 +2926,9 @@ class Main_flow_Partial_Dependence_Plots:
 
 
     def partial_dependent_plot(self,df,x_vars,y_vars):
-        outpngdir = self.this_class_png + 'partial_dependent_plot\\'
+        outpngdir = self.this_class_png + 'partial_dependent_plot/'
         T.mk_dir(outpngdir)
-        outdir = self.this_class_png + 'partial_dependent_plot\\'
+        outdir = self.this_class_png + 'partial_dependent_plot/'
         T.mk_dir(outdir,force=True)
 
         flag = 0

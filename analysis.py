@@ -6,9 +6,9 @@ from CSIF_legacy import *
 class Correlation_CSIF_SPEI:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Correlation_CSIF_SPEI\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Correlation_CSIF_SPEI\\'
-        self.this_class_png = results_root_main_flow + 'png\\Correlation_CSIF_SPEI\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Correlation_CSIF_SPEI/'
+        self.this_class_tif = results_root_main_flow + 'tif/Correlation_CSIF_SPEI/'
+        self.this_class_png = results_root_main_flow + 'png/Correlation_CSIF_SPEI/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -33,8 +33,8 @@ class Correlation_CSIF_SPEI:
         pass
 
     def correlation(self):
-        CSIF_dir = data_root + r'CSIF\per_pix_anomaly_detrend\\'
-        SPEI_dir = data_root + r'SPEI\per_pix_clean\\'
+        CSIF_dir = data_root + r'CSIF\per_pix_anomaly_detrend/'
+        SPEI_dir = data_root + r'SPEI\per_pix_clean/'
 
         csif_dic = T.load_npy_dir(CSIF_dir)
         spei_dic = T.load_npy_dir(SPEI_dir)
@@ -71,9 +71,9 @@ class Correlation_CSIF_SPEI:
 class Statistic:
 
     def __init__(self):
-        self.this_class_arr = results_root_main_flow + 'arr\\Statistic\\'
-        self.this_class_tif = results_root_main_flow + 'tif\\Statistic\\'
-        self.this_class_png = results_root_main_flow + 'png\\Statistic\\'
+        self.this_class_arr = results_root_main_flow + 'arr/Statistic/'
+        self.this_class_tif = results_root_main_flow + 'tif/Statistic/'
+        self.this_class_png = results_root_main_flow + 'png/Statistic/'
 
         Tools().mk_dir(self.this_class_arr, force=True)
         Tools().mk_dir(self.this_class_tif, force=True)
@@ -367,7 +367,7 @@ class Statistic:
 class Tif:
 
     def __init__(self):
-        self.this_class_tif = results_root_main_flow + 'tif\\Tif\\'
+        self.this_class_tif = results_root_main_flow + 'tif/Tif/'
         Tools().mk_dir(self.this_class_tif, force=True)
         pass
 
@@ -380,12 +380,12 @@ class Tif:
 
 
     def tif_legacy(self):
-        outtifdir = self.this_class_tif + 'tif_legacy\\'
+        outtifdir = self.this_class_tif + 'tif_legacy/'
         T.mk_dir(outtifdir)
         # outtif = outtifdir + 'tif_legacy.tif'
         outtif = outtifdir + 'tif_legacy_reg_sig.tif'
-        f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy_reg_sig.pkl'
-        # f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy\\recovery_time_legacy.pkl'
+        f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy_reg_sig.pkl'
+        # f = Recovery_time_Legacy().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy.pkl'
         dic = T.load_dict_from_binary(f)
         spatial_dic = DIC_and_TIF().void_spatial_dic()
         for pix in dic:
@@ -400,7 +400,7 @@ class Tif:
         pass
 
     def tif_delta_legacy(self):
-        outtifdir = self.this_class_tif + 'tif_delta_legacy\\'
+        outtifdir = self.this_class_tif + 'tif_delta_legacy/'
         T.mk_dir(outtifdir)
         # outtif = outtifdir + 'tif_legacy.tif'
         outtif = outtifdir + 'delta_legacy.tif'
@@ -417,7 +417,7 @@ class Tif:
 
 
     def tif_legacy_trend(self):
-        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        outtifdir = self.this_class_tif + 'tif_legacy_trend/'
         T.mk_dir(outtifdir)
         outtif = outtifdir + 'trend_legacy.tif'
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
@@ -437,7 +437,7 @@ class Tif:
         DIC_and_TIF().arr_to_tif(arr,outtif)
 
     def tif_legacy_trend_byte(self):
-        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        outtifdir = self.this_class_tif + 'tif_legacy_trend/'
         T.mk_dir(outtifdir)
         # outtif = outtifdir + 'tif_legacy.tif'
         outtif = outtifdir + 'trend_legacy_sig_byte.tif'
@@ -472,7 +472,7 @@ class Tif:
 
 
     def shp_legacy_trend_sig_star(self):
-        outtifdir = self.this_class_tif + 'tif_legacy_trend\\'
+        outtifdir = self.this_class_tif + 'tif_legacy_trend/'
         T.mk_dir(outtifdir)
         # outtif = outtifdir + 'tif_legacy.tif'
         outtif = outtifdir + 'trend_legacy_sig.tif'
@@ -520,11 +520,11 @@ class Climate_Vars_delta_change:
 
     def delta(self):
         gs_mons = list(range(4,10))
-        fdir = data_root + 'Climate_408\\'
+        fdir = data_root + 'Climate_408/'
         for climate_var in os.listdir(fdir):
-            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
-            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean') + '\\'
-            outdir = fdir + climate_var + '\\' + 'delta\\'
+            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '/'
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean') + '/'
+            outdir = fdir + climate_var + '/' + 'delta/'
             T.mk_dir(outdir)
             outf = outdir + 'delta_origin_val'
             dic = T.load_npy_dir(npy_dir)
@@ -547,13 +547,13 @@ class Climate_Vars_delta_change:
         :return:
         '''
         gs_mons = list(range(4, 10))
-        fdir = data_root + 'Climate_408\\'
+        fdir = data_root + 'Climate_408/'
         for climate_var in os.listdir(fdir):
             # if climate_var != 'VPD':
             #     continue
-            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
-            npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
-            outdir = fdir + climate_var + '\\' + 'CV\\'
+            # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '/'
+            npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '/'
+            outdir = fdir + climate_var + '/' + 'CV/'
             T.mk_dir(outdir)
             outf = outdir + 'CV'
             dic = T.load_npy_dir(npy_dir,)
@@ -583,13 +583,13 @@ class Climate_Vars_delta_change:
         :return:
         '''
         gs_mons = list(range(4, 10))
-        fdir = data_root + 'Climate_408\\'
+        fdir = data_root + 'Climate_408/'
         for climate_var in os.listdir(fdir):
             # if climate_var != 'VPD':
             #     continue
-            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
-            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
-            outdir = fdir + climate_var + '\\' + 'CV\\'
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '/'
+            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '/'
+            outdir = fdir + climate_var + '/' + 'CV/'
             T.mk_dir(outdir)
             outf = outdir + 'CV_delta'
             dic = T.load_npy_dir(npy_dir,)
@@ -617,12 +617,12 @@ class Climate_Vars_delta_change:
         pass
 
     def check(self):
-        fdir = data_root + 'Climate_408\\'
+        fdir = data_root + 'Climate_408/'
         for climate_var in os.listdir(fdir):
-            # f = fdir + climate_var + '\\' + 'delta\\delta.npy'
-            # f = fdir + climate_var + '\\' + 'CV\\CV.npy'
-            f = fdir + climate_var + '\\' + 'trend\\trend.npy'
-            # f = fdir + climate_var + '\\' + 'delta\\delta_origin_val.npy'
+            # f = fdir + climate_var + '/' + 'delta/delta.npy'
+            # f = fdir + climate_var + '/' + 'CV/CV.npy'
+            f = fdir + climate_var + '/' + 'trend/trend.npy'
+            # f = fdir + climate_var + '/' + 'delta/delta_origin_val.npy'
             dic = T.load_npy(f)
             arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic)
             DIC_and_TIF().plot_back_ground_arr()
@@ -637,9 +637,9 @@ class Climate_Vars_delta_change:
 
     def spei_delta(self):
         gs_mons = list(range(4, 10))
-        # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
-        npy_dir = data_root + 'SPEI\\per_pix_408\\'
-        outdir = data_root + 'SPEI\\' + 'delta\\'
+        # npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '/'
+        npy_dir = data_root + 'SPEI/per_pix_408/'
+        outdir = data_root + 'SPEI/' + 'delta/'
         T.mk_dir(outdir)
         outf = outdir + 'delta'
         dic = T.load_npy_dir(npy_dir)
@@ -664,11 +664,11 @@ class Climate_Vars_delta_change:
 
     def trend(self):
         gs_mons = list(range(4, 10))
-        fdir = data_root + 'Climate_408\\'
+        fdir = data_root + 'Climate_408/'
         for climate_var in os.listdir(fdir):
-            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '\\'
-            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '\\'
-            outdir = fdir + climate_var + '\\' + 'trend\\'
+            npy_dir = os.path.join(fdir, climate_var,'per_pix_clean_anomaly_smooth') + '/'
+            # npy_dir = os.path.join(fdir, climate_var, 'per_pix_clean') + '/'
+            outdir = fdir + climate_var + '/' + 'trend/'
             T.mk_dir(outdir)
             outf = outdir + 'trend'
             dic = T.load_npy_dir(npy_dir)
@@ -702,12 +702,54 @@ class Constant_Vars:
     def run(self):
         pass
 
+class SWE_change:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        self.foo()
+        pass
+
+    def foo(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        swe_anomaly_hist_pos = []
+        swe_anomaly_hist_neg = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            delta_legacy = row.delta_legacy
+            # thaw_date_anomaly = row.thaw_date_anomaly
+            thaw_date_anomaly = row.thaw_date_std_anomaly
+            if delta_legacy > 0:
+                swe_anomaly_hist_pos.append(thaw_date_anomaly)
+            else:
+                swe_anomaly_hist_neg.append(thaw_date_anomaly)
+        # plt.hist(swe_anomaly_hist_pos,bins=40,alpha=0.5,density=True)
+        # plt.hist(swe_anomaly_hist_neg,bins=40,alpha=0.5,density=True)
+        swe_anomaly_hist_pos = np.array(swe_anomaly_hist_pos)
+        swe_anomaly_hist_neg = np.array(swe_anomaly_hist_neg)
+        swe_anomaly_hist_neg=T.remove_np_nan(swe_anomaly_hist_neg)
+        swe_anomaly_hist_pos=T.remove_np_nan(swe_anomaly_hist_pos)
+
+        # print(swe_anomaly_hist_neg)
+        # exit()
+        plt.boxplot([swe_anomaly_hist_pos,swe_anomaly_hist_neg],showfliers=False)
+        plt.show()
+
+        # print(df)
+
+
+        pass
 
 def main():
     # Correlation_CSIF_SPEI().run()
-    Statistic().run()
+    # Statistic().run()
     # Tif().run()
     # Climate_Vars_delta_change().run()
+    SWE_change().run()
+
     pass
 
 

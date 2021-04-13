@@ -56,10 +56,15 @@ def sleep(t=1):
     time.sleep(t)
 def pause():
     input('\33[7m'+"PRESS ENTER TO CONTINUE."+'\33[0m')
-this_root = 'G:\Drought_legacy\\'
-data_root = 'G:\Drought_legacy\\data\\'
-results_root = 'G:\Drought_legacy\\results\\'
-results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
+# this_root = 'G:\Drought_legacy\\'
+# data_root = 'G:\Drought_legacy\\data\\'
+# results_root = 'G:\Drought_legacy\\results\\'
+# results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
+
+this_root = '/Users/wenzhang/project/Drought_legacy/'
+data_root = this_root + 'data/'
+results_root = this_root + 'results/'
+results_root_main_flow = this_root + 'main_flow_results/'
 # from HANTS import *
 
 # plt.rcParams['font.sans-serif'] = ['SimHei']

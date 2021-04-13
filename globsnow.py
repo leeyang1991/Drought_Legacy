@@ -20,7 +20,7 @@ import requests
 from __init__ import *
 
 # exit()
-# this_root = 'D:\\project05\\'
+# this_root = 'D:/project05/'
 
 
 
@@ -57,18 +57,18 @@ class pre_poecess_daily:
         # 5 split_year
         # self.split_annual()
         # 6 转换为per_pix
-        # fdir = data_root + 'GLOBSWE\\reproj\\swe_annual\\'
+        # fdir = data_root + 'GLOBSWE/reproj/swe_annual/'
         # for folder in os.listdir(fdir):
         #     print(folder)
         #     print('\n')
-        #     fdir_i = data_root + 'GLOBSWE\\reproj\\swe_annual\\{}\\'.format(folder)
-        #     outf = data_root + 'GLOBSWE\\per_pix_annual\\'+folder
+        #     fdir_i = data_root + 'GLOBSWE/reproj/swe_annual/{}/'.format(folder)
+        #     outf = data_root + 'GLOBSWE/per_pix_annual/'+folder
         #     self.data_transform(fdir_i,outf)
         # 7 计算 thaw融雪日
-        self.get_thaw()
+        # self.get_thaw()
         # self.insert_per_pix()
         # 6 计算 anomaly
-        # analysis.Pre_Process().cal_anomaly()
+        self.cal_anomaly()
         pass
 
 
@@ -95,7 +95,7 @@ class pre_poecess_daily:
         url_father,url_i = params
         url = url_father + url_i
         name = '{}'.format(url_i)
-        out_dir = data_root + 'GLOBSWE\\download\\'
+        out_dir = data_root + 'GLOBSWE/download/'
         f = out_dir + name
         T.mk_dir(out_dir, force=True)
         # check_zip(f)
@@ -122,8 +122,8 @@ class pre_poecess_daily:
         fw.write(con)
 
     def unzip(self):
-        fdir = this_root + 'GLOBSWE\\download\\'
-        outdir = this_root + 'GLOBSWE\\nc\\'
+        fdir = this_root + 'GLOBSWE/download/'
+        outdir = this_root + 'GLOBSWE/nc/'
         analysis.Tools().mk_dir(outdir)
         for f in os.listdir(fdir):
             if f.endswith('.gz'):
@@ -140,8 +140,8 @@ class pre_poecess_daily:
         # data = 'SWE_avg'
         # data = 'SWE_max'
         # 可行
-        ncdir = data_root + 'GLOBSWE\\download\\'
-        out_dir = data_root + 'GLOBSWE\\nc_to_tif\\' + data + '\\'
+        ncdir = data_root + 'GLOBSWE/download/'
+        out_dir = data_root + 'GLOBSWE/nc_to_tif/' + data + '/'
         analysis.Tools().mk_dir(out_dir, force=True)
         for f in tqdm(os.listdir(ncdir)):
             # print f
@@ -171,8 +171,8 @@ class pre_poecess_daily:
         x = np.array(ncin['x'])
         y = np.array(ncin['y'])
         longitude_start, latitude_start, pixelWidth, pixelHeight = x[0], y[0], x[1] - x[0], y[1] - y[0]
-        hdf_dir = this_root + 'GLOBSWE\\download\\'
-        out_dir = this_root + 'GLOBSWE\\hdf_to_tif\\' + data + '\\'
+        hdf_dir = this_root + 'GLOBSWE/download/'
+        out_dir = this_root + 'GLOBSWE/hdf_to_tif/' + data + '/'
         analysis.Tools().mk_dir(out_dir, force=True)
         for f in os.listdir(hdf_dir):
             if f.endswith('.hdf'):
@@ -198,14 +198,14 @@ class pre_poecess_daily:
 
 
     def split_annual(self):
-        fdir = data_root + 'GLOBSWE\\reproj\\' + 'swe' + '\\'
-        outdir = data_root + 'GLOBSWE\\reproj\\' + 'swe_annual' + '\\'
+        fdir = data_root + 'GLOBSWE/reproj/' + 'swe' + '/'
+        outdir = data_root + 'GLOBSWE/reproj/' + 'swe_annual' + '/'
         T.mk_dir(outdir)
 
         for f in tqdm(os.listdir(fdir)):
             if f.endswith('.tif'):
                 year = f[:4]
-                outdir_i = outdir + year + '\\'
+                outdir_i = outdir + year + '/'
                 T.mk_dir(outdir_i)
                 shutil.copy(fdir + f,outdir_i + f)
         pass
@@ -263,7 +263,7 @@ class pre_poecess_daily:
 
     def data_transform(self,fdir,outf):
         date_list = []
-        date_start = outf.split('\\')[-1]
+        date_start = outf.split('/')[-1]
         date_start = int(date_start)
         date_end = date_start + 1
 
@@ -322,8 +322,8 @@ class pre_poecess_daily:
     def insert_per_pix(self):
         mode = 'SWE_avg'
         # mode = 'SWE_max'
-        fdir = this_root+'GLOBSWE\\per_pix\\'+mode+'\\'
-        out_dir = this_root+'GLOBSWE\\per_pix\\'+mode+'_408\\'
+        fdir = this_root+'GLOBSWE/per_pix/'+mode+'/'
+        out_dir = this_root+'GLOBSWE/per_pix/'+mode+'_408/'
         analysis.Tools().mk_dir(out_dir)
         # spatial_dic = {}
 
@@ -388,8 +388,8 @@ class pre_poecess_daily:
 
     def get_thaw(self):
         window = 60 # days
-        fdir = data_root + 'GLOBSWE\\per_pix_annual\\'
-        outdir = data_root + 'GLOBSWE\\thaw_tif\\'
+        fdir = data_root + 'GLOBSWE/per_pix_annual/'
+        outdir = data_root + 'GLOBSWE/thaw_tif/'
         T.mk_dir(outdir)
         params = []
         for f in os.listdir(fdir):
@@ -397,6 +397,49 @@ class pre_poecess_daily:
         MULTIPROCESS(self.kernel_get_thaw,params).run(process=5)
         pass
 
+    def cal_anomaly(self):
+        fdir = data_root + 'GLOBSWE/thaw_tif/'
+        outdir_anomaly = data_root + 'GLOBSWE/thaw_tif_anomaly/'
+        outdir_std_anomaly = data_root + 'GLOBSWE/thaw_tif_std_anomaly/'
+        T.mk_dir(outdir_anomaly)
+        T.mk_dir(outdir_std_anomaly)
+        arrs = []
+        for f in sorted(os.listdir(fdir)):
+            arr = to_raster.raster2array(fdir+f)[0]
+            arrs.append(arr)
+
+        mean_dic = {}
+        std_dic = {}
+        for i in tqdm(range(len(arrs[0]))):
+            for j in range(len(arrs[0][0])):
+                pix = (i,j)
+                val_list = []
+                for k in range(len(arrs)):
+                    val = arrs[k][i][j]
+                    if val <= 0:
+                        continue
+                    val_list.append(val)
+                if len(val_list) == 0:
+                    continue
+                mean = np.nanmean(val_list)
+                std = np.nanstd(val_list)
+                mean_dic[pix] = mean
+                std_dic[pix] = std
+        mean_arr = DIC_and_TIF().pix_dic_to_spatial_arr(mean_dic)
+        std_arr = DIC_and_TIF().pix_dic_to_spatial_arr(std_dic)
+        base = 1982
+        flag = 0
+        for arr in arrs:
+            fname = '{}.tif'.format(base+flag)
+            print(fname)
+            arr[arr <= 0] = np.nan
+            anomaly_arr = arr - mean_arr
+            std_anomaly_arr = anomaly_arr / std_arr
+            DIC_and_TIF().arr_to_tif(anomaly_arr,outdir_anomaly+fname)
+            DIC_and_TIF().arr_to_tif(std_anomaly_arr,outdir_std_anomaly+fname)
+            flag += 1
+
+        pass
 
 
 class pre_poecess_monthly:
@@ -450,7 +493,7 @@ class pre_poecess_monthly:
               'GlobSnow_SWE_L3B_monthly_{}_v2.0.nc.gz'.format(year, date)
         # print url
         name = '{}.gz'.format(date)
-        out_dir = this_root + 'GLOBSWE\\download\\'
+        out_dir = this_root + 'GLOBSWE/download/'
         f = out_dir + name
 
         analysis.Tools().mk_dir(out_dir, force=True)
@@ -472,8 +515,8 @@ class pre_poecess_monthly:
             f.write(resp.content)
 
     def unzip(self):
-        fdir = this_root + 'GLOBSWE\\download\\'
-        outdir = this_root + 'GLOBSWE\\nc\\'
+        fdir = this_root + 'GLOBSWE/download/'
+        outdir = this_root + 'GLOBSWE/nc/'
         analysis.Tools().mk_dir(outdir)
         for f in os.listdir(fdir):
             if f.endswith('.gz'):
@@ -490,8 +533,8 @@ class pre_poecess_monthly:
         # data = 'SWE_avg'
         # data = 'SWE_max'
         # 可行
-        ncdir = this_root + 'GLOBSWE\\nc\\'
-        out_dir = this_root + 'GLOBSWE\\nc_to_tif\\' + data + '\\'
+        ncdir = this_root + 'GLOBSWE/nc/'
+        out_dir = this_root + 'GLOBSWE/nc_to_tif/' + data + '/'
         analysis.Tools().mk_dir(out_dir, force=True)
         for f in os.listdir(ncdir):
             # print f
@@ -520,8 +563,8 @@ class pre_poecess_monthly:
         x = np.array(ncin['x'])
         y = np.array(ncin['y'])
         longitude_start, latitude_start, pixelWidth, pixelHeight = x[0], y[0], x[1] - x[0], y[1] - y[0]
-        hdf_dir = this_root + 'GLOBSWE\\download\\'
-        out_dir = this_root + 'GLOBSWE\\hdf_to_tif\\' + data + '\\'
+        hdf_dir = this_root + 'GLOBSWE/download/'
+        out_dir = this_root + 'GLOBSWE/hdf_to_tif/' + data + '/'
         analysis.Tools().mk_dir(out_dir, force=True)
         for f in os.listdir(hdf_dir):
             if f.endswith('.hdf'):
@@ -600,8 +643,8 @@ class pre_poecess_monthly:
         # 不可并行，内存不足
         mode = 'SWE_max'
         # mode = 'SWE_avg'
-        fdir = this_root+'GLOBSWE\\tif\\'+mode+'\\'
-        outdir = this_root+'GLOBSWE\\per_pix\\'+mode+'\\'
+        fdir = this_root+'GLOBSWE/tif/'+mode+'/'
+        outdir = this_root+'GLOBSWE/per_pix/'+mode+'/'
         analysis.Tools().mk_dir(outdir,force=True)
         # 将空间图转换为数组
         # per_pix_data
@@ -671,8 +714,8 @@ class pre_poecess_monthly:
     def insert_per_pix(self):
         mode = 'SWE_avg'
         # mode = 'SWE_max'
-        fdir = this_root+'GLOBSWE\\per_pix\\'+mode+'\\'
-        out_dir = this_root+'GLOBSWE\\per_pix\\'+mode+'_408\\'
+        fdir = this_root+'GLOBSWE/per_pix/'+mode+'/'
+        out_dir = this_root+'GLOBSWE/per_pix/'+mode+'_408/'
         analysis.Tools().mk_dir(out_dir)
         # spatial_dic = {}
 

@@ -721,7 +721,8 @@ class SWE_change:
         for i,row in tqdm(df.iterrows(),total=len(df)):
             delta_legacy = row.delta_legacy
             # thaw_date_anomaly = row.thaw_date_anomaly
-            thaw_date_anomaly = row.thaw_date_std_anomaly
+            # thaw_date_anomaly = row.thaw_date_std_anomaly
+            thaw_date_anomaly = row.drought_year_sos_std_anomaly
             if delta_legacy > 0:
                 swe_anomaly_hist_pos.append(thaw_date_anomaly)
             else:
@@ -735,7 +736,9 @@ class SWE_change:
 
         # print(swe_anomaly_hist_neg)
         # exit()
-        plt.boxplot([swe_anomaly_hist_pos,swe_anomaly_hist_neg],showfliers=False)
+        plt.hist(swe_anomaly_hist_neg,bins=20,density=True,alpha=0.5,color='r')
+        plt.hist(swe_anomaly_hist_pos,bins=20,density=True,alpha=0.5,color='b')
+        # plt.boxplot([swe_anomaly_hist_pos,swe_anomaly_hist_neg],showfliers=False)
         plt.show()
 
         # print(df)

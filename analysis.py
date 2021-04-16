@@ -374,8 +374,9 @@ class Tif:
     def run(self):
         # self.tif_legacy()
         # self.tif_delta_legacy()
-        self.tif_legacy_trend()
+        # self.tif_legacy_trend()
         # self.shp_legacy_trend_sig_star()
+        self.annual_tmp_trend()
         pass
 
 
@@ -493,6 +494,32 @@ class Tif:
         # plt.show()
         # DIC_and_TIF().pix_dic_to_tif(spatial_dic, outtif)
 
+
+    def annual_tmp_trend(self):
+        fdir = data_root + 'Climate_408/TMP/per_pix/'
+        outdir = self.this_class_tif + 'annual_tmp_trend/'
+        T.mk_dir(outdir)
+        outf = outdir + 'annual_tmp_trend.tif'
+        dic = T.load_npy_dir(fdir)
+        trend_dic = {}
+        for pix in tqdm(dic):
+            val = dic[pix]
+            if val[0]<-9999:
+                continue
+            val = np.array(val)
+            val_reshape = np.reshape(val,(34,-1))
+            annual_tmp_mean = []
+            for i in val_reshape:
+                mean = np.mean(i)
+                annual_tmp_mean.append(mean)
+            try:
+                a,b,r = KDE_plot().linefit(list(range(len(annual_tmp_mean))),annual_tmp_mean)
+            except:
+                a = np.nan
+            trend_dic[pix] = a
+        trend_arr = DIC_and_TIF().pix_dic_to_spatial_arr(trend_dic)
+        DIC_and_TIF().arr_to_tif(trend_arr,outf)
+        pass
 
 class Climate_Vars_delta_change:
 
@@ -659,9 +686,6 @@ class Climate_Vars_delta_change:
         np.save(outf, delta_dic)
         pass
 
-        pass
-
-
     def trend(self):
         gs_mons = list(range(4, 10))
         fdir = data_root + 'Climate_408/'
@@ -741,17 +765,50 @@ class SWE_change:
         # plt.boxplot([swe_anomaly_hist_pos,swe_anomaly_hist_neg],showfliers=False)
         plt.show()
 
-        # print(df)
 
+class Global_warming:
 
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr/Global_warming/'
+        self.this_class_tif = results_root_main_flow + 'tif/Global_warming/'
+        self.this_class_png = results_root_main_flow + 'png/Global_warming/'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
         pass
+
+    def run(self):
+        self.foo()
+        pass
+
+
+    def foo(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        legacy_sos_pos = []
+        legacy_sos_neg = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            sos = row['drought_year_sos_std_anomaly']
+            thaw_date = row['thaw_date_std_anomaly']
+            delta_legacy = row['delta_legacy']
+            if sos > 0:
+                legacy_sos_pos.append(delta_legacy)
+            else:
+                legacy_sos_neg.append(delta_legacy)
+        plt.hist(legacy_sos_pos,bins=40,density=True,alpha=0.5)
+        plt.hist(legacy_sos_neg,bins=40,density=True,alpha=0.5)
+        plt.show()
+
 
 def main():
     # Correlation_CSIF_SPEI().run()
     # Statistic().run()
     # Tif().run()
+
     # Climate_Vars_delta_change().run()
-    SWE_change().run()
+    # SWE_change().run()
+    Global_warming().run()
 
     pass
 

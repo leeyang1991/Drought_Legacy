@@ -1158,8 +1158,10 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_drought_year_SOS(df)
         # 21 add thaw data into df
         # df = self.add_thaw_date(df)
-        df = self.add_thaw_date_anomaly(df)
-        df = self.add_thaw_date_std_anomaly(df)
+        # df = self.add_thaw_date_anomaly(df)
+        # df = self.add_thaw_date_std_anomaly(df)
+        # 22 add temp trend to df
+        df = self.add_temperature_trend_to_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1854,6 +1856,24 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['thaw_date_anomaly'] = thaw_list
 
         return df
+
+
+    def add_temperature_trend_to_df(self,df):
+        tem_trend_tif = results_root_main_flow + 'tif/Tif/annual_tmp_trend/annual_tmp_trend.tif'
+        temp_trend_arr = to_raster.raster2array(tem_trend_tif)[0]
+        tmp_trend_dic = DIC_and_TIF().spatial_arr_to_dic(temp_trend_arr)
+        tmp_trend_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in tmp_trend_dic:
+                tmp_trend = tmp_trend_dic[pix]
+                tmp_trend_list.append(tmp_trend)
+            else:
+                tmp_trend_list.append(np.nan)
+        df['temp_trend_list'] = tmp_trend_list
+
+        return df
+        pass
 
 # class Main_flow_Dataframe:
 #

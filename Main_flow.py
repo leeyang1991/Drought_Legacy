@@ -1161,7 +1161,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_thaw_date_anomaly(df)
         # df = self.add_thaw_date_std_anomaly(df)
         # 22 add temp trend to df
-        df = self.add_temperature_trend_to_df(df)
+        # df = self.add_temperature_trend_to_df(df)
+        # 23 add MAT MAP to df
+        df = self.add_MAT_MAP_to_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1874,6 +1876,35 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
         pass
+
+    def add_MAT_MAP_to_df(self,df):
+        tif = data_root + 'Climate_408/PRE/MAPRE.tif'
+        arr = to_raster.raster2array(tif)[0]
+        dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+        val_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in dic:
+                tmp_trend = dic[pix]
+                val_list.append(tmp_trend)
+            else:
+                val_list.append(np.nan)
+        df['MAP'] = val_list
+
+        tif = data_root + 'Climate_408/TMP/MATMP.tif'
+        arr = to_raster.raster2array(tif)[0]
+        dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+        val_list = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if pix in dic:
+                tmp_trend = dic[pix]
+                val_list.append(tmp_trend)
+            else:
+                val_list.append(np.nan)
+        df['MAT'] = val_list
+
+        return df
 
 # class Main_flow_Dataframe:
 #
@@ -3039,20 +3070,330 @@ class Main_flow_Partial_Dependence_Plots:
         return ax
 
 
+class Main_flow_shui_re:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.cal_MA_climate()
+        # self.plot_MAP()
+        # self.delta_legacy_map_mat()
+        self.delta_legacy_trend_p_t()
+        # self.lag()
+        # self.recovery()
+        # plt.show()
+
+        pass
+
+    def __divide_MA(self,arr,min_v=None,max_v=None,step=None,n=None):
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+        if n == None:
+            d = np.arange(start=min_v,step=step,stop=max_v)
+        if step == None:
+            d = np.linspace(min_v,max_v,num=n)
+
+        # print d
+        # exit()
+        # if step >= 10:
+        #     d_str = []
+        #     for i in d:
+        #         d_str.append('{}'.format(int(round(i*12.,0))))
+        # else:
+        d_str = []
+        for i in d:
+            d_str.append('{}'.format(int(round(i, 0))))
+        # print d_str
+        # exit()
+        return d,d_str
+        pass
+
+
+    def delta_legacy_map_mat(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        # df = df.drop_duplicates(subset=['pix'])
+        vals_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            # sens = row.lag
+            sens = row.delta_legacy
+            vals_dic[pix].append(sens)
+        MAT_series = df.MAT
+        MAP_series = df.MAP * 12.
+        df['MAP'] = MAP_series
+        d_mat,mat_str = self.__divide_MA(MAT_series,step=1)
+        d_map,map_str = self.__divide_MA(MAP_series,min_v=0,max_v=2001,step=100)
+        # print map_str
+        # print d_map
+        # exit()
+
+        shuire_matrix = []
+        x = []
+        y = []
+        z = []
+        for t in tqdm(range(len(d_mat))):
+            if t + 1 >= len(d_mat):
+                continue
+            df_t = df[df['MAT']>d_mat[t]]
+            df_t = df_t[df_t['MAT']<d_mat[t+1]]
+            temp = []
+            for p in range(len(d_map)):
+                if p + 1 >= len(d_map):
+                    continue
+                df_p = df_t[df_t['MAP']>d_map[p]]
+                df_p = df_p[df_p['MAP']<d_map[p+1]]
+                pixs = df_p.pix
+
+                if len(pixs) != 0:
+                    vals = []
+                    for pix in pixs:
+                        val = vals_dic[pix]
+                        val = np.nanmean(val)
+                        vals.append(val)
+                    val_mean = np.nanmean(vals)
+                else:
+                    val_mean = np.nan
+                temp.append(val_mean)
+                x.append(d_map[p])
+                y.append(d_mat[t])
+                z.append(val_mean)
+            shuire_matrix.append(temp)
+        # plt.imshow(shuire_matrix,vmin=-0.3,vmax=0.3)
+        # plt.imshow(shuire_matrix)
+        # plt.xticks(range(len(shuire_matrix[0])),map_str,rotation=90)
+        # plt.yticks(range(len(shuire_matrix)),mat_str,rotation=0)
+
+        plt.figure(figsize=(4, 6))
+        cmap = 'RdBu_r'
+        plt.scatter(x, y, c=z, marker='s', cmap=cmap, norm=None,vmin=-3,vmax=3)
+        plt.gca().invert_yaxis()
+        plt.subplots_adjust(
+            top=0.88,
+            bottom=0.11,
+            left=0.12,
+            right=0.90,
+            hspace=0.2,
+            wspace=0.2
+        )
+        # plt.title('Lag (months)')
+        plt.colorbar()
+        plt.xlabel('MAP (mm)')
+        plt.ylabel('MAT (¡ãC)')
+        plt.title('delta legacy')
+        plt.show()
+
+    def delta_legacy_delta_p_t(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        # df = df.drop_duplicates(subset=['pix'])
+        vals_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            # sens = row.lag
+            sens = row.delta_legacy
+            vals_dic[pix].append(sens)
+        MAT_series = df.TMP_delta
+        MAP_series = df.PRE_delta
+        d_mat,mat_str = self.__divide_MA(MAT_series,min_v=-1,max_v=0.2,n=50)
+        d_map,map_str = self.__divide_MA(MAP_series,min_v=-1,max_v=1,n=50)
+        # print(MAT_series)
+        # print(d_mat)
+        # print(d_map)
+        # print d_map
+        # exit()
+
+        shuire_matrix = []
+        x = []
+        y = []
+        z = []
+        for t in tqdm(range(len(d_mat))):
+            if t + 1 >= len(d_mat):
+                continue
+            df_t = df[df['TMP_delta']>d_mat[t]]
+            df_t = df_t[df_t['TMP_delta']<d_mat[t+1]]
+            temp = []
+            for p in range(len(d_map)):
+                if p + 1 >= len(d_map):
+                    continue
+                df_p = df_t[df_t['PRE_delta']>d_map[p]]
+                df_p = df_p[df_p['PRE_delta']<d_map[p+1]]
+                pixs = df_p.pix
+
+                if len(pixs) != 0:
+                    vals = []
+                    for pix in pixs:
+                        val = vals_dic[pix]
+                        val = np.nanmean(val)
+                        vals.append(val)
+                    val_mean = np.nanmean(vals)
+                else:
+                    val_mean = np.nan
+                temp.append(val_mean)
+                x.append(d_map[p])
+                y.append(d_mat[t])
+                z.append(val_mean)
+            shuire_matrix.append(temp)
+        # plt.imshow(shuire_matrix,vmin=-0.3,vmax=0.3)
+        # plt.imshow(shuire_matrix)
+        # plt.xticks(range(len(shuire_matrix[0])),map_str,rotation=90)
+        # plt.yticks(range(len(shuire_matrix)),mat_str,rotation=0)
+
+        plt.figure(figsize=(5, 7))
+        cmap = 'RdBu_r'
+        plt.scatter(x, y, c=z, marker='s', cmap=cmap, norm=None,vmin=-3,vmax=3)
+        plt.gca().invert_yaxis()
+        plt.subplots_adjust(
+            top=0.88,
+            bottom=0.11,
+            left=0.12,
+            right=0.90,
+            hspace=0.2,
+            wspace=0.2
+        )
+        # plt.title('Lag (months)')
+        plt.colorbar()
+        plt.xlabel('TMP_delta')
+        plt.ylabel('PRE_delta')
+        plt.title('delta legacy')
+        plt.show()
+
+    def delta_legacy_trend_p_t(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
+        # df = df.drop_duplicates(subset=['pix'])
+        vals_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            # sens = row.lag
+            sens = row.delta_legacy
+            vals_dic[pix].append(sens)
+        MAT_series = df.TMP_trend
+        MAP_series = df.PRE_trend
+        # plt.hist(MAP_series,alpha=0.5)
+        # plt.hist(MAT_series,alpha=0.5)
+        # plt.show()
+        d_mat,mat_str = self.__divide_MA(MAT_series,min_v=-0.001,max_v=0.008,n=50)
+        d_map,map_str = self.__divide_MA(MAP_series,min_v=-0.003,max_v=0.005,n=50)
+        # print(MAT_series)
+        # print(d_mat)
+        # print(d_map)
+        # print d_map
+        # exit()
+
+        shuire_matrix = []
+        x = []
+        y = []
+        z = []
+        for t in tqdm(range(len(d_mat))):
+            if t + 1 >= len(d_mat):
+                continue
+            df_t = df[df['TMP_trend']>d_mat[t]]
+            df_t = df_t[df_t['TMP_trend']<d_mat[t+1]]
+            temp = []
+            for p in range(len(d_map)):
+                if p + 1 >= len(d_map):
+                    continue
+                df_p = df_t[df_t['TMP_trend']>d_map[p]]
+                df_p = df_p[df_p['PRE_trend']<d_map[p+1]]
+                pixs = df_p.pix
+
+                if len(pixs) != 0:
+                    vals = []
+                    for pix in pixs:
+                        val = vals_dic[pix]
+                        val = np.nanmean(val)
+                        vals.append(val)
+                    val_mean = np.nanmean(vals)
+                else:
+                    val_mean = np.nan
+                temp.append(val_mean)
+                x.append(d_map[p])
+                y.append(d_mat[t])
+                z.append(val_mean)
+            shuire_matrix.append(temp)
+        # plt.imshow(shuire_matrix,vmin=-0.3,vmax=0.3)
+        # plt.imshow(shuire_matrix)
+        # plt.xticks(range(len(shuire_matrix[0])),map_str,rotation=90)
+        # plt.yticks(range(len(shuire_matrix)),mat_str,rotation=0)
+
+        plt.figure(figsize=(5, 7))
+        cmap = 'RdBu_r'
+        plt.scatter(x, y, c=z, marker='s', cmap=cmap, norm=None,vmin=-3,vmax=3)
+        plt.gca().invert_yaxis()
+        plt.subplots_adjust(
+            top=0.88,
+            bottom=0.11,
+            left=0.12,
+            right=0.90,
+            hspace=0.2,
+            wspace=0.2
+        )
+        # plt.title('Lag (months)')
+        plt.colorbar()
+        plt.xlabel('TMP_delta')
+        plt.ylabel('PRE_delta')
+        plt.title('delta legacy')
+        plt.show()
 
 
 
+
+    def plot_MAP(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        # df = Global_vars().clean_df(df)
+
+        map_dic = {}
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            map = row.MAP
+            map_dic[pix] = map
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(map_dic)
+        arr = arr * 12.
+        plt.imshow(arr)
+        plt.colorbar()
+        plt.show()
+        pass
+
+
+    def cal_MA_climate(self):
+        # product = 'PRE'
+        product = 'TMP'
+        fdir = data_root + '/Climate_408/{}/mon_mean/'.format(product)
+        outf = data_root + '/Climate_408/{}.tif'.format(product)
+        arrs = 0
+        flag = 0
+        for f in tqdm(os.listdir(fdir)):
+            arr = to_raster.raster2array(fdir+f)[0]
+            arr = np.array(arr)
+            T.mask_999999_arr(arr)
+            arrs += arr
+            flag += 1.
+
+        mean_arr = arrs / flag
+        DIC_and_TIF().arr_to_tif(mean_arr,outf)
+
+
+        pass
 
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Dataframe().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Main_flow_Recovery_time_Legacy().run()
     # Main_flow_RF().run()
     # Main_flow_correlation().run()
     # Main_flow_Hot_Map_corr_RF().run()
     # Main_flow_pick_pure_forest_pixels().run()
-    # Main_flow_Partial_Dependence_Plots().run()
+    Main_flow_shui_re().run()
 
     pass
 

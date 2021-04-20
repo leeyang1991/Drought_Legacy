@@ -786,19 +786,29 @@ class Global_warming:
     def foo(self):
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
+        df = Global_vars().clean_df(df)
         legacy_sos_pos = []
         legacy_sos_neg = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
-            sos = row['drought_year_sos_std_anomaly']
+            # sos = row['drought_year_sos_std_anomaly']
             thaw_date = row['thaw_date_std_anomaly']
             delta_legacy = row['delta_legacy']
-            if sos > 0:
+            if thaw_date > 0:
                 legacy_sos_pos.append(delta_legacy)
             else:
                 legacy_sos_neg.append(delta_legacy)
-        plt.hist(legacy_sos_pos,bins=40,density=True,alpha=0.5)
-        plt.hist(legacy_sos_neg,bins=40,density=True,alpha=0.5)
+        # plt.hist(legacy_sos_pos,bins=80,density=True,alpha=0.5,label='positive sos change')
+        # plt.hist(legacy_sos_neg,bins=80,density=True,alpha=0.5,label='negative sos change')
+
+        plt.hist(legacy_sos_pos, bins=80, density=True, alpha=0.5, label='positive thaw_date change')
+        plt.hist(legacy_sos_neg, bins=80, density=True, alpha=0.5, label='negative thaw_date change')
+        plt.legend()
+        plt.xlabel('legacy change')
         plt.show()
+
+
+
+
 
 
 def main():

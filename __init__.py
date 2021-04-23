@@ -49,6 +49,7 @@ import pickle
 from dateutil import relativedelta
 from sklearn.inspection import permutation_importance
 # from statsmodels.stats.outliers_influence import variance_inflation_factor
+import HANTS
 
 np.seterr('ignore')
 
@@ -61,7 +62,7 @@ def pause():
 # results_root = 'G:\Drought_legacy\\results\\'
 # results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
 
-this_root = '/Users/wenzhang/project/Drought_legacy/'
+this_root = '/Users/wenzhang/project/Drought_legacy_new/'
 data_root = this_root + 'data/'
 results_root = this_root + 'results/'
 results_root_main_flow = this_root + 'main_flow_results/'

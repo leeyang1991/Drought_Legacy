@@ -507,8 +507,8 @@ class SPEI_preprocess:
         # self.foo()
 
         # self.clean_spei()
-        self.do_pick()
-        # self.events_to_df()
+        # self.do_pick()
+        self.events_to_df()
 
 
         pass

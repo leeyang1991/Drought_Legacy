@@ -212,7 +212,7 @@ class Tools:
 
 
 
-    def interp_nan(self,val,kind='nearest',valid_percent=0.3):
+    def interp_nan(self,val,kind='nearest',valid_percent=0.1):
         if len(val) == 0 or np.std(val) == 0:
             return [None]
 

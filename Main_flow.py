@@ -1095,7 +1095,7 @@ class Main_flow_Recovery_time_Legacy:
 
 class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
-    def __init__(self) -> object:
+    def __init__(self):
         self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Dataframe_NDVI_SPEI_legacy/'
         self.this_class_tif = results_root_main_flow + 'tif/Main_flow_Dataframe_NDVI_SPEI_legacy/'
         self.this_class_png = results_root_main_flow + 'png/Main_flow_Dataframe_NDVI_SPEI_legacy/'

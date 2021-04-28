@@ -804,8 +804,8 @@ class Main_flow_Legacy:
         # np.save(sif_dir_180 + 'per_pix_180',sif_dic_180)
         # exit()
         n = 3
-        gs = list(range(5,10))
-        outtif = self.this_class_tif + 'legacy_{}'.format(n)
+        gs = list(range(5,11))
+        outf = self.this_class_arr + 'legacy_dic_{}'.format(n)
         sif_dir_180 = data_root + 'CSIF/per_pix_anomaly_180/'
         sif_dic = T.load_npy_dir(sif_dir_180)
         event_dir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events/'
@@ -816,6 +816,7 @@ class Main_flow_Legacy:
             if not pix in sif_dic:
                 continue
             sif = sif_dic[pix]
+            legacy_dic_i = {}
             for evt in events:
                 evt_start = evt[0]
                 if evt_start + n * 12 >= len(sif):
@@ -827,20 +828,11 @@ class Main_flow_Legacy:
                     mon = indx % 12 + 1
                     if mon in gs:
                         selected_range.append(indx)
-                # print(evt)
-                # print(selected_range)
-                # print('***')
-                # exit()
                 selected_vals = T.pick_vals_from_1darray(sif,selected_range)
                 legacy = np.mean(selected_vals)
-                legacy_dic[pix] = legacy
-        legacy_arr = DIC_and_TIF().pix_dic_to_spatial_arr(legacy_dic)
-        DIC_and_TIF().arr_to_tif(legacy_arr,outtif)
-        # DIC_and_TIF().plot_back_ground_arr()
-        # plt.imshow(legacy_arr,vmin=-1,vmax=1)
-        # plt.title('legacy {}'.format(n))
-        # plt.show()
-
+                legacy_dic_i[evt_start] = legacy
+            legacy_dic[pix] = legacy_dic_i
+        np.save(outf,legacy_dic)
 
 class Main_flow_Carbon_loss:
 
@@ -953,7 +945,7 @@ class Main_flow_Carbon_loss:
                         'recovery_time': recovery_time,
                         'recovery_date_range': recovery_range,
                         'drought_event_date_range': date_range_new,
-                        'legacy': legacy,
+                        'carbon_loss': legacy,
                     })
                     #
                     # ################# plot ##################
@@ -1110,7 +1102,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # self._check_spatial(df)
         # exit()
         # 1 add drought event and delta legacy into df
-        df = self.Carbon_loss_to_df(df)
+        # df = self.Carbon_loss_to_df(df)
+        df = self.add_legacy_123_to_df(df)
         # df = self.delta_legacy_to_df(df)
         # df = self.legacy_trend_to_df(df)
         # 2 add lon lat into df
@@ -1161,7 +1154,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 22 add temp trend to df
         # df = self.add_temperature_trend_to_df(df)
         # 23 add MAT MAP to df
-        df = self.add_MAT_MAP_to_df(df)
+        # df = self.add_MAT_MAP_to_df(df)
         # -1 df to excel
         df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
@@ -1275,21 +1268,23 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def drop_duplicated_sample(self,df):
-        df_drop_dup = df.drop_duplicates(subset=['pix','legacy','recovery_date_range'])
+        df_drop_dup = df.drop_duplicates(subset=['pix','carbon_loss','recovery_date_range'])
         return df_drop_dup
         # df_drop_dup.to_excel(self.this_class_arr + 'drop_dup.xlsx')
         pass
 
     def Carbon_loss_to_df(self,df):
-        f = Main_flow_Carbon_loss().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy_reg.pkl'
+        f = Main_flow_Carbon_loss().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy.pkl'
         events_dic = T.load_dict_from_binary(f)
+        # print(events_dic)
+        # exit()
         pix_list = []
         recovery_time_list = []
         drought_event_date_range_list = []
         recovery_date_range_list = []
         legacy_list = []
 
-        for pix in tqdm(events_dic,desc='1. legacy_to_df'):
+        for pix in tqdm(events_dic,desc='1. carbon_loss_to_df'):
             # print(pix)
             # exit()
             events = events_dic[pix]
@@ -1297,7 +1292,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 recovery_time = event['recovery_time']
                 drought_event_date_range = event['drought_event_date_range']
                 recovery_date_range = event['recovery_date_range']
-                legacy = event['legacy']
+                legacy = event['carbon_loss']
 
                 pix_list.append(pix)
                 recovery_time_list.append(recovery_time)
@@ -1312,6 +1307,29 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['carbon_loss'] = legacy_list
         return df
         pass
+
+
+    def add_legacy_123_to_df(self,df):
+        fdir = Main_flow_Legacy().this_class_arr+'/'
+
+        for n in range(1,4):
+            f = fdir + 'legacy_dic_{}.npy'.format(n)
+            legacy_dic = T.load_npy(f)
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                pix = row.pix
+                drought_event_date_range = row.drought_event_date_range
+                evt_start = drought_event_date_range[0]
+                print(legacy_dic[pix])
+                legacy = legacy_dic[pix][evt_start]
+                # print(legacy)
+            exit()
+
+        return df
+
+
+
+        pass
+
 
     def delta_legacy_to_df(self,df):
         part1_dic = DIC_and_TIF().void_spatial_dic()
@@ -1909,7 +1927,8 @@ def main():
 
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Legacy().run()
-    Main_flow_Carbon_loss().run()
+    # Main_flow_Carbon_loss().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     pass
 
 

@@ -4,7 +4,149 @@ from __init__ import *
 results_root_main_flow_2002 = this_root + 'results_root_main_flow_2002/'
 
 results_root_main_flow = results_root_main_flow_2002
+class Global_vars:
+    def __init__(self):
 
+        pass
+
+    def koppen_landuse(self):
+        kl_list = [u'Forest.A', u'Forest.B', u'Forest.Cf', u'Forest.Csw', u'Forest.Df', u'Forest.Dsw', u'Forest.E',
+         u'Grasslands.A', u'Grasslands.B', u'Grasslands.Cf', u'Grasslands.Csw', u'Grasslands.Df', u'Grasslands.Dsw',
+         u'Grasslands.E', u'Shrublands.A', u'Shrublands.B', u'Shrublands.Cf', u'Shrublands.Csw', u'Shrublands.Df',
+         u'Shrublands.Dsw', u'Shrublands.E']
+        return kl_list
+
+    def koppen_list(self):
+        koppen_list = [u'A', u'B', u'Cf', u'Csw', u'Df', u'Dsw', u'E',]
+        return koppen_list
+        pass
+
+
+    def marker_dic(self):
+        markers_dic = {
+                       'Shrublands': "o",
+                       'Forest': "X",
+                       'Grasslands': "p",
+                       }
+        return markers_dic
+
+    def landuse_list(self):
+        lc_list = [
+              'Forest',
+            'Shrublands',
+            'Grasslands',
+        ]
+        return lc_list
+
+    def line_color_dic(self):
+        line_color_dic = {
+            'pre': 'g',
+            'early': 'r',
+            'late': 'b'
+        }
+        return line_color_dic
+
+    def gs_mons(self):
+
+        gs = list(range(4,10))
+
+        return gs
+
+    def variables(self):
+        X = [
+            'isohydricity',
+            'canopy_height',
+            'rooting_depth',
+            # 'PRE_delta',
+            # 'TMP_delta',
+            # 'VPD_delta',
+            # 'SPEI_delta',
+            'PRE_trend',
+            'TMP_trend',
+            'VPD_trend',
+            'PRE_cv_delta',
+            'TMP_cv_delta',
+            'VPD_cv_delta',
+            # 'PRE_cv',
+            # 'TMP_cv',
+            # 'VPD_cv',
+            'waterbalance',
+            'sand',
+            'awc',
+            'drought_year_sos_std_anomaly',
+            'thaw_date_std_anomaly',
+            'thaw_date_anomaly',
+            'thaw_date',
+             ]
+        # Y = 'delta_legacy'
+        Y = 'trend'
+
+        return X,Y
+
+        pass
+
+    def clean_df(self,df):
+        ndvi_valid_f = results_root_main_flow_2002 + 'arr/NDVI/NDVI_invalid_mask.npy'
+        ndvi_valid_arr = np.load(ndvi_valid_f)
+
+        spatial_dic = DIC_and_TIF().spatial_arr_to_dic(ndvi_valid_arr)
+        valid_ndvi_dic = {}
+        for pix in spatial_dic:
+            val = spatial_dic[pix]
+            if np.isnan(val):
+                continue
+            valid_ndvi_dic[pix]=1
+        print(len(df))
+        drop_index = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            if not pix in valid_ndvi_dic:
+                drop_index.append(i)
+        df = df.drop(df.index[drop_index])
+        # print(len(df))
+        # exit()
+        # df = df.drop_duplicates(subset=['pix', 'delta_legacy'])
+        # self.__df_to_excel(df,dff+'drop')
+
+        # df = df[df['ratio_of_forest'] > 0.90]
+        df = df[df['lat'] > 30]
+        # df = df[df['lat'] < 60]
+        # df = df[df['delta_legacy'] < -0]
+        # df = df[df['trend_score'] > 0.2]
+        # df = df[df['gs_sif_spei_corr'] > 0]
+
+        # trend = df['trend']
+        # trend_mean = np.nanmean(trend)
+        # trend_std = np.nanstd(trend)
+        # up = trend_mean + trend_std
+        # down = trend_mean - trend_std
+        # df = df[df['trend'] > down]
+        # df = df[df['trend'] < up]
+
+        # quantile = 0.4
+        # delta_legacy = df['delta_legacy']
+        # delta_legacy = delta_legacy.dropna()
+        #
+        # # print(delta_legacy)
+        # q = np.quantile(delta_legacy,quantile)
+        # # print(q)
+        # df = df[df['delta_legacy']<q]
+        # T.print_head_n(df)
+        print(len(df))
+        # exit()
+
+        return df
+
+    def mask_arr_with_NDVI(self, inarr):
+        ndvi_valid_f = results_root_main_flow_2002 + 'arr/NDVI/NDVI_invalid_mask.npy'
+        ndvi_valid_arr = np.load(ndvi_valid_f)
+        grid = np.isnan(ndvi_valid_arr)
+        inarr[grid] = np.nan
+
+        pass
+
+
+        pass
 class Main_flow_Early_Peak_Late_Dormant:
 
     def __init__(self):
@@ -790,6 +932,21 @@ class Main_flow_Legacy:
         self.cal_leagacy()
         pass
 
+    def __drought_indx_to_gs_indx(self,indx,gs_mons,vals_len):
+        void_list = [0] * vals_len
+        void_list[indx] = 1
+        selected_indx = []
+        for i in range(len(void_list)):
+            mon = i % 12 + 1
+            if mon in gs_mons:
+                selected_indx.append(void_list[i])
+        if 1 in selected_indx:
+            trans_indx = selected_indx.index(1)
+            return trans_indx
+        else:
+            return None
+        pass
+
 
     def cal_leagacy(self):
         # sif_dir = data_root + 'CSIF/per_pix_anomaly/'
@@ -803,10 +960,11 @@ class Main_flow_Legacy:
         #     sif_dic_180[pix] = val_180
         # np.save(sif_dir_180 + 'per_pix_180',sif_dic_180)
         # exit()
-        n = 3
+        n = 2
         gs = list(range(5,11))
         outf = self.this_class_arr + 'legacy_dic_{}'.format(n)
         sif_dir_180 = data_root + 'CSIF/per_pix_anomaly_180/'
+
         sif_dic = T.load_npy_dir(sif_dir_180)
         event_dir = Main_Flow_Pick_drought_events().this_class_arr + 'drought_events/'
         event_dic = T.load_npy_dir(event_dir)
@@ -830,7 +988,11 @@ class Main_flow_Legacy:
                         selected_range.append(indx)
                 selected_vals = T.pick_vals_from_1darray(sif,selected_range)
                 legacy = np.mean(selected_vals)
-                legacy_dic_i[evt_start] = legacy
+                evt_start_gs = self.__drought_indx_to_gs_indx(evt_start, gs, len(sif))
+                # print(evt_start,evt_start_gs)
+                if evt_start_gs == None:
+                    continue
+                legacy_dic_i[evt_start_gs] = legacy
             legacy_dic[pix] = legacy_dic_i
         np.save(outf,legacy_dic)
 
@@ -1103,11 +1265,12 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         # 1 add drought event and delta legacy into df
         # df = self.Carbon_loss_to_df(df)
-        df = self.add_legacy_123_to_df(df)
+        # print(df)
+        # df = self.add_legacy_123_to_df(df)
         # df = self.delta_legacy_to_df(df)
         # df = self.legacy_trend_to_df(df)
         # 2 add lon lat into df
-        # df = self.add_lon_lat_to_df(df)
+        df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
         # df = self.add_isohydricity_to_df(df)
         # 4 add correlation into df
@@ -1156,7 +1319,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 23 add MAT MAP to df
         # df = self.add_MAT_MAP_to_df(df)
         # -1 df to excel
-        df = self.drop_duplicated_sample(df)
+        # df = self.drop_duplicated_sample(df)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff)
         pass
@@ -1299,12 +1462,15 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(drought_event_date_range))
                 recovery_date_range_list.append(tuple(recovery_date_range))
                 legacy_list.append(legacy)
-
+        # print(pix_list)
+        # exit()
         df['pix'] = pix_list
         df['drought_event_date_range'] = drought_event_date_range_list
         df['recovery_date_range'] = recovery_date_range_list
         df['recovery_time'] = recovery_time_list
         df['carbon_loss'] = legacy_list
+        # print(df)
+        # exit()
         return df
         pass
 
@@ -1315,14 +1481,19 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         for n in range(1,4):
             f = fdir + 'legacy_dic_{}.npy'.format(n)
             legacy_dic = T.load_npy(f)
-            for i,row in tqdm(df.iterrows(),total=len(df)):
+            legacy_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df),desc='adding legacy {} to df'.format(n)):
                 pix = row.pix
                 drought_event_date_range = row.drought_event_date_range
                 evt_start = drought_event_date_range[0]
-                print(legacy_dic[pix])
-                legacy = legacy_dic[pix][evt_start]
-                # print(legacy)
-            exit()
+                # print(legacy_dic[pix])
+                evt_dic_i = legacy_dic[pix]
+                if not evt_start in evt_dic_i:
+                    legacy_list.append(np.nan)
+                    continue
+                legacy = evt_dic_i[evt_start]
+                legacy_list.append(legacy)
+            df['legacy_{}'.format(n)] = legacy_list
 
         return df
 
@@ -1426,8 +1597,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
     def add_isohydricity_to_df(self,df):
-        fdir = data_root + r'Isohydricity\per_pix_all_year/'
-        dic = T.load_npy_dir(fdir)
+        tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity.tif'
+        dic = DIC_and_TIF().spatial_tif_to_dic(tif)
         iso_hyd_list = []
         for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
             pix = row.pix
@@ -1922,13 +2093,100 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
 
+
+
+class Analysis:
+
+    def __init__(self):
+
+        pass
+
+
+    def run(self):
+
+        self.Isohyd()
+        pass
+
+    def load_df(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        self.df = T.load_df(dff)
+        df = self.df
+        return df,dff
+
+        pass
+
+    def __divide_MA(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2):
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+        if n == None and step == None:
+            raise UserWarning('step or n is required')
+        if n == None:
+            d = np.arange(start=min_v,step=step,stop=max_v)
+        elif step == None:
+            d = np.linspace(min_v,max_v,num=n)
+        else:
+            d = np.nan
+            raise UserWarning('n and step cannot exist together')
+        d_str = []
+        for i in d:
+            d_str.append('{}'.format(round(i, round_)))
+        # print d_str
+        # exit()
+        return d,d_str
+        pass
+
+    def Isohyd(self):
+        # n = 3
+        # var = 'legacy_{}'.format(n)
+
+        var = 'carbon_loss'
+        df,dff = self.load_df()
+        df = Global_vars().clean_df(df)
+        isohydricity_series = df.isohydricity
+        Iso_d,Iso_d_str = self.__divide_MA(isohydricity_series,min_v=-0.5,max_v=1.5,n=10)
+
+        spatial_dic = {}
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = 1
+            spatial_dic[pix] = val
+
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        Global_vars().mask_arr_with_NDVI(arr)
+        plt.subplot(211)
+        plt.imshow(arr)
+        DIC_and_TIF().plot_back_ground_arr()
+        plt.title(var)
+        plt.subplot(212)
+        box = []
+        for i in tqdm(range(len(Iso_d))):
+            if i+1 >= len(Iso_d):
+                continue
+            df_temp = df[df.isohydricity>Iso_d[i]]
+            df_temp = df_temp[df_temp.isohydricity<Iso_d[i+1]]
+            # vals = df_temp['legacy_3']
+            vals = df_temp[var]
+            vals = T.remove_np_nan(vals)
+            box.append(vals)
+        plt.boxplot(box,showfliers=False)
+        plt.xticks(range(len(Iso_d)),Iso_d_str)
+        plt.show()
+
+
+
+
+        pass
+
 def main():
     # Main_flow_Early_Peak_Late_Dormant().run()
 
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Legacy().run()
     # Main_flow_Carbon_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    Analysis().run()
     pass
 
 

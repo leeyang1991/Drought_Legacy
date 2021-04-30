@@ -68,8 +68,8 @@ results_root = this_root + 'results/'
 results_root_main_flow = this_root + 'main_flow_results/'
 # from HANTS import *
 
-# plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
+# plt.rcParams['font.sans-serif'] = ['STHeiti']
+# plt.rcParams['axes.unicode_minus'] = False
 from LY_Tools import *
 T = Tools()
 D = DIC_and_TIF()

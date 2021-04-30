@@ -951,6 +951,17 @@ class DIC_and_TIF:
                     ocean_dic[(i,j)]=1
         return ocean_dic
 
+    def show_pix(self,pix):
+        dic_temp = {}
+        c, r = pix
+        for ci in range(c - 5, c + 5):
+            for ri in range(r - 5, r + 5):
+                pix_new = (ci, ri)
+                dic_temp[pix_new] = 10
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic_temp)
+        DIC_and_TIF().plot_back_ground_arr()
+        plt.imshow(arr, cmap='gray',vmin=0,vmax=100,zorder=99)
+        plt.title(str(pix))
 
 class MULTIPROCESS:
     '''
@@ -1357,7 +1368,7 @@ class Pre_Process:
         # for p in params:
         #     print(p[1])
         #     self.kernel_cal_anomaly(p)
-        MULTIPROCESS(self.kernel_cal_anomaly, params).run(process=5, process_or_thread='p',
+        MULTIPROCESS(self.kernel_cal_anomaly, params).run(process_or_thread='p',
                                                          desc='calculating anomaly...')
 
 

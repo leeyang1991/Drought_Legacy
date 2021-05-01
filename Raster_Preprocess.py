@@ -457,19 +457,20 @@ class GRACE:
         pass
 
     def run(self):
-        # self.nc_to_tif()
+        self.nc_to_tif()
         # self.per_pix()
         # self.clean_per_pix()
         # self.per_pix_anomaly()
 
-        self.check_per_pix()
+        # self.check_per_pix()
         pass
 
 
     def nc_to_tif(self):
         outdir = self.this_data_root + 'tif/'
-        T.mk_dir(outdir)
-        f = self.this_data_root + 'GRCTellus.JPL.200204_202011.GLO.RL06M.MSCNv02.nc'
+        T.mk_dir(outdir,force=True)
+        # f = self.this_data_root + 'GRCTellus.JPL.200204_202011.GLO.RL06M.MSCNv02.nc'
+        f = self.this_data_root + 'GRCTellus.JPL.200204_202102.GLO.RL06M.MSCNv02CRI.nc'
         ncin = Dataset(f, 'r')
         lat = ncin['lat'][::-1]
         lon = ncin['lon']
@@ -654,8 +655,8 @@ def main():
     # CSIF().run()
     # SPEI_preprocess().run()
     # TWS_Water_Gap().run()
-    # GRACE().run()
-    NDVI().run()
+    GRACE().run()
+    # NDVI().run()
     pass
 
 

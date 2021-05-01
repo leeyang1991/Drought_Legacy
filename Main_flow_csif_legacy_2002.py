@@ -1320,13 +1320,7 @@ class Main_flow_Greenness_loss:
         recovery_time_dic = {}
 
         for pix in tqdm(ndvi_dic):
-            # r, c = pix
-            # china_r = list(range(75, 150))
-            # china_c = list(range(550, 620))
-            # if not r in china_r:
-            #     continue
-            # if not c in china_c:
-            #     continue
+
             if pix in events:
                 ndvi = ndvi_dic[pix]
                 ndvi = np.array(ndvi)
@@ -2428,7 +2422,8 @@ class Analysis:
 
     def run(self):
 
-        self.Isohyd()
+        # self.Isohyd()
+        self.GRACE()
         pass
 
     def load_df(self):
@@ -2462,11 +2457,11 @@ class Analysis:
         pass
 
     def Isohyd(self):
-        # n = 3
-        # var = 'legacy_{}'.format(n)
+        n = 3
+        var = 'legacy_{}'.format(n)
 
         # var = 'carbon_loss'
-        var = 'greenness_loss'
+        # var = 'greenness_loss'
         df,dff = self.load_df()
         df = Global_vars().clean_df(df)
         isohydricity_series = df.isohydricity
@@ -2499,10 +2494,104 @@ class Analysis:
         plt.xticks(range(len(Iso_d)),Iso_d_str)
         plt.show()
 
+    def plot_back_ground_arr(self):
+        tif_template = DIC_and_TIF().tif_template
+        arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
+        back_ground = []
+        for i in range(len(arr)):
+            temp = []
+            for j in range(len(arr[0])):
+                val = arr[i][j]
+                if val < -90000:
+                    temp.append(100)
+                else:
+                    temp.append(70)
+            back_ground.append(temp)
+        back_ground = np.array(back_ground)
+        # plt.imshow(back_ground, 'gray', vmin=0, vmax=1.4,zorder=-1)
 
-
+        return back_ground
 
         pass
+
+    def show_pix(self,pix,background_arr):
+        c, r = pix
+        selected_pix = []
+        for ci in range(c - 5, c + 5):
+            for ri in range(r - 5, r + 5):
+                pix_new = (ci, ri)
+                selected_pix.append(pix_new)
+
+        for pix in selected_pix:
+            background_arr[pix] = -999
+            # arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic_template)
+        # plt.figure()
+        # plt.imshow(arr, cmap='gray',vmin=0,vmax=100,zorder=99)
+        return background_arr
+
+    def GRACE(self):
+        import matplotlib.animation as animation
+        # fdir = data_root + 'TWS/GRACE/per_pix_anomaly/'
+        fdir = data_root + 'TWS/GRACE/per_pix/'
+        dic = T.load_npy_dir(fdir)
+
+        china_pix = []
+        china_pix_val = {}
+        selected_pix_sort = []
+        for pix in tqdm(dic):
+            if not DIC_and_TIF().china_pix(pix):
+                continue
+            selected_pix_sort.append(pix)
+        selected_pix_sort.sort()
+
+        flag = 0
+        for pix in selected_pix_sort:
+            china_pix_val[flag] = dic[pix]
+            china_pix.append(pix)
+            flag += 1
+        # print(len(china_pix))
+        # exit()
+        fig = plt.figure()
+        ax2 = fig.add_subplot(212)
+        ax1 = fig.add_subplot(211)
+        # print(dic[china_pix[0]])
+        x = list(range(len(china_pix_val[0])))
+        val_init = china_pix_val[0]
+        val_init[val_init<-999] = np.nan
+        line, = ax1.plot(list(range(len(x))),val_init)
+        ax1.set_ylim(-20,20)
+
+        back_ground = self.plot_back_ground_arr()
+        im = ax2.imshow(back_ground, cmap='gray',vmin=0,vmax=100,zorder=99)
+
+        def init():
+            line.set_ydata([np.nan] * len(x))
+            return line,
+
+        def animate(i):
+            back_ground_copy = copy.copy(back_ground)
+            val_in = china_pix_val[i]
+            val_in[val_in<-999] = 0
+            line.set_ydata(val_in)
+            ax1.set_title(china_pix[i])
+            im_arr_in = self.show_pix(china_pix[i],back_ground_copy)
+            im.set_array(im_arr_in)
+
+            return line,
+
+        ani = animation.FuncAnimation(
+            fig, animate, init_func=init, interval=1, blit=False, frames=len(china_pix))
+
+        plt.show()
+
+        # for pix in dic:
+        #     val = dic[pix]
+        #     if not DIC_and_TIF().china_pix(pix):
+        #         continue
+        #     val[val<-999] = np.nan
+        #     plt.plot(val)
+        #     plt.show()
+
 
 def main():
     # Main_flow_Early_Peak_Late_Dormant().run()

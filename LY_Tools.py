@@ -959,9 +959,23 @@ class DIC_and_TIF:
                 pix_new = (ci, ri)
                 dic_temp[pix_new] = 10
         arr = DIC_and_TIF().pix_dic_to_spatial_arr(dic_temp)
+        # plt.figure()
         DIC_and_TIF().plot_back_ground_arr()
         plt.imshow(arr, cmap='gray',vmin=0,vmax=100,zorder=99)
         plt.title(str(pix))
+
+
+    def china_pix(self,pix):
+        r, c = pix
+        china_r = list(range(75, 150))
+        china_c = list(range(550, 620))
+        if r in china_r:
+            if c in china_c:
+                return True
+            else:
+                return False
+        else:
+            return False
 
 class MULTIPROCESS:
     '''

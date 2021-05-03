@@ -597,8 +597,8 @@ class NDVI:
         # self.anomaly()
         # self.data_clean()
         # self.detrend_anomaly()
-
-        self.check_detrend()
+        self.trans_168_to_180()
+        # self.check_detrend()
         pass
 
 
@@ -634,6 +634,21 @@ class NDVI:
 
         pass
 
+    def trans_168_to_180(self):
+
+        SIF_dir = data_root + 'NDVI/per_pix_anomaly_clean_detrend/'
+        outdir = data_root + 'NDVI/per_pix_anomaly_clean_detrend_180/'
+        T.mk_dir(outdir)
+        sif_dic = T.load_npy_dir(SIF_dir)
+        sif_dic_new = {}
+
+        for pix in sif_dic:
+            vals = sif_dic[pix]
+            inserted_vals = [np.nan] * 12
+            vals_new = np.insert(vals, 0, inserted_vals)
+            sif_dic_new[pix] = vals_new
+        np.save(outdir + 'per_pix_dic',sif_dic_new)
+
     def check_detrend(self):
         # fdir = self.this_class_root + 'per_pix_anomaly_detrend/'
         fdir = self.this_class_root + 'per_pix_anomaly_clean_detrend/'
@@ -655,8 +670,8 @@ def main():
     # CSIF().run()
     # SPEI_preprocess().run()
     # TWS_Water_Gap().run()
-    GRACE().run()
-    # NDVI().run()
+    # GRACE().run()
+    NDVI().run()
     pass
 
 

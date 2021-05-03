@@ -1547,7 +1547,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.Carbon_loss_to_df(df)
         # print(df)
         # df = self.add_legacy_123_to_df(df)
-        df = self.add_greenness_loss_to_df(df)
+        # df = self.add_greenness_loss_to_df(df)
         # 2 add lon lat into df
         # df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
@@ -1559,9 +1559,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 6 add rooting depth into df
         # df = self.add_rooting_depth_to_df(df)
         # 7 add TWS into df
-        # for year in range(4):
-        #     print(year)
-        #     df = self.add_TWS_to_df(df,year)
+        # df = self.add_TWS_to_df(df)
         # 8 add is gs into df
         # self.add_is_gs_drought_to_df(df)
         # 9 add landcover to df
@@ -1599,6 +1597,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_MAT_MAP_to_df(df)
         # -1 df to excel
         # df = self.drop_duplicated_sample(df)
+        # add pre_drought vars
+        df = self.add_pre_drought_variables(df)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff)
         pass
@@ -1987,35 +1987,23 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['rooting_depth'] = val_list
         return df
 
-    def add_TWS_to_df(self,df,year):
+    def add_TWS_to_df(self,df):
 
-        fdir = data_root + 'TWS/water_gap/per_pix_anomaly/'
+        fdir = data_root + 'TWS/GRACE/per_pix/'
         tws_dic = T.load_npy_dir(fdir)
         tws_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
-            drought_start = row.event[0]
+            recovery_date_range = row['recovery_date_range']
             pix = row.pix
             if not pix in tws_dic:
                 tws_list.append(np.nan)
                 continue
             vals = tws_dic[pix]
-            # print(len(vals))
-            # exit()
-            start_indx = drought_start + 12 * (year - 1)
-            end_indx = drought_start + 12 * (year)
-            if start_indx < 0:
-                tws_list.append(np.nan)
-                continue
-            if end_indx >= len(vals):
-                tws_list.append(np.nan)
-                continue
-            picked_indx = list(range(start_indx,end_indx))
-            picked_val = T.pick_vals_from_1darray(vals,picked_indx)
+            picked_val = T.pick_vals_from_1darray(vals,recovery_date_range)
+            picked_val[picked_val<-999]=np.nan
             mean = np.nanmean(picked_val)
             tws_list.append(mean)
-        if year == 0:
-            year = -1
-        df['TWS_{}'.format(year)] = tws_list
+        df['TWS_recovery_period'] = tws_list
 
         # exit()
         return df
@@ -2412,6 +2400,50 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
 
+    def add_pre_drought_variables(self,df):
+
+        '''
+        add CSIF NDVI
+        '''
+
+        # NDVI_dir = data_root + 'NDVI/per_pix/'
+        NDVI_dir = data_root + 'NDVI/per_pix_anomaly_clean_detrend_180/'
+        CSIF_dir = data_root + 'CSIF/per_pix_anomaly_180/'
+
+        ndvi_dic = T.load_npy_dir(NDVI_dir)
+        csif_dic = T.load_npy_dir(CSIF_dir)
+        # exit()
+        n = 3
+        NDVI_picked_list = []
+        CSIF_picked_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            if not pix in ndvi_dic:
+                continue
+            if not pix in csif_dic:
+                continue
+            NDVI = ndvi_dic[pix]
+            CSIF = csif_dic[pix]
+            drought_start = row['drought_event_date_range'][0]
+            picked_index = []
+            for ni in range(1,n+1):
+                indx = drought_start - ni
+                if indx < 0:
+                    break
+                picked_index.append(indx)
+            picked_index = picked_index[::-1]
+            NDVI_picked = T.pick_vals_from_1darray(NDVI,picked_index)
+            CSIF_picked = T.pick_vals_from_1darray(CSIF,picked_index)
+            NDVI_picked_mean = np.nanmean(NDVI_picked)
+            CSIF_picked_mean = np.nanmean(CSIF_picked)
+            NDVI_picked_list.append(NDVI_picked_mean)
+            CSIF_picked_list.append(CSIF_picked_mean)
+        df['NDVI_pre_{}'.format(n)] = NDVI_picked_list
+        df['CSIF_pre_{}'.format(n)] = CSIF_picked_list
+
+
+        pass
+
 
 class Analysis:
 
@@ -2517,8 +2549,8 @@ class Analysis:
 
     def GRACE(self):
         # import matplotlib.animation as animation
-        # fdir = data_root + 'TWS/GRACE/per_pix_anomaly/'
-        fdir = data_root + '/CSIF/per_pix/'
+        fdir = data_root + 'TWS/GRACE/per_pix/'
+        # fdir = data_root + '/CSIF/per_pix/'
         DIC_and_TIF().per_pix_animate(fdir,interval_t=100)
 
 
@@ -2529,8 +2561,8 @@ def main():
     # Main_flow_Legacy().run()
     # Main_flow_Carbon_loss().run()
     # Main_flow_Greenness_loss().run()
-    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
-    Analysis().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Analysis().run()
     pass
 
 

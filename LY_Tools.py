@@ -1031,6 +1031,9 @@ class DIC_and_TIF:
         min_max_v = []
         for pix in selected_pix_sort:
             val = dic[pix]
+            val = np.array(val)
+            if len(val) == 0:
+                continue
             val[val<-9999] = np.nan
             china_pix_val[flag] = val
             vmin_init = np.nanmin(val)
@@ -1075,7 +1078,8 @@ class DIC_and_TIF:
             #     vmin = vmin_
             # if vmax == None:
             #     vmax = vmax_
-            ax1.set_ylim(vmin_,vmax_)
+            if not np.isnan(vmin_) and not np.isnan(vmax_):
+                ax1.set_ylim(vmin_,vmax_)
             im_arr_in = show_pix(china_pix[i], back_ground_copy)
             im.set_array(im_arr_in)
             return line,

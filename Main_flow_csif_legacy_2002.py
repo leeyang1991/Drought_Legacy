@@ -52,34 +52,21 @@ class Global_vars:
 
         return gs
 
-    def variables(self):
+    def variables(self,n=3):
+
         X = [
             'isohydricity',
-            'canopy_height',
-            'rooting_depth',
-            # 'PRE_delta',
-            # 'TMP_delta',
-            # 'VPD_delta',
-            # 'SPEI_delta',
-            'PRE_trend',
-            'TMP_trend',
-            'VPD_trend',
-            'PRE_cv_delta',
-            'TMP_cv_delta',
-            'VPD_cv_delta',
-            # 'PRE_cv',
-            # 'TMP_cv',
-            # 'VPD_cv',
-            'waterbalance',
-            'sand',
-            'awc',
-            'drought_year_sos_std_anomaly',
-            'thaw_date_std_anomaly',
-            'thaw_date_anomaly',
-            'thaw_date',
-             ]
-        # Y = 'delta_legacy'
-        Y = 'trend'
+            'NDVI_pre_{}'.format(n),
+            'CSIF_pre_{}'.format(n),
+            'VPD_previous_{}'.format(n),
+            'TMP_previous_{}'.format(n),
+            'PRE_previous_{}'.format(n),
+        ]
+        Y = 'greenness_loss'
+        # Y = 'carbon_loss'
+        # Y = 'legacy_1'
+        # Y = 'legacy_2'
+        # Y = 'legacy_3'
 
         return X,Y
 
@@ -103,6 +90,7 @@ class Global_vars:
             if not pix in valid_ndvi_dic:
                 drop_index.append(i)
         df = df.drop(df.index[drop_index])
+
         # print(len(df))
         # exit()
         # df = df.drop_duplicates(subset=['pix', 'delta_legacy'])
@@ -134,8 +122,13 @@ class Global_vars:
         # T.print_head_n(df)
         print(len(df))
         # exit()
+        spatial_dic = {}
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            val = 1
+            spatial_dic[pix] = val
 
-        return df
+        return df,spatial_dic
 
     def mask_arr_with_NDVI(self, inarr):
         ndvi_valid_f = results_root_main_flow_2002 + 'arr/NDVI/NDVI_invalid_mask.npy'
@@ -1598,7 +1591,10 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # -1 df to excel
         # df = self.drop_duplicated_sample(df)
         # add pre_drought vars
-        df = self.add_pre_drought_variables(df)
+        for n in [3,6,12,24]:
+            print(n)
+            # df = self.add_pre_drought_growth_variables(df,n)
+            df = self.add_pre_drought_climate_variables(df,n)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff)
         pass
@@ -2400,7 +2396,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
 
 
-    def add_pre_drought_variables(self,df):
+    def add_pre_drought_growth_variables(self,df,n=3):
 
         '''
         add CSIF NDVI
@@ -2413,14 +2409,17 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         ndvi_dic = T.load_npy_dir(NDVI_dir)
         csif_dic = T.load_npy_dir(CSIF_dir)
         # exit()
-        n = 3
         NDVI_picked_list = []
         CSIF_picked_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
             if not pix in ndvi_dic:
+                NDVI_picked_list.append(np.nan)
+                CSIF_picked_list.append(np.nan)
                 continue
             if not pix in csif_dic:
+                NDVI_picked_list.append(np.nan)
+                CSIF_picked_list.append(np.nan)
                 continue
             NDVI = ndvi_dic[pix]
             CSIF = csif_dic[pix]
@@ -2429,8 +2428,11 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             for ni in range(1,n+1):
                 indx = drought_start - ni
                 if indx < 0:
+                    picked_index = []
                     break
                 picked_index.append(indx)
+            # if len(picked_index) == 0:
+            #     print(drought_start)
             picked_index = picked_index[::-1]
             NDVI_picked = T.pick_vals_from_1darray(NDVI,picked_index)
             CSIF_picked = T.pick_vals_from_1darray(CSIF,picked_index)
@@ -2440,7 +2442,44 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             CSIF_picked_list.append(CSIF_picked_mean)
         df['NDVI_pre_{}'.format(n)] = NDVI_picked_list
         df['CSIF_pre_{}'.format(n)] = CSIF_picked_list
+        return df
 
+        pass
+    def add_pre_drought_climate_variables(self,df,n=3):
+
+        '''
+        add precip temp and VPD
+        '''
+
+        fdir = data_root + 'Climate_180/'
+        for var in os.listdir(fdir):
+            if var.startswith('.'):
+                continue
+            var_dir = data_root + 'Climate_180/{}/per_pix_anomaly/'.format(var)
+            var_dic = T.load_npy_dir(var_dir)
+            picked_list = []
+            for i,row in tqdm(df.iterrows(),total=len(df)):
+                pix = row.pix
+                if not pix in var_dic:
+                    picked_list.append(np.nan)
+                    continue
+                val = var_dic[pix]
+                drought_start = row['drought_event_date_range'][0]
+                picked_index = []
+                for ni in range(1,n+1):
+                    indx = drought_start - ni
+                    if indx < 0:
+                        picked_index = []
+                        break
+                    picked_index.append(indx)
+                # if len(picked_index) == 0:
+                #     print(drought_start)
+                picked_index = picked_index[::-1]
+                val_picked = T.pick_vals_from_1darray(val,picked_index)
+                picked_mean = np.nanmean(val_picked)
+                picked_list.append(picked_mean)
+            df['{}_previous_{}'.format(var,n)] = picked_list
+        return df
 
         pass
 
@@ -2455,7 +2494,9 @@ class Analysis:
     def run(self):
 
         # self.Isohyd()
-        self.GRACE()
+        self.Isohyd_corr()
+        # self.GRACE()
+        # self.plot_all_variables()
         pass
 
     def load_df(self):
@@ -2466,7 +2507,7 @@ class Analysis:
 
         pass
 
-    def __divide_MA(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2):
+    def __divide_MA(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2,include_external=False):
         if min_v == None:
             min_v = np.min(arr)
         if max_v == None:
@@ -2475,8 +2516,17 @@ class Analysis:
             raise UserWarning('step or n is required')
         if n == None:
             d = np.arange(start=min_v,step=step,stop=max_v)
+            if include_external:
+                print(d)
+                print('n=None')
+                exit()
         elif step == None:
             d = np.linspace(min_v,max_v,num=n)
+            if include_external:
+                d = np.insert(d,0,np.min(arr))
+                d = np.append(d,np.max(arr))
+                # print(d)
+                # exit()
         else:
             d = np.nan
             raise UserWarning('n and step cannot exist together')
@@ -2526,6 +2576,92 @@ class Analysis:
         plt.xticks(range(len(Iso_d)),Iso_d_str)
         plt.show()
 
+
+    def Isohyd_corr(self):
+        # var1 = 'greenness_loss'
+        var1 = 'carbon_loss'
+        # var1 = 'legacy_1'
+        # var1 = 'legacy_2'
+        # var1 = 'legacy_3'
+
+
+        # var2 = 'TWS_recovery_period'
+        # var2 = 'NDVI_pre_24'
+        var2 = 'CSIF_pre_3'
+        # var2 = 'PRE_previous_24'
+        # var2 = 'VPD_previous_3'
+        # var2 = 'TMP_previous_24'
+
+
+        df,dff = self.load_df()
+        df,valid_pix_dic = Global_vars().clean_df(df)
+        isohydricity_series = df['isohydricity']
+        Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=0, max_v=1., n=11,include_external=False)
+
+        spatial_dic = {}
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            val = 1
+            spatial_dic[pix] = val
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        Global_vars().mask_arr_with_NDVI(arr)
+        plt.figure(figsize=(10,7))
+        plt.subplot(311)
+        plt.imshow(arr, resample=False, interpolation='nearest')
+        DIC_and_TIF().plot_back_ground_arr_north_sphere()
+        plt.xticks([],[])
+        plt.yticks([],[])
+        plt.subplot(312)
+        x = []
+        p_list = []
+        class_number = []
+        for i in tqdm(range(len(Iso_d))):
+            if i + 1 >= len(Iso_d):
+                continue
+            df_temp = df[df.isohydricity > Iso_d[i]]
+            df_temp = df_temp[df_temp.isohydricity < Iso_d[i + 1]]
+            number = len(df_temp)
+            # vals = df_temp['legacy_3']
+            vals1 = df_temp[var1]
+            vals2 = df_temp[var2]
+
+            vals1 = np.array(vals1)
+            vals2 = np.array(vals2)
+            vals1 = -vals1
+            vals1_new = []
+            vals2_new = []
+            for ii in range(len(vals1)):
+                if np.isnan(vals1[ii]):
+                    continue
+                if np.isnan(vals2[ii]):
+                    continue
+                vals1_new.append(vals1[ii])
+                vals2_new.append(vals2[ii])
+            try:
+                r,p = stats.pearsonr(vals1_new,vals2_new)
+            except:
+                r = np.nan
+                p = np.nan
+            x.append(r)
+            if p < 0.05:
+                p_list.append('r')
+            else:
+                p_list.append('b')
+            class_number.append(number)
+        plt.bar(range(len(x)),x,color=p_list,align='edge')
+        plt.xticks(range(len(Iso_d)), Iso_d_str,rotation=90)
+        plt.xlabel('IsoHydricity')
+        plt.ylabel('correlation')
+        plt.title('{} vs {}'.format(var1,var2))
+        plt.subplot(313)
+        plt.bar(range(len(x)), class_number, align='edge')
+        plt.xticks(range(len(Iso_d)), Iso_d_str, rotation=90)
+        plt.ylabel('events number')
+        plt.tight_layout()
+        plt.show()
+
+        pass
+
     def plot_back_ground_arr(self):
         tif_template = DIC_and_TIF().tif_template
         arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
@@ -2548,10 +2684,53 @@ class Analysis:
 
 
     def GRACE(self):
-        # import matplotlib.animation as animation
-        fdir = data_root + 'TWS/GRACE/per_pix/'
-        # fdir = data_root + '/CSIF/per_pix/'
-        DIC_and_TIF().per_pix_animate(fdir,interval_t=100)
+        df,dff = self.load_df()
+        df = Global_vars().clean_df(df)
+
+        # TWS_recovery_period = df.TWS_recovery_period
+        x_variable = df.CSIF_pre_6
+        '''
+        carbon_loss	legacy_1	legacy_2	legacy_3
+        '''
+        Y = df['carbon_loss']
+
+        KDE_plot().plot_scatter(x_variable,Y)
+
+        # plt.scatter(TWS_recovery_period,Y)
+        plt.show()
+
+
+
+
+
+    def climate_analysis(self):
+        df, dff = self.load_df()
+
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            pass
+
+        pass
+
+    def plot_all_variables(self):
+        df, dff = self.load_df()
+        T.print_head_n(df)
+        X,Y = Global_vars().variables()
+        df = Global_vars().clean_df(df)
+        df_new = pd.DataFrame()
+        for x in X:
+            df_new[x] = df[x]
+        df_new[Y] = df[Y]
+        corr_arr = df_new.corr()
+        corr_arr[corr_arr==1]=np.nan
+        # plt.imshow(corr_arr)
+        sns.pairplot(df_new,markers='.',kind='reg',diag_kind='kde')
+        plt.show()
+
+
+
+
+
 
 
 def main():
@@ -2561,8 +2740,8 @@ def main():
     # Main_flow_Legacy().run()
     # Main_flow_Carbon_loss().run()
     # Main_flow_Greenness_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
-    # Analysis().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    Analysis().run()
     pass
 
 

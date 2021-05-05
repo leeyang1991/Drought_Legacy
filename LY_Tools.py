@@ -25,7 +25,7 @@ class Tools:
         for f in tqdm(os.listdir(fdir),desc='loading '+fdir):
             if not condition in f:
                 continue
-            dic_i = self.load_npy(fdir + f)
+            dic_i = self.load_npy(os.path.join(fdir,f))
             dic.update(dic_i)
         return dic
         pass
@@ -896,6 +896,26 @@ class DIC_and_TIF:
 
         pass
 
+    def plot_back_ground_arr_north_sphere(self):
+        tif_template = self.tif_template
+        arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
+        back_ground = []
+        for i in range(len(arr)):
+            temp = []
+            for j in range(len(arr[0])):
+                val = arr[i][j]
+                if val < -90000:
+                    temp.append(np.nan)
+                else:
+                    temp.append(1)
+            back_ground.append(temp)
+        back_ground = np.array(back_ground)
+        plt.imshow(back_ground[:180], 'gray', vmin=0, vmax=1.4,zorder=-1)
+
+        # return back_ground
+
+        pass
+
 
     def ascii_to_arr(self,lonlist,latlist,vals):
         '''
@@ -1272,6 +1292,19 @@ class KDE_plot:
 
         kde_val = np.array([val1, val2])
         print('doing kernel density estimation... ')
+        new_v1 = []
+        new_v2 = []
+        for vals_12 in kde_val.T:
+            # print(vals_12)
+            v1,v2 = vals_12
+            if np.isnan(v1):
+                continue
+            if np.isnan(v2):
+                continue
+            new_v1.append(v1)
+            new_v2.append(v2)
+        val1, val2 = new_v1,new_v2
+        kde_val = np.array([new_v1,new_v2])
         densObj = kde(kde_val)
         dens_vals = densObj.evaluate(kde_val)
         colors = self.makeColours(dens_vals, cmap, reverse=reverse)

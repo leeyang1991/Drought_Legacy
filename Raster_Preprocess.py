@@ -666,12 +666,62 @@ class NDVI:
 
         pass
 
+
+class Climate:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.climate_408_to_180()
+        self.anomaly()
+        pass
+
+
+    def climate_408_to_180(self):
+        fdir = data_root + 'Climate_408/'
+        outdir = data_root + 'Climate_180/'
+        T.mk_dir(outdir)
+        for var in os.listdir(fdir):
+            if var.startswith('.'):
+                continue
+            print(var)
+            outdir_i = outdir + var + '/per_pix/'
+            T.mk_dir(outdir_i,force=True)
+            fdir_i = os.path.join(fdir,var,'per_pix_clean')
+            dic_i = T.load_npy_dir(fdir_i)
+            # DIC_and_TIF().per_pix_animate(fdir_i)
+            dic_i_new = {}
+            for pix in dic_i:
+                val = dic_i[pix]
+                val_new = val[-180:]
+                val_new = np.array(val_new)
+                dic_i_new[pix] = val_new
+            np.save(outdir_i+'per_pix_dic.npy',dic_i_new)
+
+
+    def anomaly(self):
+        fdir = data_root + 'Climate_180/'
+
+        for var in os.listdir(fdir):
+            if var.startswith('.'):
+                continue
+            print(var)
+            fdir_i = data_root + 'Climate_180/{}/per_pix/'.format(var)
+            outdir = data_root + 'Climate_180/{}/per_pix_anomaly/'.format(var)
+            T.mk_dir(outdir)
+            Pre_Process().cal_anomaly(fdir_i,outdir)
+        pass
+
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
     # TWS_Water_Gap().run()
     # GRACE().run()
-    NDVI().run()
+    # NDVI().run()
+    Climate().run()
     pass
 
 

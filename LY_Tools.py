@@ -284,7 +284,7 @@ class Tools:
             #     exit()
             return mean,xerr
 
-    def pick_vals_from_2darray(self, array, index):
+    def pick_vals_from_2darray(self, array, index,pick_nan=False):
         # 2d
         ################# check zone #################
         # plt.imshow(array)
@@ -296,14 +296,22 @@ class Tools:
         # plt.imshow(array)
         # plt.show()
         ################# check zone #################
-        picked_val = []
-        for r, c in index:
-            val = array[r, c]
-            if np.isnan(val):
-                continue
-            picked_val.append(val)
-        picked_val = np.array(picked_val)
-        return picked_val
+        if pick_nan == False:
+            picked_val = []
+            for r, c in index:
+                val = array[r, c]
+                if np.isnan(val):
+                    continue
+                picked_val.append(val)
+            picked_val = np.array(picked_val)
+            return picked_val
+        else:
+            picked_val = []
+            for r, c in index:
+                val = array[r, c]
+                picked_val.append(val)
+            picked_val = np.array(picked_val)
+            return picked_val
         pass
 
     def pick_vals_from_1darray(self, arr, index):
@@ -1242,11 +1250,11 @@ class KDE_plot:
             sxy += x[i]*y[i]
         a = (sy*sx/N -sxy)/( sx*sx/N -sxx)
         b = (sy - a*sx)/N
-        r = abs(sy*sx/N-sxy)/math.sqrt((sxx-sx*sx/N)*(syy-sy*sy/N))
+        r = -(sy*sx/N-sxy)/math.sqrt((sxx-sx*sx/N)*(syy-sy*sy/N))
         return a,b,r
 
 
-    def plot_fit_line(self,a,b,r,X,title='',**argvs):
+    def plot_fit_line(self,a,b,r,X,ax=None,title='',**argvs):
         '''
         画拟合直线 y=ax+b
         画散点图 X,Y
@@ -1264,11 +1272,21 @@ class KDE_plot:
         # plt.subplot(2,2,i)
         # plt.scatter(X,Y,marker='o',s=5,c = 'grey')
         # plt.plot(X,Y)
-        if not 'linewidth' in argvs:
-            plt.plot(x, y, linestyle='dashed', c='black', linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
+        if 'c' in argvs:
+            c = argvs['c']
         else:
-            plt.plot(x,y,linestyle='dashed',c='black',alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
-        # plt.title(title)
+            c = 'black'
+        argvs.pop('c')
+        if ax == None:
+            if not 'linewidth' in argvs:
+                plt.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
+            else:
+                plt.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
+        else:
+            if not 'linewidth' in argvs:
+                ax.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
+            else:
+                ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
 
 
     def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,**kwargs):

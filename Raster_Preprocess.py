@@ -715,13 +715,54 @@ class Climate:
         pass
 
 
+
+class SM:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.sm_408_to_180()
+        # self.anomaly()
+        self.check_anomaly()
+        pass
+
+    def sm_408_to_180(self):
+        fdir = data_root + 'SM/per_pix_clean/'
+        outdir = data_root + 'SM/per_pix_clean_180/'
+        T.mk_dir(outdir, force=True)
+        dic = T.load_npy_dir(fdir)
+        # DIC_and_TIF().per_pix_animate(fdir_i)
+        dic_i_new = {}
+        for pix in tqdm(dic):
+            val = dic[pix]
+            val_new = val[-180:]
+            val_new = np.array(val_new)
+            dic_i_new[pix] = val_new
+        np.save(outdir + 'per_pix_dic.npy', dic_i_new)
+        pass
+
+    def anomaly(self):
+        fdir = data_root + 'SM/per_pix_clean_180/'
+        outdir = data_root + 'SM/per_pix_clean_anomaly_180/'
+        Pre_Process().cal_anomaly(fdir,outdir)
+
+
+    def check_anomaly(self):
+        fdir = data_root + 'SM/per_pix_clean_anomaly_180/'
+        DIC_and_TIF().per_pix_animate(fdir)
+
+
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
     # TWS_Water_Gap().run()
     # GRACE().run()
     # NDVI().run()
-    Climate().run()
+    # Climate().run()
+    SM().run()
     pass
 
 

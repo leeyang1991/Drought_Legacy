@@ -2566,11 +2566,11 @@ class Analysis:
         # self.Isohyd()
         # self.Isohyd_corr()
         # self.Isohyd_corr_events()
-        # self.Isohyd_corr_spatial()
+        self.Isohyd_corr_spatial()
         # self.Isohyd_corr_spatial_scatter()
         # self.GRACE()
         # self.plot_all_variables()
-        self.plot_previous_png()
+        # self.plot_previous_png()
         pass
 
     def load_df(self):
@@ -2736,113 +2736,122 @@ class Analysis:
 
         pass
 
-    def Isohyd_corr_spatial(self):
-        # var1 = 'greenness_loss'
-        var1 = 'carbon_loss'
-        # var1 = 'legacy_1'
-        # var1 = 'legacy_2'
-        # var1 = 'legacy_3'
 
+    def kernel_Isohyd_corr_spatial(self,params):
+        var1,var2_list,outdir = params
+        flag = 0
+        plt.figure(figsize=(20,15))
 
-        # var2 = 'TWS_recovery_period'
-        # var2 = 'NDVI_pre_6'
-        # var2 = 'CSIF_pre_3'
-        var2 = 'PRE_previous_3'
-        # var2 = 'VPD_previous_6'
-        # var2 = 'TMP_previous_3'
+        for var2 in var2_list:
+            flag += 1
+            print(var1, var2)
+            vmin = 0
+            vmax = 1
+            df, dff = self.load_df()
+            df, valid_pix_dic = Global_vars().clean_df(df)
+            isohydricity_series = df['isohydricity']
+            Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=11,
+                                                include_external=False)
+            Iso_spatial_dic = {}
+            for i, row in df.iterrows():
+                pix = row.pix
+                val = row['isohydricity']
+                Iso_spatial_dic[pix] = val
+            Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
 
-        vmin = 0.
-        vmax = 0.3
-        df,dff = self.load_df()
-        df,valid_pix_dic = Global_vars().clean_df(df)
-        isohydricity_series = df['isohydricity']
-        Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=2,include_external=False)
-        Iso_spatial_dic = {}
-        for i,row in df.iterrows():
-            pix = row.pix
-            val = row['isohydricity']
-            Iso_spatial_dic[pix] = val
-        Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
+            selected_pix_dic = {}
 
-        selected_pix_dic = {}
+            for i in tqdm(range(len(Iso_d))):
+                if i + 1 >= len(Iso_d):
+                    continue
+                df_temp = df[df.isohydricity > Iso_d[i]]
+                df_temp = df_temp[df_temp.isohydricity < Iso_d[i + 1]]
+                pix_series = df_temp.pix
+                pix_series = np.array(pix_series)
+                pix_series = set(pix_series)
+                selected_pix_dic[i] = tuple(pix_series)
 
-        for i in tqdm(range(len(Iso_d))):
-            if i + 1 >= len(Iso_d):
-                continue
-            df_temp = df[df.isohydricity > Iso_d[i]]
-            df_temp = df_temp[df_temp.isohydricity < Iso_d[i + 1]]
-            pix_series = df_temp.pix
-            pix_series = np.array(pix_series)
-            pix_series = set(pix_series)
-            selected_pix_dic[i] = tuple(pix_series)
+            var1_dic = DIC_and_TIF().void_spatial_dic()
+            var2_dic = DIC_and_TIF().void_spatial_dic()
 
+            for i, row in tqdm(df.iterrows(), total=len(df)):
+                pix = row.pix
+                val1 = row[var1]
+                val2 = row[var2]
+                var1_dic[pix].append(val1)
+                var2_dic[pix].append(val2)
 
-        var1_dic = DIC_and_TIF().void_spatial_dic()
-        var2_dic = DIC_and_TIF().void_spatial_dic()
+            arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
+            arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
 
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            val1 = row[var1]
-            val2 = row[var2]
-            var1_dic[pix].append(val1)
-            var2_dic[pix].append(val2)
+            corr_list = []
+            p_list = []
+            pix_number = []
+            for i in range(len(Iso_d)):
+                if i + 1 >= len(Iso_d):
+                    continue
+                pix_selected = selected_pix_dic[i]
+                picked_val1 = T.pick_vals_from_2darray(arr1, pix_selected, pick_nan=True)
+                picked_val2 = T.pick_vals_from_2darray(arr2, pix_selected, pick_nan=True)
+                df_temp_ = pd.DataFrame()
+                df_temp_['var1'] = picked_val1
+                df_temp_['var2'] = picked_val2
+                df_temp_ = df_temp_.dropna()
+                picked_val1 = df_temp_['var1']
+                picked_val2 = df_temp_['var2']
+                picked_val1 = -picked_val1
+                try:
+                    corr = stats.pearsonr(picked_val1, picked_val2)
+                    r, p = corr
+                except:
+                    r, p = [np.nan] * 2
+                corr_list.append(r)
+                if p < 0.05:
+                    p_list.append('r')
+                else:
+                    p_list.append('b')
+                pix_number.append(len(picked_val2))
 
-        arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
-        arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
+            # plt.subplot(311)
+            # plt.imshow(Iso_arr[:180],vmin=vmin,vmax=vmax)
+            # plt.colorbar()
+            # DIC_and_TIF().plot_back_ground_arr_north_sphere()
+            # plt.xticks([],[])
+            # plt.yticks([],[])
+            # plt.grid()
+            # plt.title('IsoHydricity')
 
-        corr_list = []
-        p_list = []
-        pix_number = []
-        for i in range(len(Iso_d)):
-            if i + 1 >= len(Iso_d):
-                continue
-            pix_selected = selected_pix_dic[i]
-            picked_val1 = T.pick_vals_from_2darray(arr1,pix_selected,pick_nan=True)
-            picked_val2 = T.pick_vals_from_2darray(arr2,pix_selected,pick_nan=True)
-            df_temp_ = pd.DataFrame()
-            df_temp_['var1'] = picked_val1
-            df_temp_['var2'] = picked_val2
-            df_temp_ = df_temp_.dropna()
-            picked_val1 = df_temp_['var1']
-            picked_val2 = df_temp_['var2']
-            picked_val1 = -picked_val1
-            corr = stats.pearsonr(picked_val1,picked_val2)
-            r,p = corr
-            corr_list.append(r)
-            if p < 0.05:
-                p_list.append('r')
-            else:
-                p_list.append('b')
-            pix_number.append(len(picked_val2))
+            plt.subplot(5, 6, flag)
+            plt.bar(range(len(corr_list)), corr_list, color=p_list, align='edge')
+            plt.xticks(range(len(Iso_d)), Iso_d_str, rotation=90)
+            # plt.grid()
+            # plt.xlabel('IsoHydricity')
+            # plt.ylabel('correlation')
+            plt.title('{} vs {}'.format(var1, var2))
 
-        plt.figure(figsize=(10,7))
-        plt.subplot(311)
-        plt.imshow(Iso_arr[:180],vmin=vmin,vmax=vmax)
-        plt.colorbar()
-        DIC_and_TIF().plot_back_ground_arr_north_sphere()
-        plt.xticks([],[])
-        plt.yticks([],[])
-        plt.grid()
-        plt.title('IsoHydricity')
-
-
-        plt.subplot(312)
-        plt.bar(range(len(corr_list)),corr_list,color=p_list,align='edge')
-        plt.xticks(range(len(Iso_d)),Iso_d_str,rotation=90)
-        # plt.grid()
-        plt.xlabel('IsoHydricity')
-        plt.ylabel('correlation')
-        plt.title('{} vs {}'.format(var1, var2))
-
-
-        plt.subplot(313)
-        plt.bar(range(len(corr_list)),pix_number,align='edge')
-        plt.xticks(range(len(Iso_d)), Iso_d_str, rotation=90)
-        plt.ylabel('pixel number')
-
+            # plt.subplot(313)
+            # plt.bar(range(len(corr_list)),pix_number,align='edge')
+            # plt.xticks(range(len(Iso_d)), Iso_d_str, rotation=90)
+            # plt.ylabel('pixel number')
 
         plt.tight_layout()
-        plt.show()
+        outf = outdir + '{}.pdf'.format(var1)
+        plt.savefig(outf, dpi=300)
+        plt.close()
+        # plt.show()
+
+        pass
+
+    def Isohyd_corr_spatial(self):
+        outdir = self.this_class_png + 'Isohyd_corr_spatial/'
+        T.mk_dir(outdir)
+        var2_list,var1_list = self.__gen_variables()
+        # print(len(var2_list))
+        params = []
+        for var1 in var1_list:
+            params.append([var1,var2_list,outdir])
+
+        MULTIPROCESS(self.kernel_Isohyd_corr_spatial,params).run()
 
 
         pass
@@ -2960,16 +2969,18 @@ class Analysis:
 
     def GRACE(self):
         df,dff = self.load_df()
-        df = Global_vars().clean_df(df)
+        df,_ = Global_vars().clean_df(df)
 
         # TWS_recovery_period = df.TWS_recovery_period
-        x_variable = df.CSIF_pre_6
+        x_variable = df.CSIF_pre_3
         '''
         carbon_loss	legacy_1	legacy_2	legacy_3
         '''
         Y = df['carbon_loss']
-
-        KDE_plot().plot_scatter(x_variable,Y)
+        Y = np.array(Y)
+        x_variable = np.array(x_variable)
+        Y = -Y
+        KDE_plot().plot_scatter(x_variable,Y,plot_fit_line=True)
 
         # plt.scatter(TWS_recovery_period,Y)
         plt.show()
@@ -3022,10 +3033,151 @@ class Analysis:
         pass
 
 
-    def plot_previous_png(self):
-        outpngdir = self.this_class_png + 'plot_previous_png/'
+    def kernel_plot_previous_png(self,params):
+        back_ground_var = 'isohydricity'
+        # back_ground_var = 'waterbalance'
+        outpngdir = self.this_class_png + 'plot_previous_png_{}/'.format(back_ground_var)
         T.mk_dir(outpngdir)
-        n_list = [3,6,12,24]
+        var1,var2 = params
+        # print(var1,var2)
+        # lc_dic = ''
+        lc_dic = self.__gen_lc_pix()
+        outf = outpngdir + '{}_{}.jpg'.format(var2, var1)
+        if os.path.isfile(outf):
+            return None
+
+
+        df, dff = self.load_df()
+        df, valid_pix_dic = Global_vars().clean_df(df)
+        # isohydricity_series = df['isohydricity']
+        isohydricity_series = df[back_ground_var]
+        isohydricity_series = isohydricity_series.dropna()
+        isohydricity_series = np.array(isohydricity_series)
+        # plt.hist(isohydricity_series,bins=100)
+        # plt.show()
+        # Iso_d = [-100,-25,25,100]
+        Iso_d = [-0.5,0.3,0.9,1.5]
+        Iso_d_str = [str(iso) for iso in Iso_d]
+        vmin = -100
+        vmax = 100
+        # print(Iso_d)
+        # print(Iso_d_str)
+        # vmin = -120
+        # vmax = 120
+        # Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=4,
+        #                                     include_external=False)
+
+        # print(Iso_d)
+        # print(Iso_d_str)
+        # exit()
+        # print(Iso_d)
+        # exit()
+        # Iso_spatial_dic = {}
+        # for i, row in df.iterrows():
+        #     pix = row.pix
+        #     val = row['isohydricity']
+        #     Iso_spatial_dic[pix] = val
+        # Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
+
+        selected_pix_dic = {}
+
+        for i in tqdm(range(len(Iso_d))):
+            if i + 1 >= len(Iso_d):
+                continue
+            df_temp = df[df[back_ground_var] > Iso_d[i]]
+            df_temp = df_temp[df_temp[back_ground_var] < Iso_d[i + 1]]
+            pix_series = df_temp.pix
+            pix_series = np.array(pix_series)
+            pix_series = set(pix_series)
+            selected_pix_dic[i] = tuple(pix_series)
+
+        var1_dic = DIC_and_TIF().void_spatial_dic()
+        var2_dic = DIC_and_TIF().void_spatial_dic()
+
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            val1 = row[var1]
+            val2 = row[var2]
+            var1_dic[pix].append(val1)
+            var2_dic[pix].append(val2)
+
+        arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
+        arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
+
+        corr_list = []
+        p_list = []
+        pix_number = []
+        flag = 0
+        plt.figure(figsize=(20, 6))
+        for i in range(len(Iso_d)):
+            if i + 1 >= len(Iso_d):
+                continue
+            flag += 1
+            pix_selected = selected_pix_dic[i]
+            for lc in lc_dic:
+                lc_pix = lc_dic[lc]
+                lc_pix = tuple(set(lc_pix))
+                # intersect_pix = lc_pix & pix_selected
+                intersect_pix = list(set(lc_pix) & set(pix_selected))
+                picked_val1 = T.pick_vals_from_2darray(arr1, intersect_pix, pick_nan=True)
+                picked_val2 = T.pick_vals_from_2darray(arr2, intersect_pix, pick_nan=True)
+                df_temp_ = pd.DataFrame()
+                df_temp_['var1'] = picked_val1
+                df_temp_['var2'] = picked_val2
+                df_temp_ = df_temp_.dropna()
+                if 'TWS' in var1:
+                    df_temp_ = df_temp_[df_temp_['var1'] > -20]
+                    df_temp_ = df_temp_[df_temp_['var1'] < 20]
+                picked_val1 = np.array(df_temp_['var1'])
+                picked_val2 = np.array(df_temp_['var2'])
+                picked_val2 = -picked_val2
+                ax = plt.subplot(1, len(Iso_d)-1, flag)
+                color = Global_vars().color_dic_lc()
+                ax.scatter(picked_val1, picked_val2,
+                           s=40, marker='o',
+                           facecolors='none',
+                           edgecolors=color[lc],
+                           alpha=0.6)
+                try:
+                    a, b, r = KDE_plot().linefit(picked_val1, picked_val2)
+                except Exception as e:
+                    a,b,r = [np.nan]*3
+                    print(e)
+                    print(picked_val1)
+                    print(picked_val2)
+                    plt.scatter(picked_val1, picked_val2)
+                    plt.show()
+                    exit()
+                KDE_plot().plot_fit_line(a, b, r, picked_val1, ax=ax, c=color[lc], linewidth=2)
+                ax.set_xlabel(var1)
+                ax.set_ylabel(var2)
+                # corr = stats.pearsonr(picked_val1, picked_val2)
+                # r, p = corr
+                ax.set_title('{} {:0.2f} to {:0.2f}'.format(back_ground_var,Iso_d[i], Iso_d[i + 1]))
+                pix_number.append(len(picked_val2))
+            plt.legend()
+        plt.tight_layout()
+        plt.savefig(outf, dpi=300)
+        plt.close()
+        # plt.show()
+
+        pass
+
+
+    def plot_previous_png(self):
+        var1_list, y_list = self.__gen_variables()
+
+        params = []
+        for var2 in y_list:
+            for var1 in var1_list:
+                params.append([var1,var2])
+                # self.kernel_plot_previous_png([var1,var2])
+        MULTIPROCESS(self.kernel_plot_previous_png,params).run()
+
+
+    def __gen_variables(self):
+
+        n_list = [3, 6, 12, 24]
         climate_list_1 = [
             'PRE',
             'VPD',
@@ -3041,116 +3193,24 @@ class Analysis:
 
         y_list = [
             'carbon_loss',
-            'NDVI_loss',
+            # 'greenness_loss',
+            'legacy_1',
+            'legacy_2',
+            'legacy_3',
         ]
-        lc_dic = self.__gen_lc_pix()
+
         # var_n_list = []
         var1_list = []
         for n in n_list:
             for c in climate_list_1:
-                var1 = '{}_previous_{}'.format(c,n)
+                var1 = '{}_previous_{}'.format(c, n)
                 var1_list.append(var1)
             for v in veg_list:
-                var2 = '{}_pre_{}'.format(v,n)
+                var2 = '{}_pre_{}'.format(v, n)
                 var1_list.append(var2)
             # var_n_list.append(var1_list)
-        var2 = y_list[0]
-        for var1 in var1_list:
-            print(var1)
-            outf = outpngdir+'{}{}.jpg'.format(var2,var1)
-            if os.path.isfile(outf):
-                continue
-            vmin = 0.
-            vmax = 0.9
-            df, dff = self.load_df()
-            df, valid_pix_dic = Global_vars().clean_df(df)
-            isohydricity_series = df['isohydricity']
-            Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=4,
-                                                include_external=False)
-            Iso_spatial_dic = {}
-            for i, row in df.iterrows():
-                pix = row.pix
-                val = row['isohydricity']
-                Iso_spatial_dic[pix] = val
-            Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
-
-            selected_pix_dic = {}
-
-            for i in tqdm(range(len(Iso_d))):
-                if i + 1 >= len(Iso_d):
-                    continue
-                df_temp = df[df.isohydricity > Iso_d[i]]
-                df_temp = df_temp[df_temp.isohydricity < Iso_d[i + 1]]
-                pix_series = df_temp.pix
-                pix_series = np.array(pix_series)
-                pix_series = set(pix_series)
-                selected_pix_dic[i] = tuple(pix_series)
-
-            var1_dic = DIC_and_TIF().void_spatial_dic()
-            var2_dic = DIC_and_TIF().void_spatial_dic()
-
-            for i, row in tqdm(df.iterrows(), total=len(df)):
-                pix = row.pix
-                val1 = row[var1]
-                val2 = row[var2]
-                var1_dic[pix].append(val1)
-                var2_dic[pix].append(val2)
-
-            arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
-            arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
-
-            corr_list = []
-            p_list = []
-            pix_number = []
-            flag = 0
-            plt.figure(figsize=(20,6))
-            for i in range(len(Iso_d)):
-                if i + 1 >= len(Iso_d):
-                    continue
-                flag += 1
-                pix_selected = selected_pix_dic[i]
-                for lc in lc_dic:
-                    lc_pix = lc_dic[lc]
-                    lc_pix = tuple(set(lc_pix))
-                    # intersect_pix = lc_pix & pix_selected
-                    intersect_pix = list(set(lc_pix) & set(pix_selected))
-                    picked_val1 = T.pick_vals_from_2darray(arr1, intersect_pix, pick_nan=True)
-                    picked_val2 = T.pick_vals_from_2darray(arr2, intersect_pix, pick_nan=True)
-                    df_temp_ = pd.DataFrame()
-                    df_temp_['var1'] = picked_val1
-                    df_temp_['var2'] = picked_val2
-                    df_temp_ = df_temp_.dropna()
-                    picked_val1 = np.array(df_temp_['var1'])
-                    picked_val2 = np.array(df_temp_['var2'])
-                    picked_val1 = -picked_val1
-                    ax = plt.subplot(1, 3, flag)
-                    color = Global_vars().color_dic_lc()
-                    ax.scatter(picked_val1, picked_val2,
-                               s=40, marker='o',
-                               facecolors='none',
-                               edgecolors=color[lc],
-                               alpha=0.6)
-                    try:
-                        a,b,r = KDE_plot().linefit(picked_val1, picked_val2)
-                    except Exception as e:
-                        print(e)
-                        plt.scatter(picked_val1,picked_val2)
-                        plt.show()
-                    KDE_plot().plot_fit_line(a,b,r,picked_val1,ax=ax,c=color[lc],linewidth = 2)
-                    ax.set_xlabel(var1)
-                    ax.set_ylabel(var2)
-                    # corr = stats.pearsonr(picked_val1, picked_val2)
-                    # r, p = corr
-                    ax.set_title('Isohydricity {:0.2f} to {:0.2f}'.format(Iso_d[i],Iso_d[i+1]))
-                    pix_number.append(len(picked_val2))
-                plt.legend()
-            plt.tight_layout()
-            plt.savefig(outf,ppi=300)
-            plt.close()
-            # plt.show()
-
-
-
+        var1_list.append('TWS_recovery_period')
+        return var1_list,y_list
 
 def main():
     # Main_flow_Early_Peak_Late_Dormant().run()

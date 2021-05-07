@@ -1274,9 +1274,11 @@ class KDE_plot:
         # plt.plot(X,Y)
         if 'c' in argvs:
             c = argvs['c']
+            argvs.pop('c')
+
         else:
             c = 'black'
-        argvs.pop('c')
+
         if ax == None:
             if not 'linewidth' in argvs:
                 plt.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
@@ -1337,7 +1339,7 @@ class KDE_plot:
             a, b, r = self.linefit(val1,val2)
             if is_plot_1_1_line:
                 plt.plot([np.min([val1,val2]), np.max([val1,val2])], [np.min([val1,val2]), np.max([val1,val2])], '--', c='black')
-            self.plot_fit_line(a,b,r,val1,val2)
+            self.plot_fit_line(a,b,r,val1)
             # plt.legend()
             return a,b,r
 

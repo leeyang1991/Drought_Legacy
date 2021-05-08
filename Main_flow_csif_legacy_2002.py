@@ -2566,11 +2566,11 @@ class Analysis:
         # self.Isohyd()
         # self.Isohyd_corr()
         # self.Isohyd_corr_events()
-        self.Isohyd_corr_spatial()
+        # self.Isohyd_corr_spatial()
         # self.Isohyd_corr_spatial_scatter()
         # self.GRACE()
         # self.plot_all_variables()
-        # self.plot_previous_png()
+        self.plot_previous_png()
         pass
 
     def load_df(self):
@@ -2740,7 +2740,7 @@ class Analysis:
     def kernel_Isohyd_corr_spatial(self,params):
         var1,var2_list,outdir = params
         flag = 0
-        plt.figure(figsize=(20,15))
+        plt.figure(figsize=(20,13))
 
         for var2 in var2_list:
             flag += 1
@@ -2821,13 +2821,13 @@ class Analysis:
             # plt.grid()
             # plt.title('IsoHydricity')
 
-            plt.subplot(5, 6, flag)
+            plt.subplot(5, 7, flag)
             plt.bar(range(len(corr_list)), corr_list, color=p_list, align='edge')
             plt.xticks(range(len(Iso_d)), Iso_d_str, rotation=90)
             # plt.grid()
             # plt.xlabel('IsoHydricity')
             # plt.ylabel('correlation')
-            plt.title('{} vs {}'.format(var1, var2))
+            plt.title('{}'.format(var2))
 
             # plt.subplot(313)
             # plt.bar(range(len(corr_list)),pix_number,align='edge')
@@ -3034,132 +3034,142 @@ class Analysis:
 
 
     def kernel_plot_previous_png(self,params):
-        back_ground_var = 'isohydricity'
-        # back_ground_var = 'waterbalance'
-        outpngdir = self.this_class_png + 'plot_previous_png_{}/'.format(back_ground_var)
-        T.mk_dir(outpngdir)
-        var1,var2 = params
-        # print(var1,var2)
-        # lc_dic = ''
-        lc_dic = self.__gen_lc_pix()
-        outf = outpngdir + '{}_{}.jpg'.format(var2, var1)
-        if os.path.isfile(outf):
-            return None
+        var1_list,var2 = params
+
+        for var1 in var1_list:
+            back_ground_var = 'isohydricity'
+            # back_ground_var = 'waterbalance'
+            outpngdir = self.this_class_png + 'plot_previous_png_{}/'.format(back_ground_var)
+            T.mk_dir(outpngdir)
+
+            # print(var1,var2)
+            # lc_dic = ''
+            lc_dic = self.__gen_lc_pix()
+            outf = outpngdir + '{}_{}.png'.format(var2, var1)
+            # if os.path.isfile(outf):
+            #     return None
 
 
-        df, dff = self.load_df()
-        df, valid_pix_dic = Global_vars().clean_df(df)
-        # isohydricity_series = df['isohydricity']
-        isohydricity_series = df[back_ground_var]
-        isohydricity_series = isohydricity_series.dropna()
-        isohydricity_series = np.array(isohydricity_series)
-        # plt.hist(isohydricity_series,bins=100)
-        # plt.show()
-        # Iso_d = [-100,-25,25,100]
-        Iso_d = [-0.5,0.3,0.9,1.5]
-        Iso_d_str = [str(iso) for iso in Iso_d]
-        vmin = -100
-        vmax = 100
-        # print(Iso_d)
-        # print(Iso_d_str)
-        # vmin = -120
-        # vmax = 120
-        # Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=4,
-        #                                     include_external=False)
+            df, dff = self.load_df()
+            df, valid_pix_dic = Global_vars().clean_df(df)
+            # isohydricity_series = df['isohydricity']
+            isohydricity_series = df[back_ground_var]
+            isohydricity_series = isohydricity_series.dropna()
+            isohydricity_series = np.array(isohydricity_series)
+            # plt.hist(isohydricity_series,bins=100)
+            # plt.show()
+            # Iso_d = [-100,-25,25,100]
+            Iso_d = [-0.5,0.3,0.6,1]
+            Iso_d_str = [str(iso) for iso in Iso_d]
+            vmin = -100
+            vmax = 100
+            # print(Iso_d)
+            # print(Iso_d_str)
+            # vmin = -120
+            # vmax = 120
+            # Iso_d, Iso_d_str = self.__divide_MA(isohydricity_series, min_v=vmin, max_v=vmax, n=4,
+            #                                     include_external=False)
 
-        # print(Iso_d)
-        # print(Iso_d_str)
-        # exit()
-        # print(Iso_d)
-        # exit()
-        # Iso_spatial_dic = {}
-        # for i, row in df.iterrows():
-        #     pix = row.pix
-        #     val = row['isohydricity']
-        #     Iso_spatial_dic[pix] = val
-        # Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
+            # print(Iso_d)
+            # print(Iso_d_str)
+            # exit()
+            # print(Iso_d)
+            # exit()
+            # Iso_spatial_dic = {}
+            # for i, row in df.iterrows():
+            #     pix = row.pix
+            #     val = row['isohydricity']
+            #     Iso_spatial_dic[pix] = val
+            # Iso_arr = DIC_and_TIF().pix_dic_to_spatial_arr(Iso_spatial_dic)
 
-        selected_pix_dic = {}
+            selected_pix_dic = {}
 
-        for i in tqdm(range(len(Iso_d))):
-            if i + 1 >= len(Iso_d):
-                continue
-            df_temp = df[df[back_ground_var] > Iso_d[i]]
-            df_temp = df_temp[df_temp[back_ground_var] < Iso_d[i + 1]]
-            pix_series = df_temp.pix
-            pix_series = np.array(pix_series)
-            pix_series = set(pix_series)
-            selected_pix_dic[i] = tuple(pix_series)
+            for i in tqdm(range(len(Iso_d))):
+                if i + 1 >= len(Iso_d):
+                    continue
+                df_temp = df[df[back_ground_var] > Iso_d[i]]
+                df_temp = df_temp[df_temp[back_ground_var] < Iso_d[i + 1]]
+                pix_series = df_temp.pix
+                pix_series = np.array(pix_series)
+                pix_series = set(pix_series)
+                selected_pix_dic[i] = tuple(pix_series)
 
-        var1_dic = DIC_and_TIF().void_spatial_dic()
-        var2_dic = DIC_and_TIF().void_spatial_dic()
+            var1_dic = DIC_and_TIF().void_spatial_dic()
+            var2_dic = DIC_and_TIF().void_spatial_dic()
 
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            val1 = row[var1]
-            val2 = row[var2]
-            var1_dic[pix].append(val1)
-            var2_dic[pix].append(val2)
+            for i, row in tqdm(df.iterrows(), total=len(df)):
+                pix = row.pix
+                val1 = row[var1]
+                val2 = row[var2]
+                var1_dic[pix].append(val1)
+                var2_dic[pix].append(val2)
 
-        arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
-        arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
+            arr1 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var1_dic)
+            arr2 = DIC_and_TIF().pix_dic_to_spatial_arr_mean(var2_dic)
 
-        corr_list = []
-        p_list = []
-        pix_number = []
-        flag = 0
-        plt.figure(figsize=(20, 6))
-        for i in range(len(Iso_d)):
-            if i + 1 >= len(Iso_d):
-                continue
-            flag += 1
-            pix_selected = selected_pix_dic[i]
-            for lc in lc_dic:
-                lc_pix = lc_dic[lc]
-                lc_pix = tuple(set(lc_pix))
-                # intersect_pix = lc_pix & pix_selected
-                intersect_pix = list(set(lc_pix) & set(pix_selected))
-                picked_val1 = T.pick_vals_from_2darray(arr1, intersect_pix, pick_nan=True)
-                picked_val2 = T.pick_vals_from_2darray(arr2, intersect_pix, pick_nan=True)
-                df_temp_ = pd.DataFrame()
-                df_temp_['var1'] = picked_val1
-                df_temp_['var2'] = picked_val2
-                df_temp_ = df_temp_.dropna()
-                if 'TWS' in var1:
-                    df_temp_ = df_temp_[df_temp_['var1'] > -20]
-                    df_temp_ = df_temp_[df_temp_['var1'] < 20]
-                picked_val1 = np.array(df_temp_['var1'])
-                picked_val2 = np.array(df_temp_['var2'])
-                picked_val2 = -picked_val2
-                ax = plt.subplot(1, len(Iso_d)-1, flag)
-                color = Global_vars().color_dic_lc()
-                ax.scatter(picked_val1, picked_val2,
-                           s=40, marker='o',
-                           facecolors='none',
-                           edgecolors=color[lc],
-                           alpha=0.6)
-                try:
-                    a, b, r = KDE_plot().linefit(picked_val1, picked_val2)
-                except Exception as e:
-                    a,b,r = [np.nan]*3
-                    print(e)
-                    print(picked_val1)
-                    print(picked_val2)
-                    plt.scatter(picked_val1, picked_val2)
-                    plt.show()
-                    exit()
-                KDE_plot().plot_fit_line(a, b, r, picked_val1, ax=ax, c=color[lc], linewidth=2)
-                ax.set_xlabel(var1)
-                ax.set_ylabel(var2)
-                # corr = stats.pearsonr(picked_val1, picked_val2)
-                # r, p = corr
-                ax.set_title('{} {:0.2f} to {:0.2f}'.format(back_ground_var,Iso_d[i], Iso_d[i + 1]))
-                pix_number.append(len(picked_val2))
-            plt.legend()
-        plt.tight_layout()
-        plt.savefig(outf, dpi=300)
-        plt.close()
-        # plt.show()
+            corr_list = []
+            p_list = []
+            pix_number = []
+            flag = 0
+            plt.figure(figsize=(15, 5))
+            for i in range(len(Iso_d)):
+                if i + 1 >= len(Iso_d):
+                    continue
+                flag += 1
+                pix_selected = selected_pix_dic[i]
+                for lc in lc_dic:
+                    lc_pix = lc_dic[lc]
+                    lc_pix = tuple(set(lc_pix))
+                    # intersect_pix = lc_pix & pix_selected
+                    intersect_pix = list(set(lc_pix) & set(pix_selected))
+                    picked_val1 = T.pick_vals_from_2darray(arr1, intersect_pix, pick_nan=True)
+                    picked_val2 = T.pick_vals_from_2darray(arr2, intersect_pix, pick_nan=True)
+                    df_temp_ = pd.DataFrame()
+                    df_temp_['var1'] = picked_val1
+                    df_temp_['var2'] = picked_val2
+                    df_temp_ = df_temp_.dropna()
+                    if 'TWS' in var1:
+                        df_temp_ = df_temp_[df_temp_['var1'] > -20]
+                        df_temp_ = df_temp_[df_temp_['var1'] < 20]
+                    picked_val1 = np.array(df_temp_['var1'])
+                    picked_val2 = np.array(df_temp_['var2'])
+                    picked_val2 = -picked_val2
+                    ax = plt.subplot(1, len(Iso_d)-1, flag)
+                    color = Global_vars().color_dic_lc()
+                    ax.scatter(picked_val1, picked_val2,
+                               s=40, marker='o',
+                               facecolors='none',
+                               edgecolors=color[lc],
+                               alpha=0.6,
+                               label=lc)
+
+                    try:
+                        a, b, r = KDE_plot().linefit(picked_val1, picked_val2)
+                    except Exception as e:
+                        a,b,r = [np.nan]*3
+                        print(e)
+                        print(picked_val1)
+                        print(picked_val2)
+                        plt.scatter(picked_val1, picked_val2)
+                        plt.show()
+                        exit()
+                    KDE_plot().plot_fit_line(a, b, r, picked_val1, ax=ax, c=color[lc], linewidth=2,
+                                             is_label=True,is_formula=False)
+                    ax.set_xlabel(var1)
+                    ax.set_ylabel(var2)
+                    # corr = stats.pearsonr(picked_val1, picked_val2)
+                    # r, p = corr
+                    if Iso_d[i] < 0:
+                        ax.set_title('{} less than {:0.2f}'.format(back_ground_var,Iso_d[i + 1]))
+                    else:
+                        ax.set_title('{} {:0.2f} to {:0.2f}'.format(back_ground_var,Iso_d[i], Iso_d[i + 1]))
+                    pix_number.append(len(picked_val2))
+                plt.legend()
+            plt.tight_layout()
+            plt.savefig(outf, dpi=300)
+            plt.close()
+            # exit()
+            # plt.show()
 
         pass
 
@@ -3167,12 +3177,15 @@ class Analysis:
     def plot_previous_png(self):
         var1_list, y_list = self.__gen_variables()
 
+        # print(var1_list)
+        # exit()
+
         params = []
         for var2 in y_list:
-            for var1 in var1_list:
-                params.append([var1,var2])
-                # self.kernel_plot_previous_png([var1,var2])
-        MULTIPROCESS(self.kernel_plot_previous_png,params).run()
+
+            # params.append([var1_list,var2])
+            self.kernel_plot_previous_png([var1_list,var2])
+        # MULTIPROCESS(self.kernel_plot_previous_png,params).run()
 
 
     def __gen_variables(self):
@@ -3194,9 +3207,9 @@ class Analysis:
         y_list = [
             'carbon_loss',
             # 'greenness_loss',
-            'legacy_1',
-            'legacy_2',
-            'legacy_3',
+            # 'legacy_1',
+            # 'legacy_2',
+            # 'legacy_3',
         ]
 
         # var_n_list = []
@@ -3212,6 +3225,47 @@ class Analysis:
         var1_list.append('TWS_recovery_period')
         return var1_list,y_list
 
+
+class Tif:
+
+
+    def __init__(self):
+        self.this_class_tif = results_root_main_flow + 'tif/Tif/'
+        Tools().mk_dir(self.this_class_tif, force=True)
+
+    def run(self):
+
+        self.carbon_loss()
+        pass
+
+
+    def load_df(self):
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+
+        return df,dff
+
+        pass
+
+    def carbon_loss(self):
+        df ,dff = self.load_df()
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        outdir = self.this_class_tif + 'carbon_loss/'
+        T.mk_dir(outdir)
+        outf = outdir + 'carbon_loss.tif'
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+
+            val = row['carbon_loss']
+            spatial_dic[pix].append(val)
+
+        mean_arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(spatial_dic)
+        DIC_and_TIF().arr_to_tif(mean_arr,outf)
+
+
+        pass
+
+
 def main():
     # Main_flow_Early_Peak_Late_Dormant().run()
 
@@ -3221,6 +3275,7 @@ def main():
     # Main_flow_Greenness_loss().run()
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     Analysis().run()
+    # Tif().run()
     # pass
 
 

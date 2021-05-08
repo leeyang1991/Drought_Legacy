@@ -1254,7 +1254,7 @@ class KDE_plot:
         return a,b,r
 
 
-    def plot_fit_line(self,a,b,r,X,ax=None,title='',**argvs):
+    def plot_fit_line(self,a,b,r,X,ax=None,title='',is_label=True,is_formula=True,**argvs):
         '''
         画拟合直线 y=ax+b
         画散点图 X,Y
@@ -1279,16 +1279,24 @@ class KDE_plot:
         else:
             c = 'black'
 
+        if is_label == True:
+            if is_formula == True:
+                label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r)
+            else:
+                label = 'r={:0.2f}'.format(r)
+        else:
+            label = None
+
         if ax == None:
             if not 'linewidth' in argvs:
-                plt.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
+                plt.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label=label, **argvs)
             else:
-                plt.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
+                plt.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label=label,**argvs)
         else:
             if not 'linewidth' in argvs:
-                ax.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r), **argvs)
+                ax.plot(x, y, linestyle='dashed', c=c, linewidth=1, alpha=0.7,label=label, **argvs)
             else:
-                ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label='y={:0.2f}x+{:0.2f}\nr={:0.2f}'.format(a,b,r),**argvs)
+                ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label=label,**argvs)
 
 
     def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,**kwargs):

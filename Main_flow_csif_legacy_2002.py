@@ -1548,7 +1548,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_legacy_123_to_df(df)
         # df = self.add_greenness_loss_to_df(df)
         # 2 add lon lat into df
-        # df = self.add_lon_lat_to_df(df)
+        df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
         # df = self.add_isohydricity_to_df(df)
         # 4 add correlation into df

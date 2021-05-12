@@ -6,7 +6,7 @@ results_root_main_flow_2002 = this_root + 'results_root_main_flow_2002/'
 results_root_main_flow = results_root_main_flow_2002
 class Global_vars:
     def __init__(self):
-
+        self.growing_date_range = list(range(5,11))
         pass
 
     def koppen_landuse(self):
@@ -17,7 +17,7 @@ class Global_vars:
         return kl_list
 
     def koppen_list(self):
-        koppen_list = [u'A', u'B', u'Cf', u'Csw', u'Df', u'Dsw', u'E',]
+        koppen_list = [ u'B', u'Cf', u'Csw', u'Df', u'Dsw', u'E',]
         return koppen_list
         pass
 
@@ -61,15 +61,17 @@ class Global_vars:
     def variables(self,n=3):
 
         X = [
-            'isohydricity',
+            # 'isohydricity',
             'NDVI_pre_{}'.format(n),
             'CSIF_pre_{}'.format(n),
             'VPD_previous_{}'.format(n),
             'TMP_previous_{}'.format(n),
             'PRE_previous_{}'.format(n),
+            'SM_previous_{}'.format(n),
+            'TWS_previous_{}'.format(n),
         ]
-        Y = 'greenness_loss'
-        # Y = 'carbon_loss'
+        # Y = 'greenness_loss'
+        Y = 'carbon_loss'
         # Y = 'legacy_1'
         # Y = 'legacy_2'
         # Y = 'legacy_3'
@@ -126,13 +128,12 @@ class Global_vars:
         # # print(q)
         # df = df[df['delta_legacy']<q]
         # T.print_head_n(df)
-        print(len(df))
         # exit()
-        spatial_dic = {}
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            val = 1
-            spatial_dic[pix] = val
+        # spatial_dic = {}
+        # for i, row in tqdm(df.iterrows(), total=len(df),desc='gen spatial_dic...'):
+        #     pix = row.pix
+        #     val = 1
+        #     spatial_dic[pix] = val
 
         return df,spatial_dic
 
@@ -144,8 +145,36 @@ class Global_vars:
 
         pass
 
+    def dic_to_growing_season(self,dic):
+        start_mon = self.growing_date_range[0]
+        end_mon = self.growing_date_range[-1]
+        growing_season_dic = {}
+        for pix in tqdm(dic,desc='transfoming to growing season'):
+            vals = dic[pix]
+            vals_reshape = np.reshape(vals,(-1,12))
+            vals_reshape_T = vals_reshape.T
+            vals_reshape_T_selected = vals_reshape_T[start_mon:end_mon]
+            vals_reshape_T_selected_T = vals_reshape_T_selected.T
+            vals_reshape_T_selected_T_flatten = vals_reshape_T_selected_T.flatten()
+            # plt.plot(vals_reshape_T_selected_T_flatten)
+            # plt.imshow(vals_reshape)
+            # plt.show()
+            growing_season_dic[pix] = vals_reshape_T_selected_T_flatten
+        return growing_season_dic
 
         pass
+
+    def growing_season_indx_to_all_year_indx(self,indexs):
+        new_indexs = []
+        for indx in indexs:
+            n_year = indx // len(self.growing_date_range)
+            res_mon = indx % len(self.growing_date_range)
+            real_indx = n_year * 12 + res_mon + self.growing_date_range[0]
+            new_indexs.append(real_indx)
+        new_indexs = tuple(new_indexs)
+        return new_indexs
+
+
 class Main_flow_Early_Peak_Late_Dormant:
 
     def __init__(self):
@@ -754,7 +783,9 @@ class Main_Flow_Pick_drought_events:
         pass
 
     def do_pick(self):
+        # outdir = self.this_class_arr + 'drought_events/'
         outdir = self.this_class_arr + 'drought_events_for_modis/'
+        # fdir = data_root + 'SPEI/per_pix_2002/'
         fdir = data_root + 'SPEI/per_pix_for_modis/'
         for f in os.listdir(fdir):
             # if not '015' in f:
@@ -767,7 +798,7 @@ class Main_Flow_Pick_drought_events:
         fname = f.split('.')[0].split('_')[-1]
         # print(fname)
         # exit()
-        n = 12
+        n = 0
         T.mk_dir(outdir,force=True)
         single_event_dic = {}
         dic = T.load_npy(f)
@@ -785,7 +816,7 @@ class Main_Flow_Pick_drought_events:
             # mean = np.mean(vals)
             # std = np.std(vals)
             # threshold = mean - 2 * std
-            threshold = -2.
+            threshold = -1.5
             # threshold = np.quantile(vals, 0.05)
             event_list,key = self.kernel_find_drought_period([vals,pix,threshold])
             if len(event_list) == 0:
@@ -1543,14 +1574,14 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # self._check_spatial(df)
         # exit()
         # 1 add drought event and delta legacy into df
-        # df = self.Carbon_loss_to_df(df)
+        df = self.Carbon_loss_to_df(df)
         # print(df)
         # df = self.add_legacy_123_to_df(df)
         # df = self.add_greenness_loss_to_df(df)
         # 2 add lon lat into df
         df = self.add_lon_lat_to_df(df)
         # 3 add iso-hydricity into df
-        # df = self.add_isohydricity_to_df(df)
+        df = self.add_isohydricity_to_df(df)
         # 4 add correlation into df
         # df = self.add_gs_sif_spei_correlation_to_df(df)
         # 5 add canopy height into df
@@ -1558,7 +1589,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 6 add rooting depth into df
         # df = self.add_rooting_depth_to_df(df)
         # 7 add TWS into df
-        # df = self.add_TWS_to_df(df)
+        df = self.add_TWS_to_df(df)
         # 8 add is gs into df
         # self.add_is_gs_drought_to_df(df)
         # 9 add landcover to df
@@ -1593,18 +1624,18 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 22 add temp trend to df
         # df = self.add_temperature_trend_to_df(df)
         # 23 add MAT MAP to df
-        # df = self.add_MAT_MAP_to_df(df)
+        df = self.add_MAT_MAP_to_df(df)
         # -1 df to excel
-        # df = self.drop_duplicated_sample(df)
         # add pre_drought vars
-        # for n in [3,6,12,24]:
-        #     print(n)
-        #     # df = self.add_pre_drought_growth_variables(df,n)
-        #     df = self.add_pre_drought_climate_variables(df,n)
-        # for n in [3,6,12,24]:
-        #     self.add_pre_drought_TWS(df,n)
-        # for n in [3,6,12,24]:
-        #     self.add_pre_drought_SM(df,n)
+        for n in [3,6,12,24]:
+            # print(n)
+            df = self.add_pre_drought_growth_variables(df,n)
+        for n in [3, 6, 12, 24]:
+            df = self.add_pre_drought_climate_variables(df,n)
+        for n in [3,6,12,24]:
+            self.add_pre_drought_TWS(df,n)
+        for n in [3,6,12,24]:
+            self.add_pre_drought_SM(df,n)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff)
         pass
@@ -1640,6 +1671,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df = pd.DataFrame()
         if not os.path.isfile(self.dff):
             T.save_df(df,self.dff)
+            return df
         else:
             df,dff = self.__load_df()
             return df
@@ -1741,6 +1773,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range = event['drought_event_date_range']
                 recovery_date_range = event['recovery_date_range']
                 legacy = event['carbon_loss']
+
+                drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(drought_event_date_range)
+                recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(recovery_date_range)
 
                 pix_list.append(pix)
                 recovery_time_list.append(recovery_time)
@@ -2570,7 +2605,8 @@ class Analysis:
         # self.Isohyd_corr_spatial_scatter()
         # self.GRACE()
         # self.plot_all_variables()
-        self.plot_previous_png()
+        # self.plot_previous_png()
+        self.Koppen_and_isohydricity()
         pass
 
     def load_df(self):
@@ -2613,13 +2649,13 @@ class Analysis:
         pass
 
     def Isohyd(self):
-        n = 3
-        var = 'legacy_{}'.format(n)
-
-        # var = 'carbon_loss'
+        # n = 3
+        # var = 'legacy_{}'.format(n)
+        #
+        var = 'carbon_loss'
         # var = 'greenness_loss'
         df,dff = self.load_df()
-        df = Global_vars().clean_df(df)
+        df,_ = Global_vars().clean_df(df)
         isohydricity_series = df.isohydricity
         Iso_d,Iso_d_str = self.__divide_MA(isohydricity_series,min_v=-0.5,max_v=1.5,n=10)
 
@@ -2999,19 +3035,27 @@ class Analysis:
         pass
 
     def plot_all_variables(self):
+        outdir = self.this_class_png + 'plot_all_variables/'
+        T.mk_dir(outdir)
+        n = 3
+        outf = outdir + 'plot_all_variables_pre_{}.png'.format(n)
         df, dff = self.load_df()
         T.print_head_n(df)
-        X,Y = Global_vars().variables()
-        df = Global_vars().clean_df(df)
+        X,Y = Global_vars().variables(n=n)
+        df,_ = Global_vars().clean_df(df)
         df_new = pd.DataFrame()
         for x in X:
             df_new[x] = df[x]
         df_new[Y] = df[Y]
+        df_new['lc'] = df['lc']
         corr_arr = df_new.corr()
         corr_arr[corr_arr==1]=np.nan
         # plt.imshow(corr_arr)
-        sns.pairplot(df_new,markers='.',kind='reg',diag_kind='kde')
-        plt.show()
+        plt.figure(figsize=(20,20))
+        # sns.pairplot(df_new,markers='.',kind='reg',diag_kind='kde')
+        # sns.pairplot(df_new,kind="hist",hue='lc',hue_order=['Grasslands','Forest','Shrublands',])
+        sns.pairplot(df_new,kind="hist",hue='lc',hue_order=['Grasslands',])
+        plt.savefig(outf,dpi=300)
 
     def __gen_lc_pix(self):
 
@@ -3226,6 +3270,68 @@ class Analysis:
         return var1_list,y_list
 
 
+
+    def kernel_Koppen_and_isohydricity(self,var_name):
+        outdir = self.this_class_png + 'Koppen_and_isohydricity/'
+        T.mk_dir(outdir)
+        df,dff = self.load_df()
+        df,_ = Global_vars().clean_df(df)
+        kp_list = Global_vars().koppen_list()
+        iso_hyd_divide = [-999,0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,999]
+        iso_hyd_divide_range = []
+        for i,v in enumerate(iso_hyd_divide):
+            if i + 1 == len(iso_hyd_divide):
+                break
+            range_ = [iso_hyd_divide[i],iso_hyd_divide[i+1]]
+            iso_hyd_divide_range.append(range_)
+        outf = outdir + '{}.png'.format(var_name)
+        flag = 0
+        plt.figure(figsize=(20,20))
+        for kp in kp_list:
+            df_kp = df[df['kp']==kp]
+            for min_iso,max_iso in iso_hyd_divide_range:
+                df_iso = df_kp[df_kp['isohydricity']>min_iso]
+                df_iso = df_iso[df_iso['isohydricity']<max_iso]
+                df_temp = pd.DataFrame()
+                df_temp['carbon_loss'] = df_iso['carbon_loss']
+                df_temp[var_name] = df_iso[var_name]
+                df_temp = df_temp.dropna()
+                flag += 1
+                ax = plt.subplot(len(kp_list),len(iso_hyd_divide_range),flag)
+                x,y = df_temp[var_name],df_temp['carbon_loss']
+                y = -y
+                title = '{} {} {}-{}'.format(var_name,kp,min_iso,max_iso)
+                try:
+                    KDE_plot().plot_scatter(x,y,plot_fit_line=True,ax=ax,title=title,silent=True)
+                    # KDE_plot().plot_scatter(x,y,plot_fit_line=True,ax=ax,title=title,silent=False)
+                    if not 'TWS' in var_name:
+                        ax.set_ylim(0,20)
+                        ax.set_xlim(-2,2)
+                except:
+                    ax.plot([],[])
+                    ax.set_title(title)
+                if flag % len(iso_hyd_divide_range) != 1:
+                    ax.set_yticks([])
+                if not 'TWS' in var_name:
+                    if flag <= len(iso_hyd_divide_range) * (len(kp_list)-1):
+                        ax.set_xticks([])
+        plt.tight_layout()
+        plt.savefig(outf,dpi=144)
+        plt.close()
+
+
+    def Koppen_and_isohydricity(self):
+        params = []
+        for n in [3,6,12,24]:
+            xlist,y = Global_vars().variables(n)
+            for x in xlist:
+                params.append(x)
+        MULTIPROCESS(self.kernel_Koppen_and_isohydricity,params).run()
+        # print(params)
+        # exit()
+        pass
+
+
 class Tif:
 
 
@@ -3235,7 +3341,8 @@ class Tif:
 
     def run(self):
 
-        self.carbon_loss()
+        # self.carbon_loss()
+        self.drought_start()
         pass
 
 
@@ -3265,6 +3372,24 @@ class Tif:
 
         pass
 
+    def drought_start(self):
+
+        df,dff = self.load_df()
+
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            start = drought_event_date_range[-1]
+            spatial_dic[pix].append(start)
+
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr_mean(spatial_dic)
+        plt.imshow(arr)
+        plt.colorbar()
+        plt.show()
+
+
 
 def main():
     # Main_flow_Early_Peak_Late_Dormant().run()
@@ -3276,7 +3401,10 @@ def main():
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     Analysis().run()
     # Tif().run()
-    # pass
+
+
+
+    pass
 
 
 

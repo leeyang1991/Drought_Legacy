@@ -1299,10 +1299,11 @@ class KDE_plot:
                 ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label=label,**argvs)
 
 
-    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,**kwargs):
+    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,silent=False,**kwargs):
         val1 = np.array(val1)
         val2 = np.array(val2)
-        print('data length is {}'.format(len(val1)))
+        if not silent:
+            print('data length is {}'.format(len(val1)))
         if len(val1) > max_n:
             val_range_index = list(range(len(val1)))
             val_range_index = random.sample(val_range_index, max_n)  # 从val中随机选择n个点，目的是加快核密度算法
@@ -1313,13 +1314,15 @@ class KDE_plot:
                 new_val2.append(val2[i])
             val1 = new_val1
             val2 = new_val2
-            print('data length is modified to {}'.format(len(val1)))
+            if not silent:
+                print('data length is modified to {}'.format(len(val1)))
         else:
             val1 = val1
             val2 = val2
 
         kde_val = np.array([val1, val2])
-        print('doing kernel density estimation... ')
+        if not silent:
+            print('doing kernel density estimation... ')
         new_v1 = []
         new_v2 = []
         for vals_12 in kde_val.T:

@@ -123,7 +123,7 @@ def download_tifs():
     for tile in os.listdir(url_dir):
         params.append([outdir,tile,url_dir])
         # kernel_download_tifs([outdir,tile,url_dir])
-    MULTIPROCESS(kernel_download_tifs,params).run(process=10,process_or_thread='t')
+    MULTIPROCESS(kernel_download_tifs,params).run(process=50,process_or_thread='t')
 
 
 def main():

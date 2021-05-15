@@ -50,6 +50,8 @@ from dateutil import relativedelta
 from sklearn.inspection import permutation_importance
 # from statsmodels.stats.outliers_influence import variance_inflation_factor
 import HANTS
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
 
 np.seterr('ignore')
 

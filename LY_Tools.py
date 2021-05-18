@@ -884,6 +884,16 @@ class DIC_and_TIF:
                 void_dic[key] = 0.
         return void_dic
 
+    def void_spatial_dic_ones(self):
+        tif_template = self.tif_template
+        arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
+        void_dic = {}
+        for row in range(len(arr)):
+            for col in range(len(arr[row])):
+                key = (row, col)
+                void_dic[key] = 1.
+        return void_dic
+
     def plot_back_ground_arr(self):
         tif_template = self.tif_template
         arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)

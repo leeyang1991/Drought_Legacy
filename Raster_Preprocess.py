@@ -755,6 +755,53 @@ class SM:
 
 
 
+class Total_Nitrogen:
+
+    def __init__(self):
+
+        pass
+
+
+    def run(self):
+        # self.mosaic_tiles()
+        # self.mosaic_all()
+        # self.copy_tiles_to_one_folder()
+        pass
+
+    def mosaic_tiles_i(self, params):
+        in_dir, out_tif = params
+        # forked from https://www.neonscience.org/merge-lidar-geotiff-py
+        # GDAL mosaic
+        anaconda_python_path = r'python3 '
+        # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
+        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py'
+        files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
+        files_string = " ".join(files_to_mosaic)
+        # print(files_string)
+        command = "{} {} -o {} -of gtiff ".format(anaconda_python_path, gdal_script, out_tif) + files_string
+        print(command)
+        os.system(command)
+
+
+    def mosaic_tiles(self):
+        fdir = data_root + 'Soilgrids/tiles/'
+        outdir = data_root + 'Soilgrids/mosaic_step1/'
+        T.mk_dir(outdir)
+        params = []
+        for folder in tqdm(os.listdir(fdir)):
+            params.append([fdir + folder,outdir + folder + '.tif'])
+            # self.mosaic_tiles_i()
+        MULTIPROCESS(self.mosaic_tiles_i,params).run()
+
+    def mosaic_all(self):
+        fdir = data_root + 'Soilgrids/mosaic_step1/'
+        outdir = data_root + 'Soilgrids/mosaic_step2/'
+        T.mk_dir(outdir)
+        self.mosaic_tiles_i([fdir,outdir+'Nitrogen_0_5_cm.tif'])
+
+        pass
+
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -762,7 +809,8 @@ def main():
     # GRACE().run()
     # NDVI().run()
     # Climate().run()
-    SM().run()
+    # SM().run()
+    Total_Nitrogen().run()
     pass
 
 

@@ -583,10 +583,140 @@ class Analysis:
 
     # def
 
+
+class Greening:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.anomaly()
+        # self.origin()
+        # self.phenoelogy()
+        self.trend()
+        pass
+
+    def anomaly(self):
+        fdir = '/Users/wenzhang/project/wen_proj/result/CSIF_par/'
+        dic = T.load_npy_dir(fdir,condition='005')
+        return dic
+        # for pix in dic:
+        #     # print(pix,dic[pix])
+        #     plt.plot(dic[pix])
+        #     plt.show()
+
+        pass
+
+    def origin(self):
+
+        fdir = '/Users/wenzhang/project/wen_proj/result/Hants_annually_smooth/Hants_annually_smooth_CSIF_par/'
+        for f in os.listdir(fdir):
+            print(f)
+            dic = T.load_npy(fdir + f)
+            for pix in dic:
+                vals = dic[pix]
+                print(vals)
+                plt.plot(vals)
+                plt.show()
+
+    def phenology(self):
+
+        fdir = '/Users/wenzhang/project/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par/'
+        e_e_f = fdir + 'early_end.npy'
+        e_s_f = fdir + 'early_start.npy'
+        l_e_f = fdir + 'late_end.npy'
+        l_s_f = fdir + 'late_start.npy'
+
+
+        early_start_dic = T.load_npy(e_s_f)
+        early_end_dic = T.load_npy(e_e_f)
+        late_start_dic = T.load_npy(l_s_f)
+        late_end_dic = T.load_npy(l_e_f)
+
+        return early_start_dic,early_end_dic,late_start_dic,late_end_dic
+
+
+    def trend(self):
+        anomaly_dic = self.anomaly()
+        early_start_dic, early_end_dic, late_start_dic, late_end_dic = self.phenology()
+        for pix in anomaly_dic:
+            vals = anomaly_dic[pix]
+            vals_reshape = np.reshape(vals,(15,-1))
+
+            spring_mean_list = []
+            peak_mean_list = []
+            fall_mean_list = []
+            GS_mean_list = []
+
+            for y in range(len(vals_reshape)):
+                one_year_vals = vals_reshape[y]
+                early_start = early_start_dic[pix][y]
+                early_end = early_end_dic[pix][y]
+                late_start = late_start_dic[pix][y]
+                late_end = late_end_dic[pix][y]
+
+                spring_range = range(early_start,early_end)
+                peak_range = range(early_end,late_start)
+                fall_range = range(late_start,late_end)
+                GS_range = range(early_start,late_end)
+
+                spring_range_vals = T.pick_vals_from_1darray(one_year_vals,spring_range)
+                peak_range_vals = T.pick_vals_from_1darray(one_year_vals,peak_range)
+                fall_range_vals = T.pick_vals_from_1darray(one_year_vals,fall_range)
+                GS_range_vals = T.pick_vals_from_1darray(one_year_vals,GS_range)
+
+                spring_range_vals_mean = np.mean(spring_range_vals)
+                peak_range_vals_mean = np.mean(peak_range_vals)
+                fall_range_vals_mean = np.mean(fall_range_vals)
+                GS_range_vals_mean = np.mean(GS_range_vals)
+
+                spring_mean_list.append(spring_range_vals_mean)
+                peak_mean_list.append(peak_range_vals_mean)
+                fall_mean_list.append(fall_range_vals_mean)
+                GS_mean_list.append(GS_range_vals_mean)
+
+            spring_mean_list = np.array(spring_mean_list)
+            peak_mean_list = np.array(peak_mean_list)
+            fall_mean_list = np.array(fall_mean_list)
+            GS_mean_list = np.array(GS_mean_list)
+
+            # plt.plot(spring_mean_list,label='spring')
+            # plt.plot(peak_mean_list,label='peak')
+            # plt.plot(fall_mean_list,label='fall')
+            # plt.plot(GS_mean_list,label='GS')
+
+            # plt.plot(spring_mean_list+peak_mean_list+fall_mean_list,label='sum')
+            # plt.plot((spring_mean_list+peak_mean_list+fall_mean_list)/3.,label='sum/3')
+
+            df = pd.DataFrame()
+            df['GS_mean_list']=GS_mean_list
+            df['peak_mean_list']=peak_mean_list
+            df['spring_mean_list']=spring_mean_list
+            df['fall_mean_list']=fall_mean_list
+            sns.pairplot(df)
+
+            # plt.scatter(GS_mean_list,spring_mean_list,label='spring')
+            # plt.scatter(GS_mean_list,peak_mean_list,label='peak')
+            # plt.scatter(GS_mean_list,fall_mean_list,label='fall')
+            # ax = plt.figure()
+            # KDE_plot().plot_scatter(GS_mean_list,spring_mean_list,plot_fit_line=True,s=20,is_KDE=False,ax=ax)
+            # KDE_plot().plot_scatter(GS_mean_list,peak_mean_list,plot_fit_line=True,s=20,is_KDE=False,ax=ax)
+            # KDE_plot().plot_scatter(GS_mean_list,fall_mean_list,plot_fit_line=True,s=20,is_KDE=False,ax=ax)
+            # plt.legend()
+            plt.tight_layout()
+            plt.show()
+
+
+        pass
+
+
+
 def main():
 
     # Make_Dataframe().run()
-    Main_flow_shui_re().run()
+    # Main_flow_shui_re().run()
+    Greening().run()
     pass
 
 

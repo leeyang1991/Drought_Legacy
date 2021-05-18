@@ -1309,7 +1309,7 @@ class KDE_plot:
                 ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label=label,**argvs)
 
 
-    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,silent=False,**kwargs):
+    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,silent=False,is_KDE=True,**kwargs):
         val1 = np.array(val1)
         val2 = np.array(val2)
         if not silent:
@@ -1346,9 +1346,12 @@ class KDE_plot:
             new_v2.append(v2)
         val1, val2 = new_v1,new_v2
         kde_val = np.array([new_v1,new_v2])
-        densObj = kde(kde_val)
-        dens_vals = densObj.evaluate(kde_val)
-        colors = self.makeColours(dens_vals, cmap, reverse=reverse)
+        if is_KDE:
+            densObj = kde(kde_val)
+            dens_vals = densObj.evaluate(kde_val)
+            colors = self.makeColours(dens_vals, cmap, reverse=reverse)
+        else:
+            colors = None
         if ax == None:
             plt.figure()
             plt.title(title)

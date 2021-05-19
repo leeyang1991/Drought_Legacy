@@ -1,7 +1,7 @@
 # coding=utf-8
 
-from __init__ import *
-
+# from __init__ import *
+from Main_flow_csif_legacy_2002 import *
 
 class CSIF:
     def __init__(self):
@@ -774,7 +774,7 @@ class Total_Nitrogen:
         # GDAL mosaic
         anaconda_python_path = r'python3 '
         # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
-        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py'
+        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py' # homebrew directory
         files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
         files_string = " ".join(files_to_mosaic)
         # print(files_string)
@@ -802,6 +802,446 @@ class Total_Nitrogen:
         pass
 
 
+class Terra_climate:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.nc_to_tif_pet()
+        # self.nc_to_tif_precip()
+        self.resample()
+        pass
+
+    def Warp_test(self):
+        tif = '/Users/wenzhang/project/Drought_legacy_new/data//landcover/glc2000_v1_1.tif'
+        outtif = tif + 'gdal.tif'
+        dataset = gdal.Open(tif)
+        gdal.Warp(outtif, dataset, xRes=0.5, yRes=0.5, srcSRS='EPSG:4326',dstSRS='EPSG:4326')
+        pass
+
+    def nc_to_tif_pet(self):
+        outdir = '/Users/wenzhang/project/drought_legacy_new/data/CWD/PET_terra/tif/'
+        T.mk_dir(outdir,force=True)
+        fdir = '/Users/wenzhang/project/drought_legacy_new/data/CWD/PET_terra/nc/'
+        for fi in os.listdir(fdir):
+            print(fi)
+            f = fdir + fi
+            year = fi.split('.')[-2].split('_')[-1]
+            # print(year)
+            # exit()
+            ncin = Dataset(f, 'r')
+            # print(ncin.variables)
+            # exit()
+            lat = ncin['lat']
+            lon = ncin['lon']
+            pixelWidth = lon[1] - lon[0]
+            pixelHeight = lat[1] - lat[0]
+            longitude_start = lon[0]
+            latitude_start = lat[0]
+            time = ncin.variables['time']
+
+            start = datetime.datetime(1900, 1, 1)
+            # print(time)
+            # for t in time:
+            #     print(t)
+            # exit()
+            flag = 0
+            for i in tqdm(range(len(time))):
+                # print(i)
+                flag += 1
+                # print(time[i])
+                date = start + datetime.timedelta(days=int(time[i]))
+                year = str(date.year)
+                # exit()
+                month = '%02d' % date.month
+                day = '%02d'%date.day
+                date_str = year + month
+                # print(date_str)
+                # exit()
+                # if not date_str[:4] in valid_year:
+                #     continue
+                # print(date_str)
+                # exit()
+                arr = ncin.variables['pet'][i]
+                arr = np.array(arr)
+                # print(arr)
+                # grid = arr < 99999
+                # arr[np.logical_not(grid)] = -999999
+                newRasterfn = outdir + date_str + '.tif'
+                to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+                # grid = np.ma.masked_where(grid>1000,grid)
+                # DIC_and_TIF().arr_to_tif(arr,newRasterfn)
+                # plt.imshow(arr,'RdBu')
+                # plt.colorbar()
+                # plt.show()
+                # nc_dic[date_str] = arr
+                # exit()
+    def nc_to_tif_precip(self):
+        outdir = '/Users/wenzhang/project/drought_legacy_new/data/CWD/Precip_terra/tif/'
+        T.mk_dir(outdir,force=True)
+        fdir = '/Users/wenzhang/project/drought_legacy_new/data/CWD/Precip_terra/nc/'
+        for fi in os.listdir(fdir):
+            print(fi)
+            if fi.startswith('.'):
+                continue
+            f = fdir + fi
+            year = fi.split('.')[-2].split('_')[-1]
+            # print(year)
+            # exit()
+            ncin = Dataset(f, 'r')
+            # print(ncin.variables)
+            # exit()
+            lat = ncin['lat']
+            lon = ncin['lon']
+            pixelWidth = lon[1] - lon[0]
+            pixelHeight = lat[1] - lat[0]
+            longitude_start = lon[0]
+            latitude_start = lat[0]
+            time = ncin.variables['time']
+
+            start = datetime.datetime(1900, 1, 1)
+            # print(time)
+            # for t in time:
+            #     print(t)
+            # exit()
+            flag = 0
+            for i in tqdm(range(len(time))):
+                # print(i)
+                flag += 1
+                # print(time[i])
+                date = start + datetime.timedelta(days=int(time[i]))
+                year = str(date.year)
+                # exit()
+                month = '%02d' % date.month
+                day = '%02d'%date.day
+                date_str = year + month
+                # print(date_str)
+                # exit()
+                # if not date_str[:4] in valid_year:
+                #     continue
+                # print(date_str)
+                # exit()
+                arr = ncin.variables['ppt'][i]
+                arr = np.array(arr)
+                # print(arr)
+                # grid = arr < 99999
+                # arr[np.logical_not(grid)] = -999999
+                newRasterfn = outdir + date_str + '.tif'
+                to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+                # grid = np.ma.masked_where(grid>1000,grid)
+                # DIC_and_TIF().arr_to_tif(arr,newRasterfn)
+                # plt.imshow(arr,'RdBu')
+                # plt.colorbar()
+                # plt.show()
+                # nc_dic[date_str] = arr
+                # exit()
+
+
+    def resample(self):
+        # fdir = data_root + 'CWD/PET_terra/tif/'
+        # outdir = data_root + 'CWD/PET_terra/tif_005/'
+
+        fdir = data_root + 'CWD/Precip_terra/tif/'
+        outdir = data_root + 'CWD/Precip_terra/tif_005/'
+        T.mk_dir(outdir)
+        for f in tqdm(os.listdir(fdir)):
+            # print(f)
+            tif = fdir + f
+            outtif = outdir + f
+            dataset = gdal.Open(tif)
+            gdal.Warp(outtif, dataset, xRes=0.05, yRes=0.05, srcSRS='EPSG:4326', dstSRS='EPSG:4326')
+            # exit()
+
+
+class CSIF_005:
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.nc_to_tif()
+        # self.per_pix()
+        self.anomaly()
+        pass
+
+    def nc_to_tif(self):
+        fdir = data_root + 'CSIF005/nc/'
+        outdir = data_root + 'CSIF005/tif/'
+        T.mk_dir(outdir)
+        for fi in tqdm(os.listdir(fdir)):
+
+            # print(fi)
+            if fi.startswith('.'):
+                continue
+            f = fdir + fi
+            # print(year)
+            # exit()
+            ncin = Dataset(f, 'r')
+            # print(ncin.variables)
+            # exit()
+            lat = ncin['lat']
+            lon = ncin['lon']
+            pixelWidth = lon[1] - lon[0]
+            pixelHeight = lat[1] - lat[0]
+            longitude_start = lon[0]
+            latitude_start = lat[0]
+
+            date_str = fi.split('.')[-2].split('_')[-1]
+            # print(date_str)
+            # exit()
+            arr = ncin.variables['SIF_740_daily_corr']
+            arr = np.array(arr)
+            # print(arr)
+            # grid = arr < 99999
+            # arr[np.logical_not(grid)] = -999999
+            newRasterfn = outdir + date_str + '.tif'
+            to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+            # grid = np.ma.masked_where(grid>1000,grid)
+            # DIC_and_TIF().arr_to_tif(arr,newRasterfn)
+            # plt.imshow(arr,'RdBu')
+            # plt.colorbar()
+            # plt.show()
+            # nc_dic[date_str] = arr
+            # exit()
+        pass
+
+    def per_pix(self):
+        fdir = data_root + 'CSIF005/tif/'
+        outdir = data_root + 'CSIF005/per_pix/'
+        T.mk_dir(outdir)
+        valid_spatial_dic_f = Landcover().forest_spatial_dic_f
+        valid_spatial_dic = T.load_npy(valid_spatial_dic_f)
+        template_tif = Global_vars().tif_template_7200_3600
+        template_arr = to_raster.raster2array(template_tif)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = {}
+        for pix in valid_spatial_dic:
+            spatial_dic[pix] = []
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                if not pix in valid_spatial_dic:
+                    continue
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+
+    def anomaly(self):
+        fdir = data_root + 'CSIF005/per_pix/'
+        outdir = data_root + 'CSIF005/per_pix_anomaly/'
+        Pre_Process().cal_anomaly(fdir, outdir)
+        pass
+
+class Landcover:
+
+    def __init__(self):
+        self.forest_pix_f = data_root + 'landcover/forests_pix.npy'
+        self.forest_spatial_dic_f = data_root + 'landcover/gen_spatial_dic.npy'
+        pass
+
+    def run(self):
+        # self.unify_raster()
+        # self.forests_pix()
+        # self.gen_spatial_dic()
+        self.check_pix()
+        pass
+
+    def unify_raster(self):
+        tif = data_root + 'landcover/glc2000_v1_1_resample.tif'
+        outtif = data_root + 'landcover/glc2000_v1_1_resample_7200_3600.tif'
+        array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif)
+        array[array < 0] = np.nan
+        print(np.shape(array))
+        print(originY,pixelHeight)
+        # exit()
+        top_line_num = abs((90 - originY) / pixelHeight)
+        bottom_line_num = abs((90 + originY + pixelHeight * len(array)) / pixelHeight)
+        top_line_num = int(round(top_line_num, 0))
+        # print(top_line_num)
+        # exit()
+        bottom_line_num = int(round(bottom_line_num, 0))
+        nan_array_insert = np.ones_like(array[0]) * -999999
+        # nan_array_insert = np.ones_like(array[0])
+        top_array_insert = []
+        for i in range(top_line_num):
+            top_array_insert.append(nan_array_insert)
+        bottom_array_insert = []
+        for i in range(bottom_line_num):
+            bottom_array_insert.append(nan_array_insert)
+        bottom_array_insert = np.array(bottom_array_insert)
+        if len(top_array_insert) != 0:
+            arr_temp = np.insert(array, 0, top_array_insert, 0)
+        else:
+            arr_temp = array
+        if len(bottom_array_insert) != 0:
+            array_unify = np.vstack((arr_temp, bottom_array_insert))
+        else:
+            array_unify = arr_temp
+
+        # plt.imshow(array_unify)
+        # plt.show()
+        newRasterfn = outtif
+        longitude_start, latitude_start = originX,originY
+        to_raster.array2raster(newRasterfn,longitude_start,latitude_start,pixelWidth,pixelHeight,array_unify)
+        pass
+
+
+    def forests_pix(self):
+        tif = data_root + 'landcover/glc2000_v1_1_resample_7200_3600.tif'
+        outf = data_root + 'landcover/forests_pix'
+        dic = DIC_and_TIF(tif).spatial_tif_to_dic(tif)
+        forest_val = [1,2,3,4,5]
+        forest_pix_dic = {}
+        for v in forest_val:
+            forest_pix_dic[v] = []
+        for pix in tqdm(dic):
+            r,c = pix
+            if r > 1800:
+                continue
+            if np.isnan(dic[pix]):
+                continue
+            val = int(dic[pix])
+            if val in forest_val:
+                forest_pix_dic[val].append(pix)
+        np.save(outf,forest_pix_dic)
+
+        pass
+
+
+    def gen_spatial_dic(self):
+        valid_dic = T.load_npy(self.forest_pix_f)
+        outf = data_root + 'landcover/gen_spatial_dic'
+        spatial_dic = {}
+        for val in tqdm(valid_dic):
+            pixs = valid_dic[val]
+            for pix in pixs:
+                spatial_dic[pix] = val
+        np.save(outf,spatial_dic)
+
+
+    def check_pix(self):
+        # f = data_root + 'landcover/forests_pix.npy'
+        f = data_root + 'landcover/gen_spatial_dic.npy'
+        dic = T.load_npy(f)
+        # spatial_dic = {}
+        # for val in tqdm(dic):
+        #     pixs = dic[val]
+        #     for pix in pixs:
+        #         # print(pix)
+        #         spatial_dic[pix] = 1
+        arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(dic)
+        plt.imshow(arr)
+        plt.show()
+        pass
+
+class CWD:
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.p_minus_pet()
+        # self.per_pix()
+        self.anomaly()
+        pass
+
+    def p_minus_pet(self):
+
+        P_dir = data_root + 'CWD/Precip_terra/tif_005/'
+        PET_dir = data_root + 'CWD/PET_terra/tif_005/'
+        outdir = data_root + 'CWD/CWD/tif_005/'
+        T.mk_dir(outdir,force=True)
+        for f in tqdm(os.listdir(P_dir)):
+            p_arr,originX,originY,pixelWidth,pixelHeight = to_raster.raster2array(P_dir + f)
+            pet_arr = to_raster.raster2array(PET_dir + f)[0]
+            p_arr[p_arr<-99]=np.nan
+            pet_arr[pet_arr<-99]=np.nan
+            p_arr[p_arr > 32000] = np.nan
+            pet_arr[pet_arr > 32000] = np.nan
+            cwd = p_arr - pet_arr
+            nan_matrix = np.isnan(cwd)
+            cwd[nan_matrix] = -999999
+            newRasterfn = outdir + f
+            longitude_start, latitude_start = originX,originY
+            to_raster.array2raster(newRasterfn,longitude_start,latitude_start,pixelWidth,pixelHeight,cwd,ndv = -999999)
+            # exit()
+            # plt.imshow(cwd,vmin=-100,vmax=100,cmap='jet')
+            # plt.figure()
+            # plt.imshow(p_arr)
+            # plt.show()
+
+    def per_pix(self):
+        fdir = data_root + 'CWD/CWD/tif_005/'
+        outdir = data_root + 'CWD/CWD/per_pix/'
+        T.mk_dir(outdir)
+        valid_spatial_dic_f = Landcover().forest_spatial_dic_f
+        valid_spatial_dic = T.load_npy(valid_spatial_dic_f)
+        template_tif = Global_vars().tif_template_7200_3600
+        template_arr = to_raster.raster2array(template_tif)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = {}
+        for pix in valid_spatial_dic:
+            spatial_dic[pix] = []
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                if not pix in valid_spatial_dic:
+                    continue
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+
+    def anomaly(self):
+        fdir = data_root + 'CWD/CWD/per_pix/'
+        outdir = data_root + 'CWD/CWD/per_pix_anomaly/'
+        Pre_Process().cal_anomaly(fdir,outdir)
+        # DIC_and_TIF(Global_vars().tif_template_7200_3600).per_pix_animate(fdir,condition='005')
+        # for f in os.listdir(fdir):
+        #     dic = T.load_npy(fdir + f)
+        pass
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -810,7 +1250,11 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    Total_Nitrogen().run()
+    # Total_Nitrogen().run()
+    # Terra_climate().run()
+    CSIF_005().run()
+    # Landcover().run()
+    # CWD().run()
     pass
 
 

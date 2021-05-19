@@ -9,7 +9,7 @@ from scipy import signal
 import time
 import to_raster
 import os
-# import gdal
+from osgeo import gdal
 # import ogr, osr
 from tqdm import tqdm
 import datetime

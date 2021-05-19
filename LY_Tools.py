@@ -680,10 +680,13 @@ class DIC_and_TIF:
     tif×ª×Öµä
     '''
 
-    def __init__(self):
+    def __init__(self,tif_template=None):
         self.this_class_arr = results_root + 'arr/DIC_and_TIF/'
         Tools().mk_dir(self.this_class_arr, force=True)
-        self.tif_template = this_root + 'conf/tif_template.tif'
+        if tif_template == None:
+            self.tif_template = this_root + 'conf/tif_template.tif'
+        else:
+            self.tif_template = tif_template
         pass
 
 
@@ -1015,7 +1018,7 @@ class DIC_and_TIF:
         else:
             return False
 
-    def per_pix_animate(self,per_pix_dir,interval_t=10):
+    def per_pix_animate(self,per_pix_dir,interval_t=10,condition=''):
 
         import matplotlib.animation as animation
 
@@ -1053,21 +1056,21 @@ class DIC_and_TIF:
             return background_arr
 
         fdir = per_pix_dir
-        dic = Tools().load_npy_dir(fdir)
+        dic = Tools().load_npy_dir(fdir,condition=condition)
 
 
-        selected_pix_sort = []
-        for pix in tqdm(dic):
-            if not self.china_pix(pix):
-                continue
-            selected_pix_sort.append(pix)
-        selected_pix_sort.sort()
+        # selected_pix_sort = []
+        # for pix in tqdm(dic):
+        #     if not self.china_pix(pix):
+        #         continue
+        #     selected_pix_sort.append(pix)
+        # selected_pix_sort.sort()
 
         flag = 0
         china_pix = []
         china_pix_val = {}
         min_max_v = []
-        for pix in selected_pix_sort:
+        for pix in dic:
             val = dic[pix]
             val = np.array(val)
             if len(val) == 0:

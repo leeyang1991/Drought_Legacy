@@ -7,6 +7,7 @@ results_root_main_flow = results_root_main_flow_2002
 class Global_vars:
     def __init__(self):
         self.growing_date_range = list(range(5,11))
+        self.tif_template_7200_3600 = data_root + 'landcover/glc2000_v1_1_resample_7200_3600.tif'
         pass
 
     def koppen_landuse(self):
@@ -54,7 +55,7 @@ class Global_vars:
 
     def gs_mons(self):
 
-        gs = list(range(4,10))
+        gs = list(range(5,10))
 
         return gs
 

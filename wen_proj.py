@@ -592,13 +592,13 @@ class Greening:
 
     def run(self):
         # self.anomaly()
-        # self.origin()
+        self.origin()
         # self.phenoelogy()
-        self.trend()
+        # self.trend()
         pass
 
     def anomaly(self):
-        fdir = '/Users/wenzhang/project/wen_proj/result/CSIF_par/'
+        fdir = '/Volumes/SSD/wen_proj/result/CSIF_par/'
         dic = T.load_npy_dir(fdir,condition='005')
         return dic
         # for pix in dic:
@@ -610,19 +610,99 @@ class Greening:
 
     def origin(self):
 
-        fdir = '/Users/wenzhang/project/wen_proj/result/Hants_annually_smooth/Hants_annually_smooth_CSIF_par/'
-        for f in os.listdir(fdir):
-            print(f)
-            dic = T.load_npy(fdir + f)
-            for pix in dic:
-                vals = dic[pix]
-                print(vals)
-                plt.plot(vals)
+        # fdir = '/Users/wenzhang/project/wen_proj/result/Hants_annually_smooth/Hants_annually_smooth_CSIF_par/'
+        fdir = '/Volumes/SSD/wen_proj/result/Hants_annually_smooth/Hants_annually_smooth_CSIF_par/'
+        f2002 = fdir + '2002.npy'
+        f2016 = fdir + '2016.npy'
+        dic_2002 = T.load_npy(f2002)
+        dic_2016 = T.load_npy(f2016)
+        early_start_dic, early_end_dic, late_start_dic, late_end_dic = self.phenology()
+
+        for pix in dic_2002:
+            r,c = pix
+            if r > 180:
+                continue
+            vals_2002 = dic_2002[pix]
+            vals_2016 = dic_2016[pix]
+            early_start = early_start_dic[pix]
+            early_end = early_end_dic[pix]
+            # print(early_start)
+            # print(early_end)
+            # print('*'*80)
+            # sleep()
+            # continue
+
+
+            late_start = late_start_dic[pix]
+            late_end = late_end_dic[pix]
+
+            early_start_2002 = early_start[0]
+            early_end_2002 = early_end[0]
+            late_start_2002 = late_start[0]
+            late_end_2002 = late_end[0]
+
+            early_start_2016 = early_start[-1]
+            early_end_2016 = early_end[-1]
+            late_start_2016 = late_start[-1]
+            late_end_2016 = late_end[-1]
+
+
+            spring_indx_2002 = list(range(early_start_2002,early_end_2002))
+            summer_indx_2002 = list(range(early_end_2002,late_start_2002))
+            autumn_indx_2002 = list(range(late_start_2002,late_end_2002))
+
+            spring_indx_2016 = list(range(early_start_2016, early_end_2016))
+            summer_indx_2016 = list(range(early_end_2016, late_start_2016))
+            autumn_indx_2016 = list(range(late_start_2016, late_end_2016))
+
+
+            vals_spring_2002 = T.pick_vals_from_1darray(vals_2002,spring_indx_2002)
+            vals_summer_2002 = T.pick_vals_from_1darray(vals_2002,summer_indx_2002)
+            vals_autumn_2002 = T.pick_vals_from_1darray(vals_2002,autumn_indx_2002)
+
+            vals_spring_2016 = T.pick_vals_from_1darray(vals_2016, spring_indx_2016)
+            vals_summer_2016 = T.pick_vals_from_1darray(vals_2016, summer_indx_2016)
+            vals_autumn_2016 = T.pick_vals_from_1darray(vals_2016, autumn_indx_2016)
+
+            total_2002 = np.sum(vals_spring_2002) + np.sum(vals_summer_2002) + np.sum(vals_autumn_2002)
+            total_2016 = np.sum(vals_spring_2016) + np.sum(vals_summer_2016) + np.sum(vals_autumn_2016)
+
+            diff_total = total_2016 - total_2002
+
+            diff_spring = np.sum(vals_spring_2016) - np.sum(vals_spring_2016)
+            diff_summer = np.sum(vals_summer_2016) - np.sum(vals_summer_2002)
+            diff_autumn = np.sum(vals_autumn_2016) - np.sum(vals_autumn_2002)
+
+            spring_contribution = diff_spring / diff_total
+            summer_contribution = diff_summer / diff_total
+            autumn_contribution = diff_autumn / diff_total
+
+            # print(vals)
+
+            print('spring_contribution',spring_contribution)
+            print('summer_contribution',summer_contribution)
+            print('autumn_contribution',autumn_contribution)
+            try:
+                plt.plot(vals_2002)
+                plt.scatter(spring_indx_2002,vals_spring_2002[spring_indx_2002])
+                plt.scatter(summer_indx_2002,vals_summer_2002[summer_indx_2002])
+                plt.scatter(autumn_indx_2002,vals_autumn_2002[autumn_indx_2002])
+
+                plt.scatter(spring_indx_2016,vals_spring_2016[spring_indx_2016])
+                plt.scatter(summer_indx_2016,vals_summer_2016[summer_indx_2016])
+                plt.scatter(autumn_indx_2016,vals_autumn_2016[autumn_indx_2016])
+                plt.plot(vals_2016)
                 plt.show()
+            except:
+                plt.close()
+                continue
+
+
+
 
     def phenology(self):
 
-        fdir = '/Users/wenzhang/project/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par/'
+        fdir = '/Volumes/SSD/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par/'
         e_e_f = fdir + 'early_end.npy'
         e_s_f = fdir + 'early_start.npy'
         l_e_f = fdir + 'late_end.npy'
@@ -643,7 +723,8 @@ class Greening:
         for pix in anomaly_dic:
             vals = anomaly_dic[pix]
             vals_reshape = np.reshape(vals,(15,-1))
-
+            plt.imshow(vals_reshape)
+            plt.show()
             spring_mean_list = []
             peak_mean_list = []
             fall_mean_list = []

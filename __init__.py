@@ -65,7 +65,7 @@ def pause():
 # results_root = 'G:\Drought_legacy\\results\\'
 # results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
 
-this_root = '/Users/wenzhang/project/Drought_legacy_new/'
+this_root = '/Volumes/SSD/drought_legacy_new/'
 data_root = this_root + 'data/'
 results_root = this_root + 'results/'
 results_root_main_flow = this_root + 'main_flow_results/'

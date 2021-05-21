@@ -6,7 +6,7 @@ results_root_main_flow_2002 = this_root + 'results_root_main_flow_2002/'
 results_root_main_flow = results_root_main_flow_2002
 class Global_vars:
     def __init__(self):
-        self.growing_date_range = list(range(5,11))
+        # self.growing_date_range = list(range(5,11))
         self.tif_template_7200_3600 = this_root + 'conf/tif_template_005.tif'
         pass
 

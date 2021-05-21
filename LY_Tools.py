@@ -905,7 +905,7 @@ class DIC_and_TIF:
             temp = []
             for j in range(len(arr[0])):
                 val = arr[i][j]
-                if val < -90000:
+                if val < -99:
                     temp.append(np.nan)
                 else:
                     temp.append(1)

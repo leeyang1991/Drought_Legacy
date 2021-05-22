@@ -437,16 +437,227 @@ class Main_flow_Carbon_loss:
 
     def run(self):
 
-        self.single_events()
+        # self.single_events()
+        self.repetitive_events()
 
         pass
 
     def single_events(self):
         # 1 cal recovery time
         event_dic,spei_dic,sif_dic = self.load_data_single_events()
-        out_dir = self.this_class_arr + 'Recovery_time_Legacy/'
-        self.gen_recovery_time_legacy(event_dic,spei_dic, sif_dic,out_dir)
+        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_single_events/'
+        self.gen_recovery_time_legacy_single(event_dic,spei_dic, sif_dic,out_dir)
         pass
+
+    def repetitive_events(self):
+        event_dic, spei_dic, sif_dic = self.load_data_repetitive_events(condition='')
+
+        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_repetitive_events/'
+        self.gen_recovery_time_legacy_repetitive(event_dic,spei_dic, sif_dic,out_dir)
+
+
+        pass
+
+
+    def load_data_repetitive_events(self,condition=''):
+        # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
+        # SPEI_dir = data_root + 'SPEI/per_pix_clean/'
+        # SIF_dir = data_root + 'CSIF/per_pix_anomaly_detrend/'
+
+        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events/'
+        SPEI_dir = data_root + 'SPEI12/per_pix/'
+        SIF_dir = data_root + 'CSIF005/per_pix_anomaly_detrend/'
+
+        event_dic = T.load_npy_dir(events_dir,condition)
+        spei_dic = T.load_npy_dir(SPEI_dir,condition)
+        sif_dic = T.load_npy_dir(SIF_dir,condition)
+
+        return event_dic,spei_dic,sif_dic
+        pass
+
+
+    def kernel_gen_recovery_time_legacy_repetitive(self,date_range,ndvi,spei,growing_date_range,):
+        # print(date_range)
+        # exit()
+        # event_start_index = T.pick_min_indx_from_1darray(spei, date_range)
+        event_start_index = date_range[0]
+        event_start_index_trans = self.__drought_indx_to_gs_indx(event_start_index, growing_date_range, len(ndvi))
+        # print(event_start_index_trans)
+        # exit()
+        if event_start_index_trans == None:
+            # print('__drought_indx_to_gs_indx failed')
+            return None
+        ndvi_gs = self.__pick_gs_vals(ndvi, growing_date_range)
+        spei_gs = self.__pick_gs_vals(spei, growing_date_range)
+        # ndvi_gs_pred = self.__pick_gs_vals(ndvi_pred,growing_date_range)
+        # print(len(ndvi_gs))
+        # print(len(spei_gs))
+        # exit()
+        # print(len(ndvi_gs_pred))
+        date_range_new = []
+        for i in date_range:
+            i_trans = self.__drought_indx_to_gs_indx(i, growing_date_range, len(ndvi))
+            if i_trans != None:
+                date_range_new.append(i_trans)
+        # 1 挑出此次干旱事件的NDVI和SPEI值 （画图需要）
+        # spei_picked_vals = Tools().pick_vals_from_1darray(spei, date_range)
+        # 2 挑出此次干旱事件SPEI最低的索引
+        # 在当前生长季搜索
+
+        # 4 搜索恢复期
+        # 4.1 获取growing season NDVI的最小值
+        # 4.3 搜索恢复到正常情况的时间，recovery_time：恢复期； mark：'in', 'out', 'tropical'
+        search_end_indx = 3 * len(growing_date_range)
+        recovery_range = self.search1(ndvi_gs, spei_gs, event_start_index_trans, search_end_indx)
+        # continue
+        # recovery_time, lag, recovery_start_gs, recovery_start, 'undefined'
+        ###########################################
+        ###########################################
+        ###########################################
+        # print('recovery_range',recovery_range)
+        if recovery_range == None:
+            # print('event_start_index+search_end_indx >= len(ndvi) '
+            #       'event_start_index_trans, search_end_indx',
+            #       event_start_index_trans, search_end_indx)
+            return None
+        recovery_range = np.array(recovery_range)
+        date_range_new = np.array(date_range_new)
+        recovery_time = len(recovery_range)
+        legacy = self.__cal_legacy(ndvi_gs, recovery_range)
+        result_dic = {
+            'recovery_time': recovery_time,
+            'recovery_date_range': recovery_range,
+            'drought_event_date_range': date_range_new,
+            'carbon_loss': legacy,
+        }
+        #
+        # ################# plot ##################
+        # print('recovery_time',recovery_time)
+        # print('growing_date_range',growing_date_range)
+        # print('recovery_range',recovery_range)
+        # print('legacy',legacy)
+        # recovery_date_range = recovery_range
+        # recovery_ndvi = Tools().pick_vals_from_1darray(ndvi_gs, recovery_date_range)
+        #
+        # # pre_picked_vals = Tools().pick_vals_from_1darray(pre, tmp_pre_date_range)
+        # # tmp_picked_vals = Tools().pick_vals_from_1darray(tmp, tmp_pre_date_range)
+        # # if len(swe) == 0:
+        # #     continue
+        # # swe_picked_vals = Tools().pick_vals_from_1darray(swe, tmp_pre_date_range)
+        #
+        # plt.figure(figsize=(8, 6))
+        # # plt.plot(tmp_pre_date_range, pre_picked_vals, '--', c='blue', label='precipitation')
+        # # plt.plot(tmp_pre_date_range, tmp_picked_vals, '--', c='cyan', label='temperature')
+        # # plt.plot(tmp_pre_date_range, swe_picked_vals, '--', c='black', linewidth=2, label='SWE',
+        # #          zorder=99)
+        # # plt.plot(recovery_date_range, recovery_ndvi, c='g', linewidth=6, label='Recovery Period')
+        # plt.scatter(recovery_date_range, recovery_ndvi, c='g', label='Recovery Period')
+        # # plt.plot(date_range, spei_picked_vals, c='r', linewidth=6,
+        # #          label='drought Event')
+        # # plt.scatter(date_range, spei_picked_vals, c='r', zorder=99)
+        #
+        # plt.plot(range(len(ndvi_gs)), ndvi_gs, '--', c='g', zorder=99, label='ndvi')
+        # plt.plot(range(len(spei_gs)), spei_gs, '--', c='r', zorder=99, label='drought index')
+        # # plt.plot(range(len(pre)), pre, '--', c='blue', zorder=99, label='Precip')
+        # # pre_picked = T.pick_vals_from_1darray(pre,recovery_date_range)
+        # # pre_mean = np.mean(pre_picked)
+        # # plt.plot(recovery_date_range,[pre_mean]*len(recovery_date_range))
+        # plt.legend()
+        #
+        # minx = 9999
+        # maxx = -9999
+        #
+        # for ii in recovery_date_range:
+        #     if ii > maxx:
+        #         maxx = ii
+        #     if ii < minx:
+        #         minx = ii
+        #
+        # for ii in date_range_new:
+        #     if ii > maxx:
+        #         maxx = ii
+        #     if ii < minx:
+        #         minx = ii
+        #
+        # # xtick = []
+        # # for iii in np.arange(len(ndvi)):
+        # #     year = 1982 + iii / 12
+        # #     mon = iii % 12 + 1
+        # #     mon = '%02d' % mon
+        # #     xtick.append('{}.{}'.format(year, mon))
+        # # # plt.xticks(range(len(xtick))[::3], xtick[::3], rotation=90)
+        # # plt.xticks(range(len(xtick)), xtick, rotation=90)
+        # plt.grid()
+        # plt.xlim(minx - 5, maxx + 5)
+
+        # lon, lat, address = Tools().pix_to_address(pix)
+        # try:
+        #     plt.title('lon:{:0.2f} lat:{:0.2f} address:{}\n'.format(lon, lat, address) +
+        #               'recovery_time:'+str(recovery_time)
+        #               )
+        #
+        # except:
+        #     plt.title('lon:{:0.2f} lat:{:0.2f}\n'.format(lon, lat)+
+        #               'recovery_time:' + str(recovery_time)
+        #               )
+        # plt.show()
+        #         # #################plot end ##################
+        return result_dic
+        pass
+
+
+    def gen_recovery_time_legacy_repetitive(self, events, spei_dic, ndvi_dic, out_dir):
+        '''
+        生成全球恢复期
+        :param interval: SPEI_{interval}
+        :return:
+        '''
+
+        # pre_dic = Main_flow_Prepare().load_X_anomaly('PRE')
+
+        growing_date_range = Global_vars().gs_mons()
+        Tools().mk_dir(out_dir, force=True)
+        outf = out_dir + 'recovery_time_legacy'
+        # 1 加载事件
+        # interval = '%02d' % interval
+        # 2 加载NDVI 与 SPEI
+        recovery_time_dic = {}
+        for pix in tqdm(ndvi_dic):
+            if pix in events:
+                ndvi = ndvi_dic[pix]
+                ndvi = np.array(ndvi)
+                if not pix in spei_dic:
+                    continue
+                spei = spei_dic[pix]
+                spei = np.array(spei)
+                # print(len(ndvi))
+                # print(len(spei))
+                # exit()
+                event = events[pix]
+                # print(event)
+                # exit()
+                recovery_time_result = []
+
+                for repetitive_events in event:
+                    # print(repetitive_events)
+                    # exit()
+
+                    success = 1
+                    drought_date_range_1 = repetitive_events[0]
+                    drought_date_range_2 = repetitive_events[1]
+                    results1 = self.kernel_gen_recovery_time_legacy_repetitive(drought_date_range_1,ndvi,spei,growing_date_range,)
+                    results2 = self.kernel_gen_recovery_time_legacy_repetitive(drought_date_range_2,ndvi,spei,growing_date_range,)
+                    if results1 != None and results2 != None:
+                        carbonloss1 = results1['carbon_loss']
+                        carbonloss2 = results2['carbon_loss']
+                        recovery_time_result.append([carbonloss1,carbonloss2])
+                    # exit()
+                recovery_time_dic[pix] = recovery_time_result
+            else:
+                recovery_time_dic[pix] = []
+        T.save_dict_to_binary(recovery_time_dic, outf)
+        pass
+
 
     def load_data_single_events(self,condition=''):
         # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
@@ -472,7 +683,7 @@ class Main_flow_Carbon_loss:
         return legacy
         pass
 
-    def gen_recovery_time_legacy(self, events, spei_dic, ndvi_dic, out_dir):
+    def gen_recovery_time_legacy_single(self, events, spei_dic, ndvi_dic, out_dir):
         '''
         生成全球恢复期
         :param interval: SPEI_{interval}
@@ -668,7 +879,10 @@ class Main_flow_Carbon_loss:
 
     def search1(self, ndvi,drought_indx, event_start_index,search_end_indx):
         # print(event_start_index)
+
         if event_start_index+search_end_indx >= len(ndvi):
+            # print('search1')
+            # print(event_start_index,search_end_indx,len(ndvi))
             return None
         selected_indx = []
         for i in range(event_start_index,event_start_index+search_end_indx):
@@ -677,8 +891,16 @@ class Main_flow_Carbon_loss:
                 selected_indx.append(i)
             else:
                 selected_indx.append(999999)
-
         recovery_indx_gs = self.__split_999999(selected_indx)
+        # if recovery_indx_gs == None:
+            # print(' event_start_index,search_end_indx', event_start_index,search_end_indx)
+            # plt.close()
+            # plt.plot(ndvi,label='ndvi')
+            # plt.plot(drought_indx,label='spei')
+            # plt.legend()
+            # plt.show()
+        # print('recovery_indx_gs',recovery_indx_gs)
+
         return recovery_indx_gs
         # plt.scatter(event_start_index, [0])
         # plt.plot(ndvi)
@@ -1764,9 +1986,9 @@ class Tif:
 
 def main():
     # Main_Flow_Pick_drought_events().run()
-    # Main_flow_Carbon_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
-    Tif().run()
+    Main_flow_Carbon_loss().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Tif().run()
     pass
 
 

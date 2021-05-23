@@ -963,7 +963,8 @@ class CSIF_005:
     def run(self):
         # self.nc_to_tif()
         # self.per_pix()
-        self.anomaly()
+        # self.anomaly()
+        self.detrend()
         pass
 
     def nc_to_tif(self):
@@ -1052,6 +1053,27 @@ class CSIF_005:
         fdir = data_root + 'CSIF005/per_pix/'
         outdir = data_root + 'CSIF005/per_pix_anomaly/'
         Pre_Process().cal_anomaly(fdir, outdir)
+        pass
+
+
+
+    def kernel_detrend(self,params):
+        fdir,f,outdir = params
+        dic = T.load_npy(fdir + f)
+        dic_detrend = T.detrend_dic(dic)
+        T.save_npy(dic_detrend, outdir + f)
+        pass
+
+    def detrend(self):
+        fdir = data_root + 'CSIF005/per_pix_anomaly/'
+        outdir = data_root + 'CSIF005/per_pix_anomaly_detrend/'
+        T.mk_dir(outdir)
+        params = []
+        for f in tqdm(os.listdir(fdir)):
+            params.append([fdir,f,outdir])
+        MULTIPROCESS(self.kernel_detrend,params).run()
+
+
         pass
 
 class Landcover:
@@ -1242,6 +1264,174 @@ class CWD:
         #     dic = T.load_npy(fdir + f)
         pass
 
+class SPEI12:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.nc_to_tif()
+        # self.resample_005()
+        # self.per_pix()
+        self.per_pix_05()
+        pass
+
+    def nc_to_tif(self):
+        outdir = data_root + 'SPEI12/tif/'
+        T.mk_dir(outdir)
+        f = data_root + 'SPEI12/nc/spei12.nc'
+        ncin = Dataset(f, 'r')
+        lat = ncin['lat'][::-1]
+        lon = ncin['lon']
+        pixelWidth = lon[1] - lon[0]
+        pixelHeight = lat[1] - lat[0]
+        longitude_start = lon[0]
+        latitude_start = lat[0]
+
+        time = ncin.variables['time']
+
+        # print(time)
+        # exit()
+        # time_bounds = ncin.variables['time_bounds']
+        # print(time_bounds)
+        start = datetime.datetime(1900, 1, 1)
+        # print(start)
+        # exit()
+        # a = start + datetime.timedelta(days=5459)
+        # print(a)
+        # print(len(time_bounds))
+        # print(len(time))
+        # for i in time:
+        #     print(i)
+        # exit()
+        # nc_dic = {}
+        flag = 0
+
+        for i in tqdm(range(len(time))):
+            flag += 1
+            # print(time[i])
+            date = start + datetime.timedelta(days=int(time[i]))
+            # print(date)
+            # exit()
+            year = str(date.year)
+            if 2001<=int(year)<=2019:
+                month = '%02d' % date.month
+                # day = '%02d'%date.day
+                date_str = year + month
+                # if not date_str[:4] in valid_year:
+                #     continue
+                # print(date_str)
+                arr = ncin.variables['spei'][i][::-1]
+                arr = np.array(arr)
+                grid = arr < 99999
+                arr[np.logical_not(grid)] = -999999
+                newRasterfn = outdir + date_str + '.tif'
+                to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+                # grid = np.ma.masked_where(grid>1000,grid)
+                # plt.imshow(arr,'RdBu',vmin=-3,vmax=3)
+                # plt.colorbar()
+                # plt.show()
+                # nc_dic[date_str] = arr
+                # exit()
+
+
+    def resample_005(self):
+        fdir = data_root + 'SPEI12/tif/'
+        outdir = data_root + 'SPEI12/tif_005/'
+        T.mk_dir(outdir)
+        for f in tqdm(os.listdir(fdir)):
+            if f.startswith('.'):
+                continue
+            if not f.endswith('.tif'):
+                continue
+            tif = fdir + f
+            outtif = outdir + f
+            dataset = gdal.Open(tif)
+            gdal.Warp(outtif, dataset, xRes=0.05, yRes=0.05, srcSRS='EPSG:4326', dstSRS='EPSG:4326')
+            # arr = to_raster.raster2array(outtif)[0]
+            # arr[arr<-999]=np.nan
+            # plt.imshow(arr,vmin=-2,vmax=2)
+            # plt.show()
+            # exit()
+        pass
+
+
+    def per_pix(self):
+        fdir = data_root + 'SPEI12/tif_005/'
+        outdir = data_root + 'SPEI12/per_pix/'
+        T.mk_dir(outdir)
+        valid_spatial_dic_f = Landcover().forest_spatial_dic_f
+        valid_spatial_dic = T.load_npy(valid_spatial_dic_f)
+        template_tif = Global_vars().tif_template_7200_3600
+        template_arr = to_raster.raster2array(template_tif)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = {}
+        for pix in valid_spatial_dic:
+            spatial_dic[pix] = []
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                if not pix in valid_spatial_dic:
+                    continue
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+    def per_pix_05(self):
+        fdir = data_root + 'SPEI12/tif/'
+        outdir = data_root + 'SPEI12/per_pix_05/'
+        T.mk_dir(outdir)
+        template_arr = to_raster.raster2array(DIC_and_TIF().tif_template)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            if not f.endswith('.tif'):
+                continue
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = DIC_and_TIF().void_spatial_dic()
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -1252,9 +1442,10 @@ def main():
     # SM().run()
     # Total_Nitrogen().run()
     # Terra_climate().run()
-    CSIF_005().run()
+    # CSIF_005().run()
     # Landcover().run()
     # CWD().run()
+    SPEI12().run()
     pass
 
 

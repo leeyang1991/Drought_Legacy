@@ -148,21 +148,22 @@ class Global_vars:
 class Make_Dataframe:
 
     def __init__(self):
-        self.this_class_arr = '/Users/wenzhang/project/wen_proj/result/Make_Dataframe/'
+        self.this_class_arr = '/Volumes/SSD/wen_proj/result/Make_Dataframe/'
         Tools().mk_dir(self.this_class_arr, force=True)
         self.dff = self.this_class_arr + 'data_frame.df'
 
     def run(self):
         # 0 generate a void dataframe
         df = self.__gen_df_init()
-
-        df = self.add_previous_conditions(df)
+        df = self.__add_void_pix_to_df(df)
+        # df = self.add_previous_conditions(df)
         df = self.add_MAT_MAP_to_df(df)
-        df = self.add_lon_lat_to_df(df)
-        df = self.select_max_val_and_pre_length(df)
-        df = self.select_max_product(df)
-        T.save_df(df,self.dff)
+        # df = self.add_lon_lat_to_df(df)
+        # df = self.select_max_val_and_pre_length(df)
+        # df = self.select_max_product(df)
+        df = self.add_max_contribution_index(df)
         df = df.dropna()
+        T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff)
         pass
 
@@ -191,10 +192,22 @@ class Make_Dataframe:
         df = pd.DataFrame()
         if not os.path.isfile(self.dff):
             T.save_df(df,self.dff)
+            return df
         else:
             df,dff = self.__load_df()
             return df
             # raise Warning('{} is already existed'.format(self.dff))
+
+    def __add_void_pix_to_df(self,df):
+        void_dic = DIC_and_TIF().void_spatial_dic()
+        pix_list = []
+        for pix in void_dic:
+            pix_list.append(pix)
+        df['pix'] = pix_list
+        return df
+
+        pass
+
 
     def __df_to_excel(self,df,dff,head=1000):
         if head == None:
@@ -345,6 +358,24 @@ class Make_Dataframe:
         df['max_corr_product'] = max_product_list
         return df
 
+    def add_max_contribution_index(self,df):
+        fdir = '/Volumes/SSD/wen_proj/result/0523/'
+        f = fdir + 'Max_contribution_index_threshold_20%.npy'
+        arr = np.load(f)
+        dic = DIC_and_TIF().spatial_arr_to_dic(arr)
+        max_ind_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = dic[pix]
+            max_ind_list.append(val)
+
+        df['max_contrib_index'] = max_ind_list
+        return df
+
+
+
+        pass
+
 class Main_flow_shui_re:
 
     def __init__(self):
@@ -355,8 +386,8 @@ class Main_flow_shui_re:
         # self.plot_MAP()
         # self.plot_matrix()
         # self.plot_scatter()
-        self.plot_scatter_pre_n()
-
+        # self.plot_scatter_pre_n()
+        self.plot_dominance()
         pass
 
     def __divide_MA(self,arr,min_v=None,max_v=None,step=None,n=None):
@@ -571,6 +602,34 @@ class Main_flow_shui_re:
         pass
 
 
+    def plot_dominance(self):
+        dff = Make_Dataframe().dff
+        df = T.load_df(dff)
+        color_dic = {
+            1: 'g',
+            2: 'r',
+            3: 'b',
+        }
+        x_list = []
+        y_list = []
+        c_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            r,c = pix
+            if r > 180.:
+                continue
+            map = row['MAP']
+            mat = row['MAT']
+            max_ind = row['max_contrib_index']
+            # print(max_ind)
+            # if max_ind == 1:
+            if 1:
+                c_list.append(color_dic[max_ind])
+                x_list.append(map)
+                y_list.append(mat)
+        plt.scatter(x_list, y_list, c=c_list, s=20, alpha=0.2, marker='s')
+        plt.show()
+
 class Analysis:
 
     def __init__(self):
@@ -618,12 +677,18 @@ class Greening:
         dic_2016 = T.load_npy(f2016)
         early_start_dic, early_end_dic, late_start_dic, late_end_dic = self.phenology()
 
-        for pix in dic_2002:
+        spring_contrib_dic = {}
+        summer_contrib_dic = {}
+        autumn_contrib_dic = {}
+        for pix in tqdm(early_start_dic):
             r,c = pix
             if r > 180:
                 continue
-            vals_2002 = dic_2002[pix]
-            vals_2016 = dic_2016[pix]
+            try:
+                vals_2002 = dic_2002[pix]
+                vals_2016 = dic_2016[pix]
+            except:
+                continue
             early_start = early_start_dic[pix]
             early_end = early_end_dic[pix]
             # print(early_start)
@@ -668,8 +733,9 @@ class Greening:
             total_2016 = np.sum(vals_spring_2016) + np.sum(vals_summer_2016) + np.sum(vals_autumn_2016)
 
             diff_total = total_2016 - total_2002
-
-            diff_spring = np.sum(vals_spring_2016) - np.sum(vals_spring_2016)
+            if diff_total < 0:
+                continue
+            diff_spring = np.sum(vals_spring_2016) - np.sum(vals_spring_2002)
             diff_summer = np.sum(vals_summer_2016) - np.sum(vals_summer_2002)
             diff_autumn = np.sum(vals_autumn_2016) - np.sum(vals_autumn_2002)
 
@@ -678,31 +744,81 @@ class Greening:
             autumn_contribution = diff_autumn / diff_total
 
             # print(vals)
-
-            print('spring_contribution',spring_contribution)
-            print('summer_contribution',summer_contribution)
-            print('autumn_contribution',autumn_contribution)
-            try:
-                plt.plot(vals_2002)
-                plt.scatter(spring_indx_2002,vals_spring_2002[spring_indx_2002])
-                plt.scatter(summer_indx_2002,vals_summer_2002[summer_indx_2002])
-                plt.scatter(autumn_indx_2002,vals_autumn_2002[autumn_indx_2002])
-
-                plt.scatter(spring_indx_2016,vals_spring_2016[spring_indx_2016])
-                plt.scatter(summer_indx_2016,vals_summer_2016[summer_indx_2016])
-                plt.scatter(autumn_indx_2016,vals_autumn_2016[autumn_indx_2016])
-                plt.plot(vals_2016)
-                plt.show()
-            except:
-                plt.close()
+            if np.isnan(spring_contribution):
                 continue
 
+            spring_contrib_dic[pix] = spring_contribution
+            summer_contrib_dic[pix] = summer_contribution
+            autumn_contrib_dic[pix] = autumn_contribution
+
+            # print('spring_contribution',spring_contribution)
+            # print('summer_contribution',summer_contribution)
+            # print('autumn_contribution',autumn_contribution)
+            # print(sum([spring_contribution,summer_contribution,autumn_contribution]))
+            # print('*'*10)
+            # try:
+            #     plt.plot(vals_2002)
+            #     plt.scatter(early_start_2002,vals_2002[early_start_2002])
+            #     plt.scatter(early_end_2002,vals_2002[early_end_2002])
+            #     plt.scatter(late_start_2002,vals_2002[late_start_2002])
+            #     plt.scatter(late_end_2002,vals_2002[late_end_2002])
+            #
+            #     plt.scatter(early_start_2016, vals_2016[early_start_2016])
+            #     plt.scatter(early_end_2016, vals_2016[early_end_2016])
+            #     plt.scatter(late_start_2016, vals_2016[late_start_2016])
+            #     plt.scatter(late_end_2016, vals_2016[late_end_2016])
+            #     plt.plot(vals_2016)
+            #     plt.show()
+            # except:
+            #     plt.close()
+            #     continue
+
+        spring_contrib_arr = DIC_and_TIF().pix_dic_to_spatial_arr(spring_contrib_dic)
+        summer_contrib_arr = DIC_and_TIF().pix_dic_to_spatial_arr(summer_contrib_dic)
+        autumn_contrib_arr = DIC_and_TIF().pix_dic_to_spatial_arr(autumn_contrib_dic)
+
+        # plt.figure()
+        # plt.imshow(spring_contrib_arr,vmin=0,vmax=0.5)
+        # DIC_and_TIF().plot_back_ground_arr()
+        # plt.title('spring')
+        #
+        # plt.figure()
+        # plt.imshow(summer_contrib_arr,vmin=0,vmax=0.5)
+        # DIC_and_TIF().plot_back_ground_arr()
+        # plt.title('summer')
+        #
+        # plt.figure()
+        # plt.imshow(autumn_contrib_arr,vmin=0,vmax=0.5)
+        # DIC_and_TIF().plot_back_ground_arr()
+        # plt.title('autumn')
+
+
+        max_ind_arr = []
+        for r in range(len(spring_contrib_arr)):
+            temp = []
+            for c in range(len(spring_contrib_arr[0])):
+                temp_i = []
+                for arr in [spring_contrib_arr,summer_contrib_arr,autumn_contrib_arr]:
+                    temp_i.append(arr[r][c])
+                if True in np.isnan(temp_i):
+                    temp.append(np.nan)
+                    continue
+                if len(temp_i) > 0:
+                    max_indx = np.argmax(temp_i)
+                    temp.append(float(max_indx))
+                else:
+                    temp.append(np.nan)
+            max_ind_arr.append(temp)
+        plt.imshow(max_ind_arr[:180])
+        DIC_and_TIF().plot_back_ground_arr_north_sphere()
+        plt.show()
 
 
 
     def phenology(self):
 
-        fdir = '/Volumes/SSD/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par/'
+        # fdir = '/Volumes/SSD/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par/'
+        fdir = '/Volumes/SSD/wen_proj/result/early_peak_late_dormant_period_annually/20%_transform_early_peak_late_dormant_period_annually_CSIF_par 2/'
         e_e_f = fdir + 'early_end.npy'
         e_s_f = fdir + 'early_start.npy'
         l_e_f = fdir + 'late_end.npy'
@@ -792,12 +908,122 @@ class Greening:
         pass
 
 
+class Multi_colormap_spatial_map:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+
+        # self.latitude_plot()
+        self.muti_variate_map()
+        pass
+
+    def muti_variate_map(self):
+        import colorsys
+        fdir = '/Volumes/SSD/wen_proj/result/0523/'
+        sos_f = fdir + 'leaf_out_contribution_threshold_20%.npy'
+        eos_f = fdir + 'EOS_contribution_threshold_20%.npy'
+        peak_f = fdir + 'peak_contribution_threshold_20%.npy'
+
+        sos_arr = np.load(sos_f)
+        peak_arr = np.load(peak_f)
+        eos_arr = np.load(eos_f)
+
+        sos_arr[sos_arr<-2]=np.nan
+        sos_arr[sos_arr>2]=np.nan
+        peak_arr[peak_arr < -2] = np.nan
+        peak_arr[peak_arr > 2] = np.nan
+        eos_arr[eos_arr < -2] = np.nan
+        eos_arr[eos_arr > 2] = np.nan
+
+        sos_arr[sos_arr < 0] = 0
+        sos_arr[sos_arr > 1] = 1
+        peak_arr[peak_arr < 0] = 0
+        peak_arr[peak_arr > 1] = 1
+        eos_arr[eos_arr < 0] = 0
+        eos_arr[eos_arr > 1] = 1
+
+        # sos_dic = DIC_and_TIF().spatial_arr_to_dic(sos_arr)
+        # eos_dic = DIC_and_TIF().spatial_arr_to_dic(eos_arr)
+        # peak_dic = DIC_and_TIF().spatial_arr_to_dic(peak_arr)
+
+        # plt.imshow(sos_arr,cmap='Greens',alpha=0.3)
+        # plt.imshow(peak_arr,cmap='Reds',alpha=0.3)
+        # plt.imshow(eos_arr,cmap='Blues',alpha=0.3)
+        # plt.show()
+
+        matrix = []
+        for i in range(len(eos_arr)):
+            temp = []
+            for j in range(len(eos_arr[0])):
+                if np.isnan(sos_arr[i,j]):
+                    data = [0.9,0.9,0.9,1]
+                else:
+                    # r=colorsys.hls_to_rgb(0,peak_arr[i,j],0.7)
+                    # g=colorsys.hls_to_rgb(0,peak_arr[i,j],0.7)
+                    # r=colorsys.hls_to_rgb(0,peak_arr[i,j],0.7)
+                    if round((peak_arr[i,j] + sos_arr[i,j] + eos_arr[i,j]),0) == 1:
+                        data = [peak_arr[i,j],sos_arr[i,j],eos_arr[i,j],1]
+                    else:
+                        data = [0.9,0.9,0.9,1]
+
+                    # data = [peak_arr[i,j],sos_arr[i,j],eos_arr[i,j],np.std([peak_arr[i,j],sos_arr[i,j],eos_arr[i,j]])]
+                    # print(data)
+                temp.append(data)
+            matrix.append(temp)
+        plt.imshow(matrix)
+        plt.show()
+
+        pass
+
+
+
+    def latitude_plot(self):
+        fdir = '/Volumes/SSD/wen_proj/result/0523/'
+        f = fdir + 'Max_contribution_index_threshold_20%.npy'
+        arr = np.load(f)
+
+        spring = []
+        summer = []
+        autumn = []
+        flag = 0
+        for i in arr:
+            flag += 1
+            if flag > 120:
+                continue
+            i = np.array(i)
+            i = T.remove_np_nan(i)
+            if len(i) == 0:
+                spring.append(np.nan)
+                summer.append(np.nan)
+                autumn.append(np.nan)
+            else:
+                i = list(i)
+                spring_n = i.count(1)
+                summer_n = i.count(2)
+                autumn_n = i.count(3)
+                total_len = float(len(i))
+                spring.append(spring_n/total_len)
+                summer.append(summer_n/total_len)
+                autumn.append(autumn_n/total_len)
+
+        plt.plot(spring,c='g',label='spring')
+        plt.plot(summer,c='r',label='summer')
+        plt.plot(autumn,c='b',label='autumn')
+        plt.legend()
+        plt.show()
+
+        pass
+
 
 def main():
 
     # Make_Dataframe().run()
     # Main_flow_shui_re().run()
-    Greening().run()
+    # Greening().run()
+    Multi_colormap_spatial_map().run()
     pass
 
 

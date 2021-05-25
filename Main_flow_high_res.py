@@ -87,98 +87,110 @@ class Main_Flow_Pick_drought_events:
         pass
 
     def run(self):
-        # self.single_events()
-        # self.repetitive_events()
+        threshold = -1.2
+        n = 4 * 12
+        self.single_events(n,threshold)
+        self.repetitive_events(n,threshold)
         # self.check_single_events()
         # self.check_repetitive_events()
-        self.check_single_and_repetitive_events()
+        # self.check_single_and_repetitive_events()
         pass
 
 
 
-    def repetitive_events(self):
 
-        outdir = self.this_class_arr + 'repetitive_events/'
+    def kernel_repetitive_events(self,parmas):
+        fdir,f,outdir,n,threshold = parmas
+        gs_mons = Global_vars().gs_mons()
+        single_event_dic = {}
+        dic = T.load_npy(fdir + f)
+        fname = f.split('/')[-1]
+        for pix in dic:
+            vals = dic[pix]
+            # vals_detrend = signal.detrend(vals)
+            # vals = vals_detrend
+            # print(len(vals))
+            # plt.plot
+            # threshold = np.quantile(vals, 0.05)
+            # print('threshold',threshold)
+            # plt.plot(vals)
+            # plt.show()
+            event_list, key = self.kernel_find_drought_period([vals, pix, threshold])
+            if len(event_list) == 0:
+                continue
+            # print('event_list',event_list)
+            events_gs = []  # 只要生长季事件
+            for i in event_list:
+                level, drought_range = i
+                is_gs = 0
+                mon = drought_range[0] % 12 + 1
+                if mon in gs_mons:
+                    is_gs = 1
+                if is_gs:
+                    events_gs.append(drought_range)
+            if len(events_gs) <= 1:  # 全时段只有一次以下的事件，则不存在repetitive事件
+                continue
+            # if events_4[0][0] - 36 < 0:
+            #     continue
+
+            # for i in range(len(events_gs)):
+            #     # 如果事件距离第一年不足3年，则舍去，
+            #     # 原因：不知道第一年前有没有干旱事件。
+            #     # 还可改进：扩大找干旱事件的年份
+            #     # 或者忽略
+            #     # if events_gs[i][0] - n < 0:
+            #     #     continue
+            #     if i + 1 >= len(events_gs):
+            #         continue
+            #     if events_gs[i+1][0] - events_gs[i][0] < n:
+            #         repetitive_events.append(events_gs[i])
+
+            # find initial drought events
+            initial_drought = []
+            initial_drought_indx = []
+            if events_gs[0][0] - n >= 0:
+                initial_drought.append(events_gs[0])
+                initial_drought_indx.append(0)
+            for i in range(len(events_gs)):
+                if i + 1 >= len(events_gs):
+                    continue
+                if events_gs[i + 1][0] - n > events_gs[i][0]:
+                    initial_drought.append(events_gs[i + 1])
+                    initial_drought_indx.append(i + 1)
+            if len(initial_drought) == 0:
+                continue
+
+            repetitive_events = []
+            for init_indx in initial_drought_indx:
+                init_date = events_gs[init_indx][0]
+                one_recovery_period = list(range(init_date, init_date + n))
+                repetitive_events_i = []
+                for i in range(len(events_gs)):
+                    date_i = events_gs[i][0]
+                    if date_i in one_recovery_period:
+                        repetitive_events_i.append(tuple(events_gs[i]))
+                if len(repetitive_events_i) > 1:
+                    repetitive_events.append(repetitive_events_i)
+            if len(repetitive_events) == 0:
+                continue
+            single_event_dic[pix] = repetitive_events
+        np.save(outdir + fname, single_event_dic)
+
+        pass
+
+    def repetitive_events(self,n,threshold):
+
+        # threshold = -2
+        # n = 4 * 12
+        outdir = self.this_class_arr + 'repetitive_events_{}/'.format(threshold)
         fdir = data_root + 'SPEI12/per_pix/'
         T.mk_dir(outdir, force=True)
-        threshold = -1.5
-        n = 4 * 12
 
+
+        params = []
         for f in tqdm(os.listdir(fdir)):
-            gs_mons = Global_vars().gs_mons()
-            single_event_dic = {}
-            dic = T.load_npy(fdir + f)
-            fname = f.split('/')[-1]
-            for pix in dic:
-                vals = dic[pix]
-                # vals_detrend = signal.detrend(vals)
-                # vals = vals_detrend
-                # print(len(vals))
-                # plt.plot
-                # threshold = np.quantile(vals, 0.05)
-                # print('threshold',threshold)
-                # plt.plot(vals)
-                # plt.show()
-                event_list, key = self.kernel_find_drought_period([vals, pix, threshold])
-                if len(event_list) == 0:
-                    continue
-                # print('event_list',event_list)
-                events_gs = [] # 只要生长季事件
-                for i in event_list:
-                    level, drought_range = i
-                    is_gs = 0
-                    mon = drought_range[0] % 12 + 1
-                    if mon in gs_mons:
-                        is_gs = 1
-                    if is_gs:
-                        events_gs.append(drought_range)
-                if len(events_gs) <= 1: # 全时段只有一次以下的事件，则不存在repetitive事件
-                    continue
-                # if events_4[0][0] - 36 < 0:
-                #     continue
-
-                # for i in range(len(events_gs)):
-                #     # 如果事件距离第一年不足3年，则舍去，
-                #     # 原因：不知道第一年前有没有干旱事件。
-                #     # 还可改进：扩大找干旱事件的年份
-                #     # 或者忽略
-                #     # if events_gs[i][0] - n < 0:
-                #     #     continue
-                #     if i + 1 >= len(events_gs):
-                #         continue
-                #     if events_gs[i+1][0] - events_gs[i][0] < n:
-                #         repetitive_events.append(events_gs[i])
-
-                # find initial drought events
-                initial_drought = []
-                initial_drought_indx = []
-                if events_gs[0][0] - n >= 0:
-                    initial_drought.append(events_gs[0])
-                    initial_drought_indx.append(0)
-                for i in range(len(events_gs)):
-                    if i+1 >= len(events_gs):
-                        continue
-                    if events_gs[i+1][0] - n > events_gs[i][0]:
-                        initial_drought.append(events_gs[i+1])
-                        initial_drought_indx.append(i+1)
-                if len(initial_drought) == 0:
-                    continue
-
-                repetitive_events = []
-                for init_indx in initial_drought_indx:
-                    init_date = events_gs[init_indx][0]
-                    one_recovery_period = list(range(init_date,init_date + n))
-                    repetitive_events_i = []
-                    for i in range(len(events_gs)):
-                        date_i = events_gs[i][0]
-                        if date_i in one_recovery_period:
-                            repetitive_events_i.append(tuple(events_gs[i]))
-                    if len(repetitive_events_i) > 1:
-                        repetitive_events.append(repetitive_events_i)
-                if len(repetitive_events) == 0:
-                    continue
-                single_event_dic[pix] = repetitive_events
-            np.save(outdir + fname, single_event_dic)
+            params.append([fdir,f,outdir,n,threshold])
+        MULTIPROCESS(self.kernel_repetitive_events,params).run()
         # arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(spatial_dic)
         # plt.imshow(arr)
         # DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
@@ -188,14 +200,16 @@ class Main_Flow_Pick_drought_events:
     #     pass
 
 
-    def single_events(self):
-        outdir = self.this_class_arr + 'single_events/'
+    def single_events(self,n,threshold):
+        # threshold = -2
+        # n = 4 * 12
+        outdir = self.this_class_arr + 'single_events_{}/'.format(threshold)
         # fdir = data_root + 'SPEI/per_pix_2002/'
         # fdir = data_root + 'CWD/CWD/per_pix_anomaly/'
         fdir = data_root + 'SPEI12/per_pix/'
         params = []
         for f in os.listdir(fdir):
-            params.append([fdir + f,outdir])
+            params.append([fdir + f,outdir,n,threshold])
             # self.pick_events([fdir + f,outdir])
         MULTIPROCESS(self.pick_events,params).run()
             # self.pick_events(fdir + f,outdir)
@@ -203,8 +217,8 @@ class Main_Flow_Pick_drought_events:
 
     def pick_events(self,params):
         # 前n个月和后n个月无极端干旱事件
-        f, outdir = params
-        n = 4*12
+        f, outdir,n,threshold = params
+        # n = 4*12
         gs_mons = Global_vars().gs_mons()
         T.mk_dir(outdir,force=True)
         single_event_dic = {}
@@ -216,7 +230,7 @@ class Main_Flow_Pick_drought_events:
             # vals_detrend = signal.detrend(vals)
             # vals = vals_detrend
             # print(len(vals))
-            threshold = -1.5
+            # threshold = -1.5
             # plt.plot
             # threshold = np.quantile(vals, 0.05)
             # print('threshold',threshold)
@@ -422,6 +436,365 @@ class Main_Flow_Pick_drought_events:
 
         pass
 
+
+class Main_Flow_Pick_drought_events_05:
+
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr/Main_Flow_Pick_drought_events_05/'
+        self.this_class_tif = results_root_main_flow + 'tif/Main_Flow_Pick_drought_events_05/'
+        self.this_class_png = results_root_main_flow + 'png/Main_Flow_Pick_drought_events_05/'
+
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+    def run(self):
+        threshold = -1.8
+        n = 4 * 12
+        self.single_events(n,threshold)
+        self.repetitive_events(n,threshold)
+        # self.check_single_events()
+        # self.check_repetitive_events()
+        self.check_single_and_repetitive_events()
+        pass
+
+
+
+    def kernel_repetitive_events(self,params):
+        fdir,f,threshold,n,outdir=params
+        gs_mons = Global_vars().gs_mons()
+        single_event_dic = {}
+        dic = T.load_npy(fdir + f)
+        fname = f.split('/')[-1]
+        for pix in dic:
+            r, c = pix
+            if r > 180:
+                continue
+            vals = dic[pix]
+            # vals_detrend = signal.detrend(vals)
+            # vals = vals_detrend
+            # print(len(vals))
+            # plt.plot
+            # threshold = np.quantile(vals, 0.05)
+            # print('threshold',threshold)
+            # plt.plot(vals)
+            # plt.show()
+            event_list, key = self.kernel_find_drought_period([vals, pix, threshold])
+            if len(event_list) == 0:
+                continue
+            # print('event_list',event_list)
+            events_gs = []  # 只要生长季事件
+            for i in event_list:
+                level, drought_range = i
+                is_gs = 0
+                mon = drought_range[0] % 12 + 1
+                if mon in gs_mons:
+                    is_gs = 1
+                if is_gs:
+                    events_gs.append(drought_range)
+            if len(events_gs) <= 1:  # 全时段只有一次以下的事件，则不存在repetitive事件
+                continue
+            # if events_4[0][0] - 36 < 0:
+            #     continue
+
+            # for i in range(len(events_gs)):
+            #     # 如果事件距离第一年不足3年，则舍去，
+            #     # 原因：不知道第一年前有没有干旱事件。
+            #     # 还可改进：扩大找干旱事件的年份
+            #     # 或者忽略
+            #     # if events_gs[i][0] - n < 0:
+            #     #     continue
+            #     if i + 1 >= len(events_gs):
+            #         continue
+            #     if events_gs[i+1][0] - events_gs[i][0] < n:
+            #         repetitive_events.append(events_gs[i])
+
+            # find initial drought events
+            initial_drought = []
+            initial_drought_indx = []
+            if events_gs[0][0] - n >= 0:
+                initial_drought.append(events_gs[0])
+                initial_drought_indx.append(0)
+            for i in range(len(events_gs)):
+                if i + 1 >= len(events_gs):
+                    continue
+                if events_gs[i + 1][0] - n > events_gs[i][0]:
+                    initial_drought.append(events_gs[i + 1])
+                    initial_drought_indx.append(i + 1)
+            if len(initial_drought) == 0:
+                continue
+
+            repetitive_events = []
+            for init_indx in initial_drought_indx:
+                init_date = events_gs[init_indx][0]
+                one_recovery_period = list(range(init_date, init_date + n))
+                repetitive_events_i = []
+                for i in range(len(events_gs)):
+                    date_i = events_gs[i][0]
+                    if date_i in one_recovery_period:
+                        repetitive_events_i.append(tuple(events_gs[i]))
+                if len(repetitive_events_i) > 1:
+                    repetitive_events.append(repetitive_events_i)
+            if len(repetitive_events) == 0:
+                continue
+            single_event_dic[pix] = repetitive_events
+        np.save(outdir + fname, single_event_dic)
+
+    def repetitive_events(self,n,threshold):
+
+        outdir = self.this_class_arr + 'repetitive_events/'
+        fdir = data_root + 'SPEI12/per_pix_05/'
+        T.mk_dir(outdir, force=True)
+
+        params = []
+        for f in tqdm(os.listdir(fdir)):
+            params.append([fdir,f,threshold,n,outdir])
+        MULTIPROCESS(self.kernel_repetitive_events,params).run()
+
+    def single_events(self,n,threshold):
+        outdir = self.this_class_arr + 'single_events/'
+        # fdir = data_root + 'SPEI/per_pix_2002/'
+        # fdir = data_root + 'CWD/CWD/per_pix_anomaly/'
+        fdir = data_root + 'SPEI12/per_pix_05/'
+        params = []
+        # n = 3*12
+        # threshold = -1.5
+        for f in os.listdir(fdir):
+            params.append([fdir + f,outdir,n,threshold ])
+            # self.pick_events([fdir + f,outdir])
+        MULTIPROCESS(self.pick_events,params).run()
+            # self.pick_events(fdir + f,outdir)
+        pass
+
+    def pick_events(self,params):
+        # 前n个月和后n个月无极端干旱事件
+        f, outdir,n,threshold = params
+        # n = 4*12
+        gs_mons = Global_vars().gs_mons()
+        T.mk_dir(outdir,force=True)
+        single_event_dic = {}
+        single_event_number_dic = {}
+        dic = T.load_npy(f)
+        fname = f.split('/')[-1]
+        for pix in dic:
+
+            r,c = pix
+            if r > 180:
+                continue
+            vals = dic[pix]
+            # vals_detrend = signal.detrend(vals)
+            # vals = vals_detrend
+            # print(len(vals))
+            # threshold = -1.5
+            # plt.plot
+            # threshold = np.quantile(vals, 0.05)
+            # print('threshold',threshold)
+            # plt.plot(vals)
+            # plt.show()
+            event_list,key = self.kernel_find_drought_period([vals,pix,threshold])
+            # if len(event_list) == 0:
+            #     continue
+            # print('event_list',event_list)
+            events_4 = []
+            for i in event_list:
+                level,drought_range = i
+                is_gs = 0
+                mon = drought_range[0] % 12 + 1
+                if mon in gs_mons:
+                    is_gs = 1
+                if is_gs:
+                    events_4.append(drought_range)
+            # print(events_4)
+            # exit()
+            single_event = []
+            for i in range(len(events_4)):
+                if i - 1 < 0:  # 首次事件
+                    if events_4[i][0] - n < 0 or events_4[i][-1] + n >= len(vals):  # 触及两边则忽略
+                        continue
+                    if len(events_4) == 1:
+                        single_event.append(events_4[i])
+                    elif events_4[i][-1] + n <= events_4[i + 1][0]:
+                        single_event.append(events_4[i])
+                    continue
+
+                # 最后一次事件
+                if i + 1 >= len(events_4):
+                    if events_4[i][0] - events_4[i - 1][-1] >= n and events_4[i][-1] + n <= len(vals):
+                        single_event.append(events_4[i])
+                    break
+
+                # 中间事件
+                if events_4[i][0] - events_4[i - 1][-1] >= n and events_4[i][-1] + n <= events_4[i + 1][0]:
+                    single_event.append(events_4[i])
+            if len(single_event) == 0:
+                continue
+            # print(single_event)
+            # print(n)
+            # exit()
+            # sleep(0.1)
+            single_event_dic[pix] = single_event
+            single_event_number_dic[pix] = len(single_event)
+            # for evt in single_event:
+            #     picked_vals = T.pick_vals_from_1darray(vals,evt)
+            #     plt.scatter(evt,picked_vals,c='r')
+            # plt.plot(vals)
+            # plt.show()
+        np.save(outdir + fname,single_event_dic)
+        # events_number_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(single_event_number_dic)
+        # spatial_dic = {}
+        # for pix in single_event_dic:
+        #     evt_num = len(single_event_dic[pix])
+        #     if evt_num == 0:
+        #         continue
+        #     spatial_dic[pix] = evt_num
+        # DIC_and_TIF().plot_back_ground_arr()
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # plt.imshow(events_number_arr)
+        # plt.colorbar()
+        # plt.show()
+
+    def kernel_find_drought_period(self, params):
+        # 根据不同干旱程度查找干旱时期
+        pdsi = params[0]
+        key = params[1]
+        threshold = params[2]
+        drought_month = []
+        for i, val in enumerate(pdsi):
+            if val < threshold:# SPEI
+                drought_month.append(i)
+            else:
+                drought_month.append(-99)
+        # plt.plot(drought_month)
+        # plt.show()
+        events = []
+        event_i = []
+        for ii in drought_month:
+            if ii > -99:
+                event_i.append(ii)
+            else:
+                if len(event_i) > 0:
+                    events.append(event_i)
+                    event_i = []
+                else:
+                    event_i = []
+
+        flag = 0
+        events_list = []
+        # 不取两个端点
+        for i in events:
+            # 去除两端pdsi值小于-0.5
+            if 0 in i or len(pdsi) - 1 in i:
+                continue
+            new_i = []
+            for jj in i:
+                new_i.append(jj)
+            # print(new_i)
+            # exit()
+            flag += 1
+            vals = []
+            for j in new_i:
+                try:
+                    vals.append(pdsi[j])
+                except:
+                    print(j)
+                    print('error')
+                    print(new_i)
+                    exit()
+            # print(vals)
+
+            # if 0 in new_i:
+            # SPEI
+            min_val = min(vals)
+            if min_val < -99999:
+                continue
+            if min_val < threshold:
+                level = 4
+            else:
+                level = 0
+
+            events_list.append([level, new_i])
+        return events_list, key
+
+    def check_single_events(self):
+
+        fdir = self.this_class_arr + 'single_events/'
+        flag = 0
+        spatial_dic = {}
+        for f in tqdm(os.listdir(fdir)):
+            dic = T.load_npy(fdir + f)
+            for pix in dic:
+                events = dic[pix]
+                if len(events) == 0:
+                    continue
+                for e in events:
+                    flag += 1
+                spatial_dic[pix] = len(events)
+        print(flag)
+        arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(spatial_dic)
+        plt.imshow(arr)
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
+        plt.show()
+
+    def check_repetitive_events(self):
+        fdir = self.this_class_arr + 'repetitive_events/'
+        dic = T.load_npy_dir(fdir)
+        spatial_dic = {}
+        for pix in dic:
+            events = dic[pix]
+            spatial_dic[pix] = len(events)
+        arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(spatial_dic)
+        plt.imshow(arr)
+        plt.colorbar()
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
+        plt.show()
+
+
+        pass
+
+    def check_single_and_repetitive_events(self):
+        outtif = self.this_class_tif + 'check_single_and_repetitive_events.tif'
+        repetitive_events_fdir = self.this_class_arr + 'repetitive_events/'
+        single_events_fdir = self.this_class_arr + 'single_events/'
+
+        repetitive_events_dic = T.load_npy_dir(repetitive_events_fdir)
+        single_events_dic = T.load_npy_dir(single_events_fdir)
+        repetitive_events_spatial_dic = {}
+        for pix in repetitive_events_dic:
+            events = repetitive_events_dic[pix]
+            repetitive_events_spatial_dic[pix] = len(events)
+
+        single_events_spatial_dic = {}
+        for pix in single_events_dic:
+            events = single_events_dic[pix]
+            single_events_spatial_dic[pix] = len(events)
+
+        void_dic = DIC_and_TIF().void_spatial_dic_zero()
+        for pix in tqdm(void_dic):
+            flag = 0
+            if pix in repetitive_events_spatial_dic:
+                flag += 1
+                void_dic[pix] = 2
+            if pix in single_events_spatial_dic:
+                void_dic[pix] = 1
+                flag += 1
+            if flag == 2:
+                void_dic[pix] = 3
+
+
+        events_type_number_arr = DIC_and_TIF().pix_dic_to_spatial_arr(void_dic)
+        events_type_number_arr[events_type_number_arr==0]=np.nan
+        DIC_and_TIF().arr_to_tif(events_type_number_arr,outtif)
+        # plt.imshow(events_type_number_arr)
+        # DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
+        # plt.show()
+
+
+        pass
+
+
+
+
 class Main_flow_Carbon_loss:
 
     def __init__(self):
@@ -436,35 +809,34 @@ class Main_flow_Carbon_loss:
 
 
     def run(self):
-
-        # self.single_events()
-        self.repetitive_events()
+        threshold = '-2'
+        self.single_events(threshold)
+        self.repetitive_events(threshold)
 
         pass
 
-    def single_events(self):
+    def single_events(self,threshold):
         # 1 cal recovery time
-        event_dic,spei_dic,sif_dic = self.load_data_single_events()
-        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_single_events/'
+        event_dic,spei_dic,sif_dic = self.load_data_single_events(threshold=threshold)
+        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_single_events_{}/'.format(threshold)
         self.gen_recovery_time_legacy_single(event_dic,spei_dic, sif_dic,out_dir)
         pass
 
-    def repetitive_events(self):
-        event_dic, spei_dic, sif_dic = self.load_data_repetitive_events(condition='')
-
-        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_repetitive_events/'
+    def repetitive_events(self,threshold):
+        event_dic, spei_dic, sif_dic = self.load_data_repetitive_events(condition='',threshold=threshold)
+        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_repetitive_events_{}/'.format(threshold)
         self.gen_recovery_time_legacy_repetitive(event_dic,spei_dic, sif_dic,out_dir)
 
 
         pass
 
 
-    def load_data_repetitive_events(self,condition=''):
+    def load_data_repetitive_events(self,condition='',threshold=''):
         # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
         # SPEI_dir = data_root + 'SPEI/per_pix_clean/'
         # SIF_dir = data_root + 'CSIF/per_pix_anomaly_detrend/'
 
-        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events/'
+        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events_{}/'.format(threshold)
         SPEI_dir = data_root + 'SPEI12/per_pix/'
         SIF_dir = data_root + 'CSIF005/per_pix_anomaly_detrend/'
 
@@ -484,9 +856,10 @@ class Main_flow_Carbon_loss:
         event_start_index_trans = self.__drought_indx_to_gs_indx(event_start_index, growing_date_range, len(ndvi))
         # print(event_start_index_trans)
         # exit()
-        if event_start_index_trans == None:
-            # print('__drought_indx_to_gs_indx failed')
-            return None
+        # if event_start_index_trans == None:
+        #     print('__drought_indx_to_gs_indx failed')
+        #     exit()
+        #     return None
         ndvi_gs = self.__pick_gs_vals(ndvi, growing_date_range)
         spei_gs = self.__pick_gs_vals(spei, growing_date_range)
         # ndvi_gs_pred = self.__pick_gs_vals(ndvi_pred,growing_date_range)
@@ -507,7 +880,7 @@ class Main_flow_Carbon_loss:
         # 4 搜索恢复期
         # 4.1 获取growing season NDVI的最小值
         # 4.3 搜索恢复到正常情况的时间，recovery_time：恢复期； mark：'in', 'out', 'tropical'
-        search_end_indx = 3 * len(growing_date_range)
+        search_end_indx = 5 * len(growing_date_range)
         recovery_range = self.search1(ndvi_gs, spei_gs, event_start_index_trans, search_end_indx)
         # continue
         # recovery_time, lag, recovery_start_gs, recovery_start, 'undefined'
@@ -517,8 +890,8 @@ class Main_flow_Carbon_loss:
         # print('recovery_range',recovery_range)
         if recovery_range == None:
             # print('event_start_index+search_end_indx >= len(ndvi) '
-            #       'event_start_index_trans, search_end_indx',
-            #       event_start_index_trans, search_end_indx)
+            #       'event_start_index_trans',
+            #       event_start_index_trans,)
             return None
         recovery_range = np.array(recovery_range)
         date_range_new = np.array(date_range_new)
@@ -648,9 +1021,9 @@ class Main_flow_Carbon_loss:
                     results1 = self.kernel_gen_recovery_time_legacy_repetitive(drought_date_range_1,ndvi,spei,growing_date_range,)
                     results2 = self.kernel_gen_recovery_time_legacy_repetitive(drought_date_range_2,ndvi,spei,growing_date_range,)
                     if results1 != None and results2 != None:
-                        carbonloss1 = results1['carbon_loss']
-                        carbonloss2 = results2['carbon_loss']
-                        recovery_time_result.append([carbonloss1,carbonloss2])
+                        # carbonloss1 = results1['carbon_loss']
+                        # carbonloss2 = results2['carbon_loss']
+                        recovery_time_result.append([results1,results2])
                     # exit()
                 recovery_time_dic[pix] = recovery_time_result
             else:
@@ -659,12 +1032,12 @@ class Main_flow_Carbon_loss:
         pass
 
 
-    def load_data_single_events(self,condition=''):
+    def load_data_single_events(self,condition='',threshold=''):
         # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
         # SPEI_dir = data_root + 'SPEI/per_pix_clean/'
         # SIF_dir = data_root + 'CSIF/per_pix_anomaly_detrend/'
 
-        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'single_events/'
+        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'single_events_{}/'.format(threshold)
         SPEI_dir = data_root + 'SPEI12/per_pix/'
         SIF_dir = data_root + 'CSIF005/per_pix_anomaly/'
 
@@ -862,6 +1235,7 @@ class Main_flow_Carbon_loss:
 
 
     def __split_999999(self,selected_indx):
+        # selected_indx = [999999, 999999, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
         selected_indx_ = []
         selected_indx_s = []
         for i in selected_indx:
@@ -872,6 +1246,8 @@ class Main_flow_Carbon_loss:
                 continue
             else:
                 selected_indx_.append(i)
+        if len(selected_indx_) > 0:
+            selected_indx_s.append(selected_indx_)
         if len(selected_indx_s) == 0:
             return None
         return selected_indx_s[0]
@@ -880,25 +1256,39 @@ class Main_flow_Carbon_loss:
     def search1(self, ndvi,drought_indx, event_start_index,search_end_indx):
         # print(event_start_index)
 
-        if event_start_index+search_end_indx >= len(ndvi):
-            # print('search1')
-            # print(event_start_index,search_end_indx,len(ndvi))
-            return None
+        # if event_start_index+search_end_indx >= len(ndvi):
+        #
+        #     print('search1')
+        #     print(event_start_index,search_end_indx,len(ndvi))
+        #     plt.plot(ndvi,label='ndvi')
+        #     plt.plot(drought_indx,label='drought_indx')
+        #     plt.show()
+        #     exit()
+        #     return None
         selected_indx = []
         for i in range(event_start_index,event_start_index+search_end_indx):
+            if i >= len(ndvi):
+                break
             ndvi_i = ndvi[i]
             if ndvi_i < 0:
                 selected_indx.append(i)
             else:
                 selected_indx.append(999999)
         recovery_indx_gs = self.__split_999999(selected_indx)
+
         # if recovery_indx_gs == None:
-            # print(' event_start_index,search_end_indx', event_start_index,search_end_indx)
-            # plt.close()
-            # plt.plot(ndvi,label='ndvi')
-            # plt.plot(drought_indx,label='spei')
-            # plt.legend()
-            # plt.show()
+        #     if np.std(ndvi) == 0:
+        #         return None
+        #     print(recovery_indx_gs)
+        #     print('selected_indx',selected_indx)
+        #
+        #     # if 1:
+        #     print(' event_start_index,search_end_indx', event_start_index,search_end_indx)
+        #     plt.close()
+        #     plt.plot(ndvi,label='ndvi')
+        #     plt.plot(drought_indx,label='spei')
+        #     plt.legend()
+        #     plt.show()
         # print('recovery_indx_gs',recovery_indx_gs)
 
         return recovery_indx_gs
@@ -924,60 +1314,11 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         # 1 add drought event and delta legacy into df
         df = self.Carbon_loss_to_df(df)
-        # print(df)
-        # df = self.add_legacy_123_to_df(df)
-        # df = self.add_greenness_loss_to_df(df)
-        # 2 add lon lat into df
-        # df = self.add_lon_lat_to_df(df)
-        # 3 add iso-hydricity into df
-        # df = self.add_isohydricity_to_df(df)
-        # 4 add correlation into df
-        # df = self.add_gs_sif_spei_correlation_to_df(df)
-        # 5 add canopy height into df
-        # df = self.add_canopy_height_to_df(df)
-        # 6 add rooting depth into df
-        # df = self.add_rooting_depth_to_df(df)
-        # 7 add TWS into df
-        # df = self.add_TWS_to_df(df)
-        # 8 add is gs into df
-        # self.add_is_gs_drought_to_df(df)
-        # 9 add landcover to df
-        # 10 add kplc to df
-        # df = self.add_koppen_landuse_to_df(df)
-        # 11 add koppen to df
-        # df = self.add_split_landuse_and_kp_to_df(df)
-        # 12 add climate delta and cv into df
-        # df = self.add_climate_delta_to_df(df)
-        # df = self.add_climate_cv_to_df(df)
-        # df = self.add_climate_delta_cv_to_df(df)
-        # df = self.add_climate_trend_to_df(df)
-        # 13 add sand to df
-        # 14 add waterbalance to df
-        # df = self.add_waterbalance(df)
-        # 15 add corr to df
-        # df = self.add_gs_sif_spei_correlation_to_df(df)
-        # 16 add sand to df
-        # df = self.add_sand(df)
-        # 17 add delta spei to df
-        # df = self.add_delta_SPEI(df)
-        # 18 add awc to df
-        # df = self.add_AWC_to_df(df)
-        # 19 add forest ratio to df
-        # df = self.add_forest_ratio_in_df(df)
-        # 20 add phenology info to df (from recovery project)
-        # df = self.add_drought_year_SOS(df)
-        # 21 add thaw data into df
-        # df = self.add_thaw_date(df)
-        # df = self.add_thaw_date_anomaly(df)
-        # df = self.add_thaw_date_std_anomaly(df)
-        # 22 add temp trend to df
-        # df = self.add_temperature_trend_to_df(df)
-        # 23 add MAT MAP to df
-        # df = self.add_MAT_MAP_to_df(df)
-        # -1 df to excel
-        # add pre_drought vars
+        # 2 add landcover to df
+        # df = self.add_landcover_to_df(df)
+        df = self.landcover_compose(df)
         T.save_df(df,self.dff)
-        self.__df_to_excel(df,self.dff)
+        self.__df_to_excel(df,self.dff,random=True)
         pass
 
 
@@ -993,12 +1334,6 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         plt.show()
         pass
 
-    def __load_HI(self):
-        HI_tif = data_root + '/waterbalance/HI_difference.tif'
-        HI_arr = to_raster.raster2array(HI_tif)[0]
-        HI_arr[HI_arr < -9999] = np.nan
-        HI_dic = DIC_and_TIF().spatial_arr_to_dic(HI_arr)
-        return HI_dic
 
     def __load_df(self):
         dff = self.dff
@@ -1017,75 +1352,20 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             return df
             # raise Warning('{} is already existed'.format(self.dff))
 
-    def __df_to_excel(self,df,dff,head=1000):
-        if head == None:
+    def __df_to_excel(self,df,dff,n=1000,random=False):
+        if n == None:
             df.to_excel('{}.xlsx'.format(dff))
         else:
-            df = df.head(head)
-            df.to_excel('{}.xlsx'.format(dff))
+            if random:
+                df = df.sample(n=n, random_state=1)
+                df.to_excel('{}.xlsx'.format(dff))
+            else:
+                df = df.head(n)
+                df.to_excel('{}.xlsx'.format(dff))
 
         pass
 
-    def add_gs_sif_spei_correlation_to_df(self,df):
 
-        corr_dic = Correlation_CSIF_SPEI().correlation()
-        corr_list = []
-        corr_p_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            if not pix in corr_dic:
-                corr_list.append(np.nan)
-                corr_p_list.append(np.nan)
-                continue
-            corr,p = corr_dic[pix]
-            corr_list.append(corr)
-            corr_p_list.append(p)
-        df['gs_sif_spei_corr'] = corr_list
-        df['gs_sif_spei_corr_p'] = corr_p_list
-
-
-        return df
-
-
-    def add_koppen_landuse_to_df(self,df):
-        kp_f = data_root + 'Koppen/cross_koppen_landuse_pix.npy'
-        koppen_landuse_dic = T.load_npy(kp_f)
-        koppen_landuse_dic_set = {}
-        for kl in koppen_landuse_dic:
-            pixs = koppen_landuse_dic[kl][0]
-            pixs = set(pixs)
-            koppen_landuse_dic_set[kl] = pixs
-
-        kl_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix_ = row.pix
-            kl_ = None
-            for kl in koppen_landuse_dic_set:
-                pixs = koppen_landuse_dic_set[kl]
-                if pix_ in pixs:
-                    kl_ = kl
-                    break
-            kl_list.append(kl_)
-        df['climate_zone'] = kl_list
-        return df
-
-    def add_split_landuse_and_kp_to_df(self,df):
-        # df_f = Prepare_CWD_X_pgs_egs_lgs2().this_class_arr + 'prepare/data_frame.df'
-        # df = T.load_df(df_f)
-        kp_list = []
-        lc_list = []
-        for _,row in tqdm(df.iterrows(),total=len(df),desc='adding landuse and koppen to df columns'):
-            kl = row.climate_zone
-            if kl == None:
-                kp_list.append(None)
-                lc_list.append(None)
-                continue
-            lc,kp = kl.split('.')
-            kp_list.append(kp)
-            lc_list.append(lc)
-        df['kp'] = kp_list
-        df['lc'] = lc_list
-        return df
 
     def drop_duplicated_sample(self,df):
         df_drop_dup = df.drop_duplicates(subset=['pix','carbon_loss','recovery_date_range'])
@@ -1094,8 +1374,10 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def Carbon_loss_to_df(self,df):
-        f = Main_flow_Carbon_loss().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy.pkl'
-        events_dic = T.load_dict_from_binary(f)
+        single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+        repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events/recovery_time_legacy.pkl'
+        single_events_dic = T.load_dict_from_binary(single_f)
+        repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
         # print(events_dic)
         # exit()
         pix_list = []
@@ -1103,11 +1385,10 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         drought_event_date_range_list = []
         recovery_date_range_list = []
         legacy_list = []
+        drought_type = []
 
-        for pix in tqdm(events_dic,desc='1. carbon_loss_to_df'):
-            # print(pix)
-            # exit()
-            events = events_dic[pix]
+        for pix in tqdm(single_events_dic,desc='single events carbon loss'):
+            events = single_events_dic[pix]
             for event in events:
                 recovery_time = event['recovery_time']
                 drought_event_date_range = event['drought_event_date_range']
@@ -1122,9 +1403,48 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(drought_event_date_range))
                 recovery_date_range_list.append(tuple(recovery_date_range))
                 legacy_list.append(legacy)
-        # print(pix_list)
-        # exit()
+                drought_type.append('single')
+
+        for pix in tqdm(repetitive_events_dic,desc='repetitive events carbon loss'):
+            events = repetitive_events_dic[pix]
+            if len(events) == 0:
+                continue
+            for repetetive_event in events:
+                initial_event = repetetive_event[0]
+
+                initial_recovery_time = initial_event['recovery_time']
+                initial_drought_event_date_range = initial_event['drought_event_date_range']
+                initial_recovery_date_range = initial_event['recovery_date_range']
+                initial_legacy = initial_event['carbon_loss']
+                initial_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_drought_event_date_range)
+                initial_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(initial_recovery_time)
+                drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
+                recovery_date_range_list.append(tuple(initial_recovery_date_range))
+                legacy_list.append(initial_legacy)
+                drought_type.append('repetitive_initial')
+
+                subsequential_event = repetetive_event[1]
+                subsequential_recovery_time = subsequential_event['recovery_time']
+                subsequential_drought_event_date_range = subsequential_event['drought_event_date_range']
+                subsequential_recovery_date_range = subsequential_event['recovery_date_range']
+                subsequential_legacy = subsequential_event['carbon_loss']
+                subsequential_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(
+                    subsequential_drought_event_date_range)
+                subsequential_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(subsequential_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(subsequential_recovery_time)
+                drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
+                recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
+                legacy_list.append(subsequential_legacy)
+                drought_type.append('repetitive_subsequential')
+
+
         df['pix'] = pix_list
+        df['drought_type'] = drought_type
         df['drought_event_date_range'] = drought_event_date_range_list
         df['recovery_date_range'] = recovery_date_range_list
         df['recovery_time'] = recovery_time_list
@@ -1133,167 +1453,6 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         return df
         pass
-
-
-    def add_legacy_123_to_df(self,df):
-        fdir = Main_flow_Legacy().this_class_arr+'/'
-
-        for n in range(1,4):
-            f = fdir + 'legacy_dic_{}.npy'.format(n)
-            legacy_dic = T.load_npy(f)
-            legacy_list = []
-            for i,row in tqdm(df.iterrows(),total=len(df),desc='adding legacy {} to df'.format(n)):
-                pix = row.pix
-                drought_event_date_range = row.drought_event_date_range
-                evt_start = drought_event_date_range[0]
-                # print(legacy_dic[pix])
-                evt_dic_i = legacy_dic[pix]
-                if not evt_start in evt_dic_i:
-                    legacy_list.append(np.nan)
-                    continue
-                legacy = evt_dic_i[evt_start]
-                legacy_list.append(legacy)
-            df['legacy_{}'.format(n)] = legacy_list
-
-        return df
-
-
-
-        pass
-
-    def add_greenness_loss_to_df(self,df):
-        # greenness_loss
-        f = Main_flow_Greenness_loss().this_class_arr + 'Recovery_time_Legacy/recovery_time_legacy.pkl'
-        dic = T.load_dict_from_binary(f)
-        # for key in dic:
-        #     print(key)
-        #     events = dic[key]
-        #     for evt in events:
-        #         print(evt)
-        # exit()
-        greenness_loss_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df), desc='adding greenness loss to df'):
-            pix = row.pix
-            drought_event_date_range = row.drought_event_date_range
-            evt_start = drought_event_date_range[0]
-            # print(legacy_dic[pix])
-            if not pix in dic:
-                greenness_loss_list.append(np.nan)
-                continue
-            events = dic[pix]
-            success = 0
-            for evt in events:
-                drought_event_date_range_gl_start = evt['drought_event_date_range'][0]
-                greenness_loss = evt['greenness_loss']
-                if drought_event_date_range_gl_start == evt_start:
-                    greenness_loss_list.append(greenness_loss)
-                    success += 1
-                    if success > 1:
-                        for e in events:
-                            print(e)
-                        exit()
-            if success == 0:
-                greenness_loss_list.append(np.nan)
-        # print(greenness_loss_list)
-        # exit()
-        df['greenness_loss'] = greenness_loss_list
-
-        return df
-
-
-    def delta_legacy_to_df(self,df):
-        part1_dic = DIC_and_TIF().void_spatial_dic()
-        part2_dic = DIC_and_TIF().void_spatial_dic()
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            gs_mon = Global_vars().gs_mons()
-            pix = row.pix
-            legacy = row.legacy
-            drought_event_date_range = row.drought_event_date_range
-            drought_start = drought_event_date_range[0]
-            drought_year = drought_start // len(gs_mon)
-            half = (2015 - 1982 + 1) / 2
-            if drought_year < half:
-                part1_dic[pix].append(legacy)
-            else:
-                part2_dic[pix].append(legacy)
-        delta_legacy_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            part1 = part1_dic[pix]
-            part2 = part2_dic[pix]
-            p1_mean = np.mean(part1)
-            p2_mean = np.mean(part2)
-            delta_legacy = p2_mean - p1_mean
-            delta_legacy_list.append(delta_legacy)
-
-        df['delta_legacy'] = delta_legacy_list
-        return df
-        pass
-
-
-    def legacy_trend_to_df(self,df):
-        spatial_dic = DIC_and_TIF().void_spatial_dic()
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            legacy = row.legacy
-            drought_event_date_range = row.drought_event_date_range
-            drought_start = drought_event_date_range[0]
-            spatial_dic[pix].append((drought_start,legacy))
-
-        result_dic = {}
-        for pix in tqdm(spatial_dic):
-            vals = spatial_dic[pix]
-            if len(vals) <= 2:
-                continue
-            x_list = []
-            y_list = []
-            for x,y in vals:
-                x_list.append(x)
-                y_list.append(y)
-            x_list = np.array(x_list)
-            y_list = np.array(y_list)
-            reg = LinearRegression()
-            x_list = x_list.reshape((-1,1))
-            reg.fit(x_list,y_list)
-            coef = reg.coef_[0]
-            score = reg.score(x_list,y_list)
-            result_dic[pix] = (coef,score)
-            # plt.scatter(x_list,y_list)
-            # plt.title('len(vals) {} coef: {} score: {}'.format(len(vals),coef,score))
-            # plt.show()
-        coef_list = []
-        score_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            if not pix in result_dic:
-                coef_list.append(np.nan)
-                score_list.append(np.nan)
-                continue
-            coef, score = result_dic[pix]
-            coef_list.append(coef)
-            score_list.append(score)
-        df['trend'] = coef_list
-        df['trend_score'] = score_list
-        return df
-        pass
-
-
-    def add_lon_lat_to_df(self, df):
-        # DIC_and_TIF().spatial_tif_to_lon_lat_dic()
-        pix_to_lon_lat_dic_f = DIC_and_TIF().this_class_arr + 'pix_to_lon_lat_dic.npy'
-        lon_lat_dic = T.load_npy(pix_to_lon_lat_dic_f)
-        # print(pix)
-        lon_list = []
-        lat_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df), desc='adding lon lat into df'):
-            pix = row.pix
-            lon, lat = lon_lat_dic[pix]
-            lon_list.append(lon)
-            lat_list.append(lat)
-        df['lon'] = lon_list
-        df['lat'] = lat_list
-
-        return df
 
     def add_isohydricity_to_df(self,df):
         tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity.tif'
@@ -1310,63 +1469,46 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
 
+    def add_landcover_to_df(self,df):
+        dic_f = data_root + 'landcover/gen_spatial_dic.npy'
+        dic = T.load_npy(dic_f)
+        lc_type_dic = {
+            1:'EBF',
+            2:'DBF',
+            3:'DBF',
+            4:'ENF',
+            5:'DNF',
+        }
 
-    def add_gs_sif_spei_correlation_to_df(self,df):
-
-        corr_dic = Correlation_CSIF_SPEI().correlation()
-        corr_list = []
-        corr_p_list = []
+        forest_type_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
-            if not pix in corr_dic:
-                corr_list.append(np.nan)
-                corr_p_list.append(np.nan)
-                continue
-            corr,p = corr_dic[pix]
-            corr_list.append(corr)
-            corr_p_list.append(p)
-        df['gs_sif_spei_corr'] = corr_list
-        df['gs_sif_spei_corr_p'] = corr_p_list
-
-
-        return df
-
-
-    def add_canopy_height_to_df(self,df):
-        f = data_root + 'Canopy_Height/per_pix/Canopy_Height.npy'
-        dic = T.load_npy(f)
-
-        val_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-
-            if not pix in dic:
-                val_list.append(np.nan)
-                continue
-
             val = dic[pix]
-            val_list.append(val)
+            forest_type = lc_type_dic[val]
+            forest_type_list.append(forest_type)
 
-        df['canopy_height'] = val_list
+        df['lc'] = forest_type_list
         return df
+        pass
 
-    def add_rooting_depth_to_df(self,df):
-        f = data_root + 'rooting_depth/per_pix/rooting_depth.npy'
-        dic = T.load_npy(f)
+    def landcover_compose(self,df):
+        lc_type_dic = {
+            'EBF':'Broadleaf',
+            'DBF':'Broadleaf',
+            'ENF':'Needleleaf',
+            'DNF':'Needleleaf',
+        }
 
-        val_list = []
+        lc_broad_needle_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
+            lc = row.lc
+            lc_broad_needle = lc_type_dic[lc]
+            lc_broad_needle_list.append(lc_broad_needle)
 
-            if not pix in dic:
-                val_list.append(np.nan)
-                continue
-
-            val = dic[pix]
-            val_list.append(val)
-
-        df['rooting_depth'] = val_list
+        df['lc_broad_needle'] = lc_broad_needle_list
         return df
+
+
 
     def add_TWS_to_df(self,df):
 
@@ -1389,542 +1531,238 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         return df
 
-    def add_is_gs_drought_to_df(self,df):
 
-        is_gs_list = []
-        gs_mon = list(range(4,11))
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            drought_start = row.event[0]
-            mon = drought_start % 12 + 1
-            if mon in gs_mon:
-                is_gs = 1
-            else:
-                is_gs = 0
-            is_gs_list.append(is_gs)
-        df['is_gs'] = is_gs_list
-        return df
+class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
 
-        pass
+    def __init__(self,threshold):
+        self.this_class_arr = results_root_main_flow + 'arr/Main_flow_Dataframe_NDVI_SPEI_legacy/'
+        Tools().mk_dir(self.this_class_arr, force=True)
+        self.dff = self.this_class_arr + 'data_frame_{}.df'.format(threshold)
+        self.threshold = threshold
 
-    def add_climate_delta_to_df(self,df):
-        fdir = data_root + r'Climate_408/'
-        for climate in os.listdir(fdir):
-            f = fdir + climate + '/delta/delta.npy'
-            dic = T.load_npy(f)
-            val_list = []
-            for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
-                pix = row.pix
-                if not pix in dic:
-                    val_list.append(np.nan)
-                    continue
-                val = dic[pix]
-                val_list.append(val)
-            df['{}_delta'.format(climate)]=val_list
+    def run(self):
+        # 0 generate a void dataframe
+        df = self.__gen_df_init()
+        # self._check_spatial(df)
         # exit()
-        return df
+        # 1 add drought event and delta legacy into df
+        df = self.Carbon_loss_to_df(df,self.threshold)
+        # 2 add landcover to df
+        df = self.add_landcover_to_df(df)
+        df = self.landcover_compose(df)
+        T.save_df(df,self.dff)
+        self.__df_to_excel(df,self.dff,random=True)
         pass
 
-    def add_climate_cv_to_df(self, df):
-        fdir = data_root + r'Climate_408/'
-        for climate in os.listdir(fdir):
-            f = fdir + climate + '/CV/CV.npy'
-            dic = T.load_npy(f)
-            val_list = []
-            for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
-                pix = row.pix
-                if not pix in dic:
-                    val_list.append(np.nan)
-                    continue
-                val = dic[pix]
-                val_list.append(val)
-            df['{}_cv'.format(climate)] = val_list
-        # exit()
-        return df
-        pass
 
-    def add_climate_delta_cv_to_df(self, df):
-        fdir = data_root + r'Climate_408/'
-        for climate in os.listdir(fdir):
-            f = fdir + climate + '/CV/CV_delta.npy'
-            dic = T.load_npy(f)
-            val_list = []
-            for i, row in tqdm(df.iterrows(), total=len(df), desc=climate):
-                pix = row.pix
-                if not pix in dic:
-                    val_list.append(np.nan)
-                    continue
-                val = dic[pix]
-                val_list.append(val)
-            df['{}_cv_delta'.format(climate)] = val_list
-        # exit()
-        return df
-        pass
-
-    def add_climate_trend_to_df(self,df):
-        fdir = data_root + r'Climate_408/'
-        for climate in os.listdir(fdir):
-            f = fdir + climate + '/trend/trend.npy'
-            dic = T.load_npy(f)
-            val_list = []
-            for i,row in tqdm(df.iterrows(),total=len(df),desc=climate):
-                pix = row.pix
-                if not pix in dic:
-                    val_list.append(np.nan)
-                    continue
-                val = dic[pix]
-                val_list.append(val)
-            df['{}_trend'.format(climate)]=val_list
-        # exit()
-        return df
-        pass
-
-    def add_waterbalance(self,df):
-        wb_dic = self.__load_HI()
-        wb_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
+    def _check_spatial(self,df):
+        spatial_dic = {}
+        for i,row in df.iterrows():
             pix = row.pix
-            if pix in wb_dic:
-                wb = wb_dic[pix]
-                wb_list.append(wb)
+            spatial_dic[pix] = row.lon
+            # spatial_dic[pix] = row.isohydricity
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        DIC_and_TIF().plot_back_ground_arr()
+        plt.imshow(arr)
+        plt.show()
+        pass
+
+
+    def __load_df(self):
+        dff = self.dff
+        df = T.load_df(dff)
+        T.print_head_n(df)
+        print('len(df):',len(df))
+        return df,dff
+
+    def __gen_df_init(self):
+        df = pd.DataFrame()
+        if not os.path.isfile(self.dff):
+            T.save_df(df,self.dff)
+            return df
+        else:
+            df,dff = self.__load_df()
+            return df
+            # raise Warning('{} is already existed'.format(self.dff))
+
+    def __df_to_excel(self,df,dff,n=1000,random=False):
+        if n == None:
+            df.to_excel('{}.xlsx'.format(dff))
+        else:
+            if random:
+                df = df.sample(n=n, random_state=1)
+                df.to_excel('{}.xlsx'.format(dff))
             else:
-                wb_list.append(np.nan)
-        df['waterbalance'] = wb_list
-        return df
+                df = df.head(n)
+                df.to_excel('{}.xlsx'.format(dff))
 
-    def __load_soil(self):
-        sand_tif = data_root + 'HWSD/T_SAND_resample.tif'
-        silt_tif = data_root + 'HWSD/T_SILT_resample.tif'
-        clay_tif = data_root + 'HWSD/T_CLAY_resample.tif'
+        pass
 
-        sand_arr = to_raster.raster2array(sand_tif)[0]
-        silt_arr = to_raster.raster2array(silt_tif)[0]
-        clay_arr = to_raster.raster2array(clay_tif)[0]
 
-        sand_arr[sand_arr < -9999] = np.nan
-        silt_arr[silt_arr < -9999] = np.nan
-        clay_arr[clay_arr < -9999] = np.nan
 
-        sand_dic = DIC_and_TIF().spatial_arr_to_dic(sand_arr)
-        silt_dic = DIC_and_TIF().spatial_arr_to_dic(silt_arr)
-        clay_dic = DIC_and_TIF().spatial_arr_to_dic(clay_arr)
+    def drop_duplicated_sample(self,df):
+        df_drop_dup = df.drop_duplicates(subset=['pix','carbon_loss','recovery_date_range'])
+        return df_drop_dup
+        # df_drop_dup.to_excel(self.this_class_arr + 'drop_dup.xlsx')
+        pass
 
-        return sand_dic
+    def Carbon_loss_to_df(self,df,threshold):
+        single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events_{}/recovery_time_legacy.pkl'.format(threshold)
+        repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events_{}/recovery_time_legacy.pkl'.format(threshold)
+        single_events_dic = T.load_dict_from_binary(single_f)
+        repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
+        # print(events_dic)
+        # exit()
+        pix_list = []
+        recovery_time_list = []
+        drought_event_date_range_list = []
+        recovery_date_range_list = []
+        legacy_list = []
+        drought_type = []
 
-    def add_sand(self,df):
-        sand_dic = self.__load_soil()
-        sand_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in sand_dic:
-                sand = sand_dic[pix]
-                sand_list.append(sand)
-            else:
-                sand_list.append(np.nan)
-        df['sand'] = sand_list
+        for pix in tqdm(single_events_dic,desc='single events carbon loss'):
+            events = single_events_dic[pix]
+            for event in events:
+                recovery_time = event['recovery_time']
+                drought_event_date_range = event['drought_event_date_range']
+                recovery_date_range = event['recovery_date_range']
+                legacy = event['carbon_loss']
+
+                drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(drought_event_date_range)
+                recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(recovery_time)
+                drought_event_date_range_list.append(tuple(drought_event_date_range))
+                recovery_date_range_list.append(tuple(recovery_date_range))
+                legacy_list.append(legacy)
+                drought_type.append('single')
+
+        for pix in tqdm(repetitive_events_dic,desc='repetitive events carbon loss'):
+            events = repetitive_events_dic[pix]
+            if len(events) == 0:
+                continue
+            for repetetive_event in events:
+                initial_event = repetetive_event[0]
+
+                initial_recovery_time = initial_event['recovery_time']
+                initial_drought_event_date_range = initial_event['drought_event_date_range']
+                initial_recovery_date_range = initial_event['recovery_date_range']
+                initial_legacy = initial_event['carbon_loss']
+                initial_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_drought_event_date_range)
+                initial_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(initial_recovery_time)
+                drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
+                recovery_date_range_list.append(tuple(initial_recovery_date_range))
+                legacy_list.append(initial_legacy)
+                drought_type.append('repetitive_initial')
+
+                subsequential_event = repetetive_event[1]
+                subsequential_recovery_time = subsequential_event['recovery_time']
+                subsequential_drought_event_date_range = subsequential_event['drought_event_date_range']
+                subsequential_recovery_date_range = subsequential_event['recovery_date_range']
+                subsequential_legacy = subsequential_event['carbon_loss']
+                subsequential_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(
+                    subsequential_drought_event_date_range)
+                subsequential_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(subsequential_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(subsequential_recovery_time)
+                drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
+                recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
+                legacy_list.append(subsequential_legacy)
+                drought_type.append('repetitive_subsequential')
+
+
+        df['pix'] = pix_list
+        df['drought_type'] = drought_type
+        df['drought_event_date_range'] = drought_event_date_range_list
+        df['recovery_date_range'] = recovery_date_range_list
+        df['recovery_time'] = recovery_time_list
+        df['carbon_loss'] = legacy_list
+        # print(df)
+        # exit()
         return df
         pass
 
-    def add_delta_SPEI(self,df):
-        f = data_root + 'SPEI/delta/delta.npy'
-        dic = T.load_npy(f)
-        val_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df), desc='add_delta_SPEI'):
+    def add_isohydricity_to_df(self,df):
+        tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity.tif'
+        dic = DIC_and_TIF().spatial_tif_to_dic(tif)
+        iso_hyd_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
             pix = row.pix
             if not pix in dic:
-                val_list.append(np.nan)
+                iso_hyd_list.append(np.nan)
                 continue
-            val = dic[pix]
-            val_list.append(val)
-        df['{}_delta'.format('SPEI')] = val_list
-        return df
-        pass
+            isohy = dic[pix]
+            iso_hyd_list.append(isohy)
+        df['isohydricity'] = iso_hyd_list
 
-    def add_AWC_to_df(self,df):
-        awc_class_val_dic = {
-            1:150,
-            2:125,
-            3:100,
-            4:75,
-            5:50,
-            6:15,
-            7:0,
-            127:np.nan,
+        return df
+
+    def add_landcover_to_df(self,df):
+        dic_f = data_root + 'landcover/gen_spatial_dic.npy'
+        dic = T.load_npy(dic_f)
+        lc_type_dic = {
+            1:'EBF',
+            2:'DBF',
+            3:'DBF',
+            4:'ENF',
+            5:'DNF',
         }
-        tif = data_root + 'HWSD/awc_05.tif'
-        arr = to_raster.raster2array(tif)[0]
-        spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-        awc_list = []
+
+        forest_type_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
-            awc_cls = spatial_dic[pix]
-            awc = awc_class_val_dic[awc_cls]
-            awc_list.append(awc)
-        df['awc'] = awc_list
-        return df
+            val = dic[pix]
+            forest_type = lc_type_dic[val]
+            forest_type_list.append(forest_type)
 
-
-    def add_AGB_to_df(self,df):
-        sand_dic = self.__load_soil()
-        sand_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in sand_dic:
-                sand = sand_dic[pix]
-                sand_list.append(sand)
-            else:
-                sand_list.append(np.nan)
-        df['AGB'] = sand_list
+        df['lc'] = forest_type_list
         return df
         pass
 
+    def landcover_compose(self,df):
+        lc_type_dic = {
+            'EBF':'Broadleaf',
+            'DBF':'Broadleaf',
+            'ENF':'Needleleaf',
+            'DNF':'Needleleaf',
+        }
 
-    def add_forest_ratio_in_df(self,df):
-        ratio_f = Main_flow_pick_pure_forest_pixels().this_class_tif + 'ratio_of_forest.tif'
-        arr = to_raster.raster2array(ratio_f)[0]
-        spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-
-        ratio_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in spatial_dic:
-                ratio = spatial_dic[pix]
-                ratio_list.append(ratio)
-            else:
-                ratio_list.append(np.nan)
-        df['ratio_of_forest'] = ratio_list
-
-        return df
-
-    def add_drought_year_SOS(self, df):
-        sos_f = Main_flow_Early_Peak_Late_Dormant().this_class_arr + \
-                'transform_early_peak_late_dormant_period_annual/early_start.npy'
-        sos_dic = T.load_npy(sos_f)
-        sos_list = []
-        sos_anomaly_list = []
-        sos_std_anomaly_list = []
-        for indx, row in tqdm(df.iterrows(), total=len(df), desc='add_current_season_SOS...'):
-            pix = row['pix']
-            drought_start = row['drought_event_date_range'][0]
-            # winter_mark = row['winter_mark']
-            year_index = drought_start // 12
-            # if winter_mark == 1:
-            #     year_index += 1
-            # else:
-            #     sos_list.append(None)
-            #     sos_anomaly_list.append(None)
-            #     sos_std_anomaly_list.append(None)
-            #     continue
-            sos = sos_dic[pix]
-            if len(sos) != 34:
-                sos_list.append(None)
-                sos_anomaly_list.append(None)
-                sos_std_anomaly_list.append(None)
-                continue
-            sos_anomaly, sos_std_anomaly = self.__cal_phe_anomaly(sos_dic, pix)
-            sos_i = sos[year_index]
-            sos_anomaly_i = sos_anomaly[year_index]
-            sos_std_anomaly_i = sos_std_anomaly[year_index]
-
-            sos_list.append(sos_i)
-            sos_anomaly_list.append(sos_anomaly_i)
-            sos_std_anomaly_list.append(sos_std_anomaly_i)
-
-        df['drought_year_sos'] = sos_list
-        df['drought_year_sos_anomaly'] = sos_anomaly_list
-        df['drought_year_sos_std_anomaly'] = sos_std_anomaly_list
-
-        return df
-
-    def __cal_phe_anomaly(self, dic, pix):
-
-        var_list = []
-        for y in range(len(dic[pix])):
-            var_i = dic[pix][y]
-            var_list.append(var_i)
-
-        std_anomaly = {}
-        anomaly = {}
-        for i in range(len(var_list)):
-            std = np.std(var_list)
-            mean = np.mean(var_list)
-            anomaly_i = var_list[i] - mean
-            std_anomaly_i = (var_list[i] - mean) / std
-            anomaly[i] = anomaly_i
-            std_anomaly[i] = std_anomaly_i
-        return anomaly, std_anomaly
-
-    def add_thaw_date(self,df):
-        fdir = data_root + 'GLOBSWE/thaw_tif/'
-        thaw_year_dic = {}
-        for tif in tqdm(os.listdir(fdir),desc='loading thaw tif ...'):
-            year = tif.split('.')[0]
-            year = int(year)
-            arr = to_raster.raster2array(fdir + tif)[0]
-            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-            thaw_year_dic[year] = spatial_dic
-
-        thaw_list = []
+        lc_broad_needle_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            drought_event_date_range = row.drought_event_date_range
-            drought_year = drought_event_date_range[0]//12 + 1982
-            thaw = thaw_year_dic[drought_year][pix]
-            if thaw <= 0:
-                thaw_list.append(np.nan)
-            else:
-                thaw_list.append(thaw)
+            lc = row.lc
+            lc_broad_needle = lc_type_dic[lc]
+            lc_broad_needle_list.append(lc_broad_needle)
 
-        df['thaw_date'] = thaw_list
-
+        df['lc_broad_needle'] = lc_broad_needle_list
         return df
 
-    def add_thaw_date_std_anomaly(self,df):
-        fdir = data_root + 'GLOBSWE/thaw_tif_std_anomaly/'
-        thaw_year_dic = {}
-        for tif in tqdm(sorted(os.listdir(fdir)),desc='loading thaw tif ...'):
-            # print(tif)
-            if not tif.endswith('tif'):
+
+
+    def add_TWS_to_df(self,df):
+
+        fdir = data_root + 'TWS/GRACE/per_pix/'
+        tws_dic = T.load_npy_dir(fdir)
+        tws_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            recovery_date_range = row['recovery_date_range']
+            pix = row.pix
+            if not pix in tws_dic:
+                tws_list.append(np.nan)
                 continue
-            year = tif.split('.')[0]
-            year = int(year)
-            arr = to_raster.raster2array(fdir + tif)[0]
-            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-            thaw_year_dic[year] = spatial_dic
+            vals = tws_dic[pix]
+            picked_val = T.pick_vals_from_1darray(vals,recovery_date_range)
+            picked_val[picked_val<-999]=np.nan
+            mean = np.nanmean(picked_val)
+            tws_list.append(mean)
+        df['TWS_recovery_period'] = tws_list
+
         # exit()
-        thaw_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            drought_event_date_range = row.drought_event_date_range
-            drought_year = drought_event_date_range[0]//12 + 1982
-            thaw = thaw_year_dic[drought_year][pix]
-            if thaw < -9999:
-                thaw_list.append(np.nan)
-            else:
-                thaw_list.append(thaw)
-
-        df['thaw_date_std_anomaly'] = thaw_list
-
         return df
-
-    def add_thaw_date_anomaly(self,df):
-        fdir = data_root + 'GLOBSWE/thaw_tif_anomaly/'
-        thaw_year_dic = {}
-        for tif in tqdm(sorted(os.listdir(fdir)),desc='loading thaw tif ...'):
-            # print(tif)
-            if not tif.endswith('tif'):
-                continue
-            year = tif.split('.')[0]
-            year = int(year)
-            arr = to_raster.raster2array(fdir + tif)[0]
-            spatial_dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-            thaw_year_dic[year] = spatial_dic
-        # exit()
-        thaw_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            drought_event_date_range = row.drought_event_date_range
-            drought_year = drought_event_date_range[0]//12 + 1982
-            thaw = thaw_year_dic[drought_year][pix]
-            if thaw < -9999:
-                thaw_list.append(np.nan)
-            else:
-                thaw_list.append(thaw)
-        df['thaw_date_anomaly'] = thaw_list
-
-        return df
-
-
-    def add_temperature_trend_to_df(self,df):
-        tem_trend_tif = results_root_main_flow + 'tif/Tif/annual_tmp_trend/annual_tmp_trend.tif'
-        temp_trend_arr = to_raster.raster2array(tem_trend_tif)[0]
-        tmp_trend_dic = DIC_and_TIF().spatial_arr_to_dic(temp_trend_arr)
-        tmp_trend_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in tmp_trend_dic:
-                tmp_trend = tmp_trend_dic[pix]
-                tmp_trend_list.append(tmp_trend)
-            else:
-                tmp_trend_list.append(np.nan)
-        df['temp_trend_list'] = tmp_trend_list
-
-        return df
-        pass
-
-    def add_MAT_MAP_to_df(self,df):
-        tif = data_root + 'Climate_408/PRE/MAPRE.tif'
-        arr = to_raster.raster2array(tif)[0]
-        dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-        val_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in dic:
-                tmp_trend = dic[pix]
-                val_list.append(tmp_trend)
-            else:
-                val_list.append(np.nan)
-        df['MAP'] = val_list
-
-        tif = data_root + 'Climate_408/TMP/MATMP.tif'
-        arr = to_raster.raster2array(tif)[0]
-        dic = DIC_and_TIF().spatial_arr_to_dic(arr)
-        val_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if pix in dic:
-                tmp_trend = dic[pix]
-                val_list.append(tmp_trend)
-            else:
-                val_list.append(np.nan)
-        df['MAT'] = val_list
-
-        return df
-
-
-    def add_pre_drought_growth_variables(self,df,n=3):
-
-        '''
-        add CSIF NDVI
-        '''
-
-        # NDVI_dir = data_root + 'NDVI/per_pix/'
-        NDVI_dir = data_root + 'NDVI/per_pix_anomaly_clean_detrend_180/'
-        CSIF_dir = data_root + 'CSIF/per_pix_anomaly_180/'
-
-        ndvi_dic = T.load_npy_dir(NDVI_dir)
-        csif_dic = T.load_npy_dir(CSIF_dir)
-        # exit()
-        NDVI_picked_list = []
-        CSIF_picked_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            if not pix in ndvi_dic:
-                NDVI_picked_list.append(np.nan)
-                CSIF_picked_list.append(np.nan)
-                continue
-            if not pix in csif_dic:
-                NDVI_picked_list.append(np.nan)
-                CSIF_picked_list.append(np.nan)
-                continue
-            NDVI = ndvi_dic[pix]
-            CSIF = csif_dic[pix]
-            drought_start = row['drought_event_date_range'][0]
-            picked_index = []
-            for ni in range(1,n+1):
-                indx = drought_start - ni
-                if indx < 0:
-                    picked_index = []
-                    break
-                picked_index.append(indx)
-            # if len(picked_index) == 0:
-            #     print(drought_start)
-            picked_index = picked_index[::-1]
-            NDVI_picked = T.pick_vals_from_1darray(NDVI,picked_index)
-            CSIF_picked = T.pick_vals_from_1darray(CSIF,picked_index)
-            NDVI_picked_mean = np.nanmean(NDVI_picked)
-            CSIF_picked_mean = np.nanmean(CSIF_picked)
-            NDVI_picked_list.append(NDVI_picked_mean)
-            CSIF_picked_list.append(CSIF_picked_mean)
-        df['NDVI_pre_{}'.format(n)] = NDVI_picked_list
-        df['CSIF_pre_{}'.format(n)] = CSIF_picked_list
-        return df
-
-        pass
-    def add_pre_drought_climate_variables(self,df,n=3):
-
-        '''
-        add precip temp and VPD
-        '''
-
-        fdir = data_root + 'Climate_180/'
-        for var in os.listdir(fdir):
-            if var.startswith('.'):
-                continue
-            var_dir = data_root + 'Climate_180/{}/per_pix_anomaly/'.format(var)
-            var_dic = T.load_npy_dir(var_dir)
-            picked_list = []
-            for i,row in tqdm(df.iterrows(),total=len(df)):
-                pix = row.pix
-                if not pix in var_dic:
-                    picked_list.append(np.nan)
-                    continue
-                val = var_dic[pix]
-                drought_start = row['drought_event_date_range'][0]
-                picked_index = []
-                for ni in range(1,n+1):
-                    indx = drought_start - ni
-                    if indx < 0:
-                        picked_index = []
-                        break
-                    picked_index.append(indx)
-                # if len(picked_index) == 0:
-                #     print(drought_start)
-                picked_index = picked_index[::-1]
-                val_picked = T.pick_vals_from_1darray(val,picked_index)
-                picked_mean = np.nanmean(val_picked)
-                picked_list.append(picked_mean)
-            df['{}_previous_{}'.format(var,n)] = picked_list
-        return df
-
-        pass
-
-
-    def add_pre_drought_TWS(self,df,n):
-        var_dir = data_root + 'TWS/GRACE/per_pix_clean/'
-        var_dic = T.load_npy_dir(var_dir)
-        picked_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if not pix in var_dic:
-                picked_list.append(np.nan)
-                continue
-            val = var_dic[pix]
-            drought_start = row['drought_event_date_range'][0]
-            picked_index = []
-            for ni in range(1, n + 1):
-                indx = drought_start - ni
-                if indx < 0:
-                    picked_index = []
-                    break
-                picked_index.append(indx)
-            # if len(picked_index) == 0:
-            #     print(drought_start)
-            picked_index = picked_index[::-1]
-            val_picked = T.pick_vals_from_1darray(val, picked_index)
-            picked_mean = np.nanmean(val_picked)
-            picked_list.append(picked_mean)
-        df['{}_previous_{}'.format('TWS', n)] = picked_list
-
-        return df
-
-    def add_pre_drought_SM(self,df,n):
-        var_dir = data_root + 'SM/per_pix_clean_anomaly_180/'
-        var_dic = T.load_npy_dir(var_dir)
-        picked_list = []
-        for i, row in tqdm(df.iterrows(), total=len(df)):
-            pix = row.pix
-            if not pix in var_dic:
-                picked_list.append(np.nan)
-                continue
-            val = var_dic[pix]
-            drought_start = row['drought_event_date_range'][0]
-            picked_index = []
-            for ni in range(1, n + 1):
-                indx = drought_start - ni
-                if indx < 0:
-                    picked_index = []
-                    break
-                picked_index.append(indx)
-            # if len(picked_index) == 0:
-            #     print(drought_start)
-            picked_index = picked_index[::-1]
-            val_picked = T.pick_vals_from_1darray(val, picked_index)
-            picked_mean = np.nanmean(val_picked)
-            picked_list.append(picked_mean)
-        df['{}_previous_{}'.format('SM', n)] = picked_list
-
-        return df
-
 
 class Tif:
 
@@ -1935,7 +1773,9 @@ class Tif:
 
     def run(self):
 
-        self.carbon_loss()
+        self.carbon_loss_single_events()
+        self.carbon_loss_repetitive_events_initial()
+        self.carbon_loss_repetitive_events_subsequential()
         # self.drought_start()
         pass
 
@@ -1948,15 +1788,15 @@ class Tif:
 
         pass
 
-    def carbon_loss(self):
+    def carbon_loss_single_events(self):
         df ,dff = self.load_df()
+        df = df[df['drought_type']=='single']
         spatial_dic = DIC_and_TIF(Global_vars().tif_template_7200_3600).void_spatial_dic()
         outdir = self.this_class_tif + 'carbon_loss/'
         T.mk_dir(outdir)
-        outf = outdir + 'carbon_loss.tif'
+        outf = outdir + 'carbon_loss_single_events.tif'
         for i,row in tqdm(df.iterrows(),total=len(df)):
             pix = row.pix
-
             val = row['carbon_loss']
             spatial_dic[pix].append(val)
 
@@ -1965,6 +1805,44 @@ class Tif:
 
 
         pass
+    def carbon_loss_repetitive_events_initial(self):
+        df ,dff = self.load_df()
+        df = df[df['drought_type']=='repetitive_initial']
+        spatial_dic = DIC_and_TIF(Global_vars().tif_template_7200_3600).void_spatial_dic()
+        outdir = self.this_class_tif + 'carbon_loss/'
+        T.mk_dir(outdir)
+        outf = outdir + 'carbon_loss_repetitive_events_initial.tif'
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = row['carbon_loss']
+            spatial_dic[pix].append(val)
+
+        mean_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr_mean(spatial_dic)
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).arr_to_tif(mean_arr,outf)
+
+
+        pass
+
+
+    def carbon_loss_repetitive_events_subsequential(self):
+        df ,dff = self.load_df()
+        df = df[df['drought_type']=='repetitive_subsequential']
+        spatial_dic = DIC_and_TIF(Global_vars().tif_template_7200_3600).void_spatial_dic()
+        outdir = self.this_class_tif + 'carbon_loss/'
+        T.mk_dir(outdir)
+        outf = outdir + 'carbon_loss_repetitive_events_subsequential.tif'
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            val = row['carbon_loss']
+            spatial_dic[pix].append(val)
+
+        mean_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr_mean(spatial_dic)
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).arr_to_tif(mean_arr,outf)
+
+
+        pass
+
+
 
     def drought_start(self):
 
@@ -1984,11 +1862,79 @@ class Tif:
         plt.show()
 
 
+class Analysis:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        self.foo2()
+        # self.foo()
+        pass
+
+    def __load_df(self):
+
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        return df,dff
+
+    def foo(self):
+        df,dff = self.__load_df()
+
+        drought_types_list = ['single','repetitive_initial','repetitive_subsequential',]
+        bar_list = []
+        for drought_type in drought_types_list:
+            df_drought_type = df[df['drought_type']==drought_type]
+            vals = []
+            for i,row in tqdm(df_drought_type.iterrows(),total=len(df_drought_type),desc=drought_type):
+                pix = row.pix
+                r,c = pix
+                if r > 1800:
+                    continue
+                carbon_loss = row.carbon_loss
+                vals.append(carbon_loss)
+            bar_list.append(vals)
+        plt.boxplot(bar_list,showfliers=False)
+        plt.show()
+
+
+    def foo2(self):
+        # threshold = '-2'
+        # dff = Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).dff
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = df.dropna()
+
+        # df = df[df['drought_type']!='single']
+        df = df[df['drought_type']=='single']
+        # df = df[df['drought_type']=='repetitive_initial']
+        # df = df[df['drought_type']=='repetitive_subsequential']
+        print(len(df))
+        exit()
+
+        carbon_loss = df['carbon_loss']
+        carbon_loss_ = -carbon_loss
+        df['carbon_loss_'] = carbon_loss_
+        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci='sd')
+        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=60)
+        sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df)
+        # sns.catplot(x='lc_broad_needle',kind="violin",y='carbon_loss_',hue='drought_type',data=df)
+        # sns.catplot(x='lc_broad_needle',kind="swarm",y='carbon_loss_',hue='drought_type',data=df)
+        plt.show()
+        pass
+
+
 def main():
     # Main_Flow_Pick_drought_events().run()
-    Main_flow_Carbon_loss().run()
-    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_Flow_Pick_drought_events_05().run()
+    # Main_flow_Carbon_loss().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # for threshold in ['-1.2','-1.8','-2',]:
+    #     print('threshold',threshold)
+    #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
+    # Analysis().run()
     pass
 
 

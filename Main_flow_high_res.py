@@ -1313,10 +1313,14 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # self._check_spatial(df)
         # exit()
         # 1 add drought event and delta legacy into df
-        df = self.Carbon_loss_to_df(df)
+        # df = self.Carbon_loss_to_df(df)
         # 2 add landcover to df
         # df = self.add_landcover_to_df(df)
-        df = self.landcover_compose(df)
+        # df = self.landcover_compose(df)
+        # df = self.add_min_precip_to_df(df)
+        # df = self.add_max_vpd_to_df(df)
+        df = self.add_bin_class_to_df(df,bin_var='min_precip_in_drought_range',n=10)
+        df = self.add_bin_class_to_df(df,bin_var='max_vpd_in_drought_range',n=10)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff,random=True)
         pass
@@ -1365,7 +1369,36 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         pass
 
-
+    def __divide_bins(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2,include_external=False):
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+        if n == None and step == None:
+            raise UserWarning('step or n is required')
+        if n == None:
+            d = np.arange(start=min_v,step=step,stop=max_v)
+            if include_external:
+                print(d)
+                print('n=None')
+                exit()
+        elif step == None:
+            d = np.linspace(min_v,max_v,num=n)
+            if include_external:
+                d = np.insert(d,0,np.min(arr))
+                d = np.append(d,np.max(arr))
+                # print(d)
+                # exit()
+        else:
+            d = np.nan
+            raise UserWarning('n and step cannot exist together')
+        d_str = []
+        for i in d:
+            d_str.append('{}'.format(round(i, round_)))
+        # print d_str
+        # exit()
+        return d,d_str
+        pass
 
     def drop_duplicated_sample(self,df):
         df_drop_dup = df.drop_duplicates(subset=['pix','carbon_loss','recovery_date_range'])
@@ -1530,6 +1563,70 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         # exit()
         return df
+
+    def add_min_precip_to_df(self,df):
+
+        fdir = data_root + 'Precip_terra/per_pix_anomaly/'
+        dic = T.load_npy_dir(fdir)
+        min_precip_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            precip = dic[pix]
+            min_precip_indx = T.pick_min_indx_from_1darray(precip,drought_event_date_range)
+            min_precip_v = precip[min_precip_indx]
+            # print(min_precip_v)
+            # pause()
+            min_precip_list.append(min_precip_v)
+
+        df['min_precip_in_drought_range'] = min_precip_list
+        return df
+        pass
+
+
+    def add_max_vpd_to_df(self,df):
+
+        fdir = data_root + 'VPD/per_pix_anomaly/'
+        dic = T.load_npy_dir(fdir)
+        max_vpd_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            vpd = dic[pix]
+            max_vpd_indx = T.pick_max_indx_from_1darray(vpd,drought_event_date_range)
+            max_vpd_v = vpd[max_vpd_indx]
+            # print(max_vpd_v)
+            # pause()
+            max_vpd_list.append(max_vpd_v)
+
+        df['max_vpd_in_drought_range'] = max_vpd_list
+        return df
+        pass
+
+    def add_bin_class_to_df(self,df,bin_var,n=20):
+
+        # bin_var = 'min_precip_in_drought_range'
+        min_precip_in_drought_range = df[bin_var]
+        d, d_str = self.__divide_bins(min_precip_in_drought_range,min_v=-2.5,max_v=2.5,
+                                      n=n,round_=2,include_external=True)
+        bin_class_list = []
+        for _,row in tqdm(df.iterrows(),total=len(df)):
+            bin_val = row[bin_var]
+            bin_class = np.nan
+            lc_broad_needle = row['lc_broad_needle']
+            for j in range(len(d)):
+                if j + 1 >= len(d):
+                    continue
+                if bin_val >= d[j] and bin_val < d[j + 1]:
+                    bin_class = d[j]
+                    # bin_class = lc_broad_needle + '_' + d_str[j]
+            if bin_class == np.nan:
+                print(bin_val)
+                print(d)
+            bin_class_list.append(bin_class)
+        df[bin_var + '_bin_class'] = bin_class_list
+        return df
+
 
 
 class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
@@ -1869,8 +1966,9 @@ class Analysis:
         pass
 
     def run(self):
-        self.foo2()
+        # self.foo2()
         # self.foo()
+        self.foo3()
         pass
 
     def __load_df(self):
@@ -1878,6 +1976,39 @@ class Analysis:
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
         df = T.load_df(dff)
         return df,dff
+
+
+
+    def __divide_bins(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2,include_external=False):
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+        if n == None and step == None:
+            raise UserWarning('step or n is required')
+        if n == None:
+            d = np.arange(start=min_v,step=step,stop=max_v)
+            if include_external:
+                print(d)
+                print('n=None')
+                exit()
+        elif step == None:
+            d = np.linspace(min_v,max_v,num=n)
+            if include_external:
+                d = np.insert(d,0,np.min(arr))
+                d = np.append(d,np.max(arr))
+                # print(d)
+                # exit()
+        else:
+            d = np.nan
+            raise UserWarning('n and step cannot exist together')
+        d_str = []
+        for i in d:
+            d_str.append('{}'.format(round(i, round_)))
+        # print d_str
+        # exit()
+        return d,d_str
+        pass
 
     def foo(self):
         df,dff = self.__load_df()
@@ -1906,12 +2037,12 @@ class Analysis:
         df = T.load_df(dff)
         df = df.dropna()
 
-        # df = df[df['drought_type']!='single']
-        df = df[df['drought_type']=='single']
+        df = df[df['drought_type']!='single']
+        # df = df[df['drought_type']=='single']
         # df = df[df['drought_type']=='repetitive_initial']
         # df = df[df['drought_type']=='repetitive_subsequential']
-        print(len(df))
-        exit()
+        # print(len(df))
+        # exit()
 
         carbon_loss = df['carbon_loss']
         carbon_loss_ = -carbon_loss
@@ -1924,18 +2055,59 @@ class Analysis:
         plt.show()
         pass
 
+    def foo3(self):
+        # threshold = '-2'
+        # dff = Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).dff
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        df = df.dropna()
+        lc_type = 'Needleleaf'
+
+        # lc_type = 'Broadleaf'
+        # class_var = 'min_precip_in_drought_range_bin_class'
+        class_var = 'max_vpd_in_drought_range_bin_class'
+        # df = df[df['lc_broad_needle']=='Needleleaf']
+        df = df[df['lc_broad_needle']==lc_type]
+        df = df[df['drought_type']!='single']
+        # df = df[df['drought_type']=='single']
+        # df = df[df['drought_type']=='repetitive_initial']
+        # df = df[df['drought_type']=='repetitive_subsequential']
+        # print(len(df))
+        # exit()
+
+        carbon_loss = df['carbon_loss']
+        carbon_loss_ = -carbon_loss
+        df['carbon_loss_'] = carbon_loss_
+        order = df[class_var].tolist()
+        order = list(set(order))
+        order.sort()
+        # print(hue_order)
+        # exit()
+
+        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci='sd')
+        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=60)
+        sns.catplot(x=class_var,kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=None,order=order)
+        # sns.catplot(x='lc_broad_needle',kind="violin",y='carbon_loss_',hue='drought_type',data=df)
+        # sns.catplot(x='lc_broad_needle',kind="swarm",y='carbon_loss_',hue='drought_type',data=df)
+        plt.title(lc_type + '_' + class_var)
+        new_ticks = [round(i,2) for i in order]
+        plt.xticks(range(len(order)),new_ticks,rotation=90)
+        plt.ylim(0,3)
+        plt.tight_layout()
+        plt.show()
+        pass
 
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
     # Main_flow_Carbon_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # for threshold in ['-1.2','-1.8','-2',]:
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    # Analysis().run()
-    pass
+    Analysis().run()
+    # pass
 
 
 if __name__ == '__main__':

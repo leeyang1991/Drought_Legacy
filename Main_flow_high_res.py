@@ -1969,7 +1969,8 @@ class Analysis:
         # self.foo2()
         # self.foo()
         # self.foo3()
-        self.scatter()
+        # self.decouple_precip_vpd()
+        self.decouple_vpd_precip()
         pass
 
     def __load_df(self):
@@ -1980,7 +1981,7 @@ class Analysis:
 
 
 
-    def __divide_bins(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2,include_external=False):
+    def __divide_bins_equal_interval(self,arr,min_v=None,max_v=None,step=None,n=None,round_=2,include_external=False):
         if min_v == None:
             min_v = np.min(arr)
         if max_v == None:
@@ -2010,6 +2011,31 @@ class Analysis:
         # exit()
         return d,d_str
         pass
+
+
+    def __divide_bins_quantile(self,arr,min_v=None,max_v=None,n=10,round_=2):
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+
+        arr = np.array(arr)
+        arr[arr<min_v]=np.nan
+        arr[arr>max_v]=np.nan
+        arr = T.remove_np_nan(arr)
+
+        d_str = []
+        quantiles = []
+        for i in range(n):
+            q_i = float(i)/float(n)
+            q = np.quantile(arr,q_i)
+            quantiles.append(q)
+        for i in quantiles:
+            d_str.append('{}'.format(round(i, round_)))
+        return quantiles,d_str
+        pass
+
+
 
     def foo(self):
         df,dff = self.__load_df()
@@ -2156,6 +2182,11 @@ class Analysis:
 
 
     def decouple_precip_vpd(self):
+        '''
+        x: vpd
+        y: legacy
+        bin: precip
+        '''
         df, dff = self.__load_df()
         df = df.dropna()
         # lc_type = 'Needleleaf'
@@ -2174,10 +2205,10 @@ class Analysis:
                 df = df[df['drought_type'] != drought_type]
                 min_precip_in_drought_range = df['min_precip_in_drought_range']
                 max_vpd_in_drought_range = df['max_vpd_in_drought_range']
-
-                precip_bins, precip_bins_str = self.__divide_bins(min_precip_in_drought_range, min_v=-2, max_v=0, n=6)
-                vpd_bins, vpd_bins_str = self.__divide_bins(max_vpd_in_drought_range, min_v=0, max_v=2, n=11)
-                matrix = []
+                # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
+                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=6, max_v=0,)
+                # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
+                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, n=10)
                 plt.figure()
                 for i in tqdm(range(len(precip_bins))):
                     if i + 1 >= len(precip_bins):
@@ -2194,7 +2225,8 @@ class Analysis:
                         legacy_i = df_vpd_bin['carbon_loss']
                         legacy_i = -legacy_i
                         mean_legacy = np.mean(legacy_i)
-                        x.append(vpd_bins[j])
+                        # x.append(vpd_bins[j])
+                        x.append(j)
                         y.append(mean_legacy)
                         # print(vpd_bins[0])
                         # exit()
@@ -2211,6 +2243,67 @@ class Analysis:
 
         pass
 
+    def decouple_vpd_precip(self):
+        '''
+        x: precip
+        y: legacy
+        bin: vpd
+        '''
+        df, dff = self.__load_df()
+        df = df.dropna()
+        # lc_type = 'Needleleaf'
+        # lc_type = 'Broadleaf'
+        # drought_type = 'repetitive_initial'
+        # drought_type = 'repetitive_subsequential'
+
+        n = 50
+
+        for lc_type in ['Needleleaf', 'Broadleaf']:
+            for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
+                df, dff = self.__load_df()
+                df = df.dropna()
+                df = df[df['lc_broad_needle'] == lc_type]
+                # df = df[df['drought_type'] != 'single']
+                df = df[df['drought_type'] != drought_type]
+                min_precip_in_drought_range = df['min_precip_in_drought_range']
+                max_vpd_in_drought_range = df['max_vpd_in_drought_range']
+                # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
+                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=10, max_v=0,)
+                # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
+                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, n=6)
+                plt.figure()
+                for i in tqdm(range(len(vpd_bins))):
+                    if i + 1 >= len(vpd_bins):
+                        continue
+                    df_vpd_bin = df[df['max_vpd_in_drought_range'] > vpd_bins[i]]
+                    df_vpd_bin = df_vpd_bin[df_vpd_bin['max_vpd_in_drought_range'] < vpd_bins[i + 1]]
+                    x = []
+                    y = []
+                    for j in range(len(precip_bins)):
+                        if j + 1 >= len(precip_bins):
+                            continue
+                        df_p_bin = df_vpd_bin[df_vpd_bin['min_precip_in_drought_range'] > precip_bins[j]]
+                        df_p_bin = df_p_bin[df_p_bin['min_precip_in_drought_range'] < precip_bins[j + 1]]
+                        legacy_i = df_p_bin['carbon_loss']
+                        legacy_i = -legacy_i
+                        mean_legacy = np.mean(legacy_i)
+                        # x.append(vpd_bins[j])
+                        x.append(j)
+                        y.append(mean_legacy)
+                        # print(vpd_bins[0])
+                        # exit()
+                    # print(len(x))
+                    # print(x)
+                    # print(y)
+                    plt.plot(x,y,label=vpd_bins_str[i])
+                    plt.scatter(x,y)
+                plt.legend()
+                plt.xlabel('Precip')
+                plt.ylabel('legacy')
+                plt.title(lc_type+' '+drought_type)
+        plt.show()
+
+        pass
 
 
 def main():

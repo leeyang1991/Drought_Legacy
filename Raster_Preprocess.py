@@ -755,41 +755,37 @@ class SM:
 
 
 
-class Total_Nitrogen:
+class Soilgrids:
 
     def __init__(self):
-        self.this_class_arr = data_root + 'Soilgrids/'
         pass
 
 
     def run(self):
-        # self.mosaic_tiles()
-        self.mosaic_all()
-        # self.copy_tiles_to_one_folder()
-        # self.test__()
-        # self.check_tifs()
+        fdir = '/Users/wenzhang/Soilgrids/bdod_0-5cm_mean/'
+        step1_dir = fdir + 'step1/'
+        step2_dir = fdir + 'step2/'
+        # self.check_and_redownload(fdir)
+        # self.mosaic_step1(fdir,step1_dir)
+        self.mosaic_step2(step1_dir,step2_dir)
         pass
 
 
-    def test__(self):
+    def check_and_redownload(self,fdir):
+        attemps = 0
+        while 1:
+            all_is_valid = self.check_tifs(fdir=fdir)
+            print('all_is_valid',all_is_valid)
+            if all_is_valid:
+                break
+            invalid_tif = fdir + 'invalid_tif.txt'
+            tiles_dir = fdir + 'tifs/'
+            self.download_invalid_tiles(invalid_tif, tiles_dir)
+            attemps += 1
+            if attemps >= 10:
+                break
 
-        in_dir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/tileSG-019-077/'
-        out_tif = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/test.tif'
-        anaconda_python_path = r'python3 '
-        # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
-        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py'  # homebrew directory
-        # files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
-        files_to_mosaic = []
-        for f in os.listdir(in_dir):
-            if f.startswith('.'):
-                continue
-            files_to_mosaic.append(in_dir + f)
-        # print(files_to_mosaic)
-        # exit()
-        files_string = " ".join(files_to_mosaic)
-        command = "{} {} -o {} -of gtiff ".format(anaconda_python_path, gdal_script, out_tif) + files_string
-        print(command)
-        os.system(command)
+        pass
 
 
     def kernel_check_tif(self,tif):
@@ -804,10 +800,13 @@ class Total_Nitrogen:
         # else:
         #     return False
 
-    def check_tifs(self):
-        fdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+    def check_tifs(self,fdir):
+        # fdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+        root_fdir = copy.copy(fdir)
+        fdir = fdir + 'tifs/'
         invalid_f_list = []
-        for folder in tqdm(os.listdir(fdir)):
+        all_valid = True
+        for folder in tqdm(os.listdir(fdir),desc='checking tiles'):
             if folder.startswith('.'):
                 continue
             for f in os.listdir(os.path.join(fdir,folder)):
@@ -815,11 +814,13 @@ class Total_Nitrogen:
                     continue
                 is_ok = self.kernel_check_tif(os.path.join(fdir,folder,f))
                 if not is_ok:
+                    all_valid = False
                     invalid_f_list.append(os.path.join(fdir,folder,f))
-        fw = open(self.this_class_arr + 'invalid_tiles1.txt','w')
+        fw = open(root_fdir+'invalid_tif.txt','w')
         for i in invalid_f_list:
             fw.write(i+'\n')
         fw.close()
+        return all_valid
         pass
 
 
@@ -837,20 +838,47 @@ class Total_Nitrogen:
         for f in os.listdir(in_dir):
             if f.startswith('.'):
                 continue
+            if not f.endswith('.tif'):
+                continue
             files_to_mosaic.append(in_dir + f)
         # print(files_to_mosaic)
         # exit()
         files_string = " ".join(files_to_mosaic)
-        command = "{} {} -o {} -of gtiff ".format(anaconda_python_path, gdal_script, out_tif) + files_string
+        command = "{} {} -o {} -of gtiff -ot Int16 ".format(anaconda_python_path, gdal_script, out_tif) + files_string
+        print(command)
+        os.system(command)
+
+    def mosaic_tiles_i_step2(self, params):
+        from osgeo.utils import gdal_merge
+        in_dir, out_tif, res = params
+        in_dir = in_dir + '/'
+        # forked from https://www.neonscience.org/merge-lidar-geotiff-py
+        # GDAL mosaic
+        anaconda_python_path = r'python3 '
+        # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
+        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py' # homebrew directory
+        # files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
+        files_to_mosaic = []
+        for f in os.listdir(in_dir):
+            if f.startswith('.'):
+                continue
+            if not f.endswith('.tif'):
+                continue
+            files_to_mosaic.append(in_dir + f)
+        # print(files_to_mosaic)
+        # exit()
+        files_string = " ".join(files_to_mosaic)
+        command = "{} {} -o {} -of gtiff -ot Int16 -ps {} {} ".format(anaconda_python_path, gdal_script, out_tif, res, res) + files_string
         print(command)
         os.system(command)
 
 
-    def mosaic_tiles(self):
-        fdir = data_root + 'Soilgrids/tiles/'
-        outdir = data_root + 'Soilgrids/mosaic_step1/'
+    def mosaic_step1(self,fdir,outdir):
+        # fdir = data_root + 'Soilgrids/tiles/'
+        # outdir = data_root + 'Soilgrids/mosaic_step1/'
         T.mk_dir(outdir)
         params = []
+        fdir = fdir + 'tifs/'
         for folder in tqdm(os.listdir(fdir)):
             if folder.startswith('.'):
                 continue
@@ -858,13 +886,67 @@ class Total_Nitrogen:
             # self.mosaic_tiles_i([fdir + folder,outdir + folder + '.tif'])
         MULTIPROCESS(self.mosaic_tiles_i,params).run()
 
-    def mosaic_all(self):
-        fdir = data_root + 'Soilgrids/mosaic_step1/'
-        outdir = data_root + 'Soilgrids/mosaic_step2/'
+    def mosaic_step2(self,step1_dir,outdir):
+        # fdir = data_root + 'Soilgrids/mosaic_step1/'
+        # outdir = data_root + 'Soilgrids/mosaic_step2/'
         T.mk_dir(outdir)
-        self.mosaic_tiles_i([fdir,outdir+'Nitrogen_0_5_cm_origin.tif'])
+        res = 5000 # unit meters
+        self.mosaic_tiles_i_step2([step1_dir,outdir+'global_{}m.tif'.format(res),res])
 
         pass
+
+    def download_invalid_tiles(self,invalid_tiles_txt,outdir):
+        # invalid_tiles_txt = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/invalid_tiles.txt'
+        # outdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+        fr = open(invalid_tiles_txt,'r')
+        lines = fr.readlines()
+        for line in tqdm(lines,desc='re-downloading...'):
+            # print(line)
+            line = line.split('\n')[0]
+            line_split = line.split('/')
+            tif_name = line_split[-1]
+            tile_folder = line_split[-2]
+            p = line_split[-4].split('_')[0]
+            p1 = line_split[-4]
+            url = 'https://files.isric.org/soilgrids/latest/data/{}/{}/{}/{}'.format(p,p1,tile_folder,tif_name)
+            # print(url)
+            # exit()
+            outdir_i = outdir + tile_folder + '/'
+            # print(outdir_i)
+            self.download_i_overwrite(url,outdir_i)
+        pass
+
+
+    def download_i_overwrite(self,url,outdir_i):
+
+        # fname = url.split('/')[-1]
+        # req = requests.request('GET',url)
+        # content = req.content
+        # fw = open(outdir_i + fname,'wb')
+        # fw.write(content)
+        # fw.close()
+
+        #################
+        attempt = 0
+        while 1:
+            try:
+                fname = url.split('/')[-1]
+                # if os.path.isfile(outdir_i + fname):
+                #     print(outdir_i + fname,' is existed')
+                #     return None
+                req = requests.request('GET', url)
+                content = req.content
+                fw = open(outdir_i + fname, 'wb')
+                fw.write(content)
+                fw.close()
+                return None
+
+            except Exception as e:
+                print(url, 'error sleep 5s')
+                time.sleep(5)
+                attempt += 1
+            if attempt >= 10:
+                return None
 
 
 class Terra_climate:
@@ -1693,7 +1775,7 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    Total_Nitrogen().run()
+    Soilgrids().run()
     # Terra_climate().run()
     # CSIF_005().run()
     # Landcover().run()

@@ -758,26 +758,89 @@ class SM:
 class Total_Nitrogen:
 
     def __init__(self):
-
+        self.this_class_arr = data_root + 'Soilgrids/'
         pass
 
 
     def run(self):
         # self.mosaic_tiles()
-        # self.mosaic_all()
+        self.mosaic_all()
         # self.copy_tiles_to_one_folder()
+        # self.test__()
+        # self.check_tifs()
         pass
 
+
+    def test__(self):
+
+        in_dir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/tileSG-019-077/'
+        out_tif = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/test.tif'
+        anaconda_python_path = r'python3 '
+        # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
+        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py'  # homebrew directory
+        # files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
+        files_to_mosaic = []
+        for f in os.listdir(in_dir):
+            if f.startswith('.'):
+                continue
+            files_to_mosaic.append(in_dir + f)
+        # print(files_to_mosaic)
+        # exit()
+        files_string = " ".join(files_to_mosaic)
+        command = "{} {} -o {} -of gtiff ".format(anaconda_python_path, gdal_script, out_tif) + files_string
+        print(command)
+        os.system(command)
+
+
+    def kernel_check_tif(self,tif):
+        try:
+            arr = to_raster.raster2array(tif)[0]
+            a=(len(arr))
+            return True
+        except:
+            return False
+        # if arr:
+        #     return True
+        # else:
+        #     return False
+
+    def check_tifs(self):
+        fdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+        invalid_f_list = []
+        for folder in tqdm(os.listdir(fdir)):
+            if folder.startswith('.'):
+                continue
+            for f in os.listdir(os.path.join(fdir,folder)):
+                if f.startswith('.'):
+                    continue
+                is_ok = self.kernel_check_tif(os.path.join(fdir,folder,f))
+                if not is_ok:
+                    invalid_f_list.append(os.path.join(fdir,folder,f))
+        fw = open(self.this_class_arr + 'invalid_tiles1.txt','w')
+        for i in invalid_f_list:
+            fw.write(i+'\n')
+        fw.close()
+        pass
+
+
     def mosaic_tiles_i(self, params):
+        from osgeo.utils import gdal_merge
         in_dir, out_tif = params
+        in_dir = in_dir + '/'
         # forked from https://www.neonscience.org/merge-lidar-geotiff-py
         # GDAL mosaic
         anaconda_python_path = r'python3 '
         # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
         gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py' # homebrew directory
-        files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
+        # files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
+        files_to_mosaic = []
+        for f in os.listdir(in_dir):
+            if f.startswith('.'):
+                continue
+            files_to_mosaic.append(in_dir + f)
+        # print(files_to_mosaic)
+        # exit()
         files_string = " ".join(files_to_mosaic)
-        # print(files_string)
         command = "{} {} -o {} -of gtiff ".format(anaconda_python_path, gdal_script, out_tif) + files_string
         print(command)
         os.system(command)
@@ -789,15 +852,17 @@ class Total_Nitrogen:
         T.mk_dir(outdir)
         params = []
         for folder in tqdm(os.listdir(fdir)):
+            if folder.startswith('.'):
+                continue
             params.append([fdir + folder,outdir + folder + '.tif'])
-            # self.mosaic_tiles_i()
+            # self.mosaic_tiles_i([fdir + folder,outdir + folder + '.tif'])
         MULTIPROCESS(self.mosaic_tiles_i,params).run()
 
     def mosaic_all(self):
         fdir = data_root + 'Soilgrids/mosaic_step1/'
         outdir = data_root + 'Soilgrids/mosaic_step2/'
         T.mk_dir(outdir)
-        self.mosaic_tiles_i([fdir,outdir+'Nitrogen_0_5_cm.tif'])
+        self.mosaic_tiles_i([fdir,outdir+'Nitrogen_0_5_cm_origin.tif'])
 
         pass
 
@@ -1628,14 +1693,14 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    # Total_Nitrogen().run()
+    Total_Nitrogen().run()
     # Terra_climate().run()
     # CSIF_005().run()
     # Landcover().run()
     # CWD().run()
     # SPEI12().run()
     # VPD().run()
-    Precip().run()
+    # Precip().run()
     pass
 
 

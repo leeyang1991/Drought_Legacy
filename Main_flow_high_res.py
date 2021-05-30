@@ -1317,10 +1317,12 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 2 add landcover to df
         # df = self.add_landcover_to_df(df)
         # df = self.landcover_compose(df)
-        # df = self.add_min_precip_to_df(df)
-        # df = self.add_max_vpd_to_df(df)
-        df = self.add_bin_class_to_df(df,bin_var='min_precip_in_drought_range',n=10)
-        df = self.add_bin_class_to_df(df,bin_var='max_vpd_in_drought_range',n=10)
+        df = self.add_min_precip_to_df(df)
+        df = self.add_min_precip_anomaly_to_df(df)
+        df = self.add_max_vpd_to_df(df)
+        df = self.add_max_vpd_anomaly_to_df(df)
+        # df = self.add_bin_class_to_df(df,bin_var='min_precip_in_drought_range',n=10)
+        # df = self.add_bin_class_to_df(df,bin_var='max_vpd_in_drought_range',n=10)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff,random=True)
         pass
@@ -1564,9 +1566,68 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         return df
 
-    def add_min_precip_to_df(self,df):
+    def add_min_precip_anomaly_to_df(self,df):
 
         fdir = data_root + 'Precip_terra/per_pix_anomaly/'
+        dic = T.load_npy_dir(fdir)
+        min_precip_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            precip = dic[pix]
+            min_precip_indx = T.pick_min_indx_from_1darray(precip,drought_event_date_range)
+            min_precip_v = precip[min_precip_indx]
+            # print(min_precip_v)
+            # pause()
+            min_precip_list.append(min_precip_v)
+
+        df['min_precip_anomaly_in_drought_range'] = min_precip_list
+        return df
+        pass
+
+
+    def add_max_vpd_anomaly_to_df(self,df):
+
+        fdir = data_root + 'VPD/per_pix_anomaly/'
+        dic = T.load_npy_dir(fdir)
+        max_vpd_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            vpd = dic[pix]
+            max_vpd_indx = T.pick_max_indx_from_1darray(vpd,drought_event_date_range)
+            max_vpd_v = vpd[max_vpd_indx]
+            # print(max_vpd_v)
+            # pause()
+            max_vpd_list.append(max_vpd_v)
+
+        df['max_vpd_anomaly_in_drought_range'] = max_vpd_list
+        return df
+        pass
+
+
+    def add_max_vpd_to_df(self,df):
+
+        fdir = data_root + 'VPD/per_pix/'
+        dic = T.load_npy_dir(fdir)
+        max_vpd_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            vpd = dic[pix]
+            max_vpd_indx = T.pick_max_indx_from_1darray(vpd,drought_event_date_range)
+            max_vpd_v = vpd[max_vpd_indx]
+            # print(max_vpd_v)
+            # pause()
+            max_vpd_list.append(max_vpd_v)
+
+        df['max_vpd_in_drought_range'] = max_vpd_list
+        return df
+        pass
+
+    def add_min_precip_to_df(self,df):
+
+        fdir = data_root + 'Precip_terra/per_pix/'
         dic = T.load_npy_dir(fdir)
         min_precip_list = []
         for i,row in tqdm(df.iterrows(),total=len(df)):
@@ -1583,25 +1644,6 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return df
         pass
 
-
-    def add_max_vpd_to_df(self,df):
-
-        fdir = data_root + 'VPD/per_pix_anomaly/'
-        dic = T.load_npy_dir(fdir)
-        max_vpd_list = []
-        for i,row in tqdm(df.iterrows(),total=len(df)):
-            pix = row.pix
-            drought_event_date_range = row.drought_event_date_range
-            vpd = dic[pix]
-            max_vpd_indx = T.pick_max_indx_from_1darray(vpd,drought_event_date_range)
-            max_vpd_v = vpd[max_vpd_indx]
-            # print(max_vpd_v)
-            # pause()
-            max_vpd_list.append(max_vpd_v)
-
-        df['max_vpd_in_drought_range'] = max_vpd_list
-        return df
-        pass
 
     def add_bin_class_to_df(self,df,bin_var,n=20):
 
@@ -1970,7 +2012,8 @@ class Analysis:
         # self.foo()
         # self.foo3()
         # self.decouple_precip_vpd()
-        self.decouple_vpd_precip()
+        # self.decouple_vpd_precip()
+        self.precip_hist()
         pass
 
     def __load_df(self):
@@ -2185,7 +2228,7 @@ class Analysis:
         '''
         x: vpd
         y: legacy
-        bin: precip
+        line: precip
         '''
         df, dff = self.__load_df()
         df = df.dropna()
@@ -2195,6 +2238,12 @@ class Analysis:
         # drought_type = 'repetitive_subsequential'
 
         n = 50
+        min_precip_var = 'min_precip_anomaly_in_drought_range'
+        # max_vpd_var = 'max_vpd_anomaly_in_drought_range'
+
+        max_vpd_var = 'max_vpd_in_drought_range'
+        # min_precip_var = 'min_precip_in_drought_range'
+
 
         for lc_type in ['Needleleaf', 'Broadleaf']:
             for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
@@ -2203,37 +2252,39 @@ class Analysis:
                 df = df[df['lc_broad_needle'] == lc_type]
                 # df = df[df['drought_type'] != 'single']
                 df = df[df['drought_type'] != drought_type]
-                min_precip_in_drought_range = df['min_precip_in_drought_range']
-                max_vpd_in_drought_range = df['max_vpd_in_drought_range']
+                min_precip_in_drought_range = df[min_precip_var]
+                max_vpd_in_drought_range = df[max_vpd_var]
                 # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
-                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=6, max_v=0,)
+                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range,min_v=-1., n=6)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
-                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, n=10)
+                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=2, n=10)
+                print('vpd_bins', vpd_bins)
+                print('precip_bins', precip_bins)
                 plt.figure()
                 for i in tqdm(range(len(precip_bins))):
                     if i + 1 >= len(precip_bins):
                         continue
-                    df_p_bin = df[df['min_precip_in_drought_range'] > precip_bins[i]]
-                    df_p_bin = df_p_bin[df_p_bin['min_precip_in_drought_range'] < precip_bins[i + 1]]
+                    df_p_bin = df[df[min_precip_var] > precip_bins[i]]
+                    df_p_bin = df_p_bin[df_p_bin[min_precip_var] < precip_bins[i + 1]]
                     x = []
                     y = []
                     for j in range(len(vpd_bins)):
                         if j + 1 >= len(vpd_bins):
                             continue
-                        df_vpd_bin = df_p_bin[df_p_bin['max_vpd_in_drought_range'] > vpd_bins[j]]
-                        df_vpd_bin = df_vpd_bin[df_vpd_bin['max_vpd_in_drought_range'] < vpd_bins[j + 1]]
+                        df_vpd_bin = df_p_bin[df_p_bin[max_vpd_var] > vpd_bins[j]]
+                        df_vpd_bin = df_vpd_bin[df_vpd_bin[max_vpd_var] < vpd_bins[j + 1]]
                         legacy_i = df_vpd_bin['carbon_loss']
                         legacy_i = -legacy_i
                         mean_legacy = np.mean(legacy_i)
-                        # x.append(vpd_bins[j])
-                        x.append(j)
+                        x.append(vpd_bins[j])
+                        # x.append(j)
                         y.append(mean_legacy)
                         # print(vpd_bins[0])
                         # exit()
                     # print(len(x))
                     # print(x)
                     # print(y)
-                    plt.plot(x,y,label=precip_bins_str[i])
+                    plt.plot(x,y,label='precip '+precip_bins_str[i])
                     plt.scatter(x,y)
                 plt.legend()
                 plt.xlabel('VPD')
@@ -2258,6 +2309,13 @@ class Analysis:
 
         n = 50
 
+        min_precip_var = 'min_precip_anomaly_in_drought_range'
+        # max_vpd_var = 'max_vpd_anomaly_in_drought_range'
+        #
+        max_vpd_var = 'max_vpd_in_drought_range'
+        # min_precip_var = 'min_precip_in_drought_range'
+
+
         for lc_type in ['Needleleaf', 'Broadleaf']:
             for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
                 df, dff = self.__load_df()
@@ -2265,29 +2323,31 @@ class Analysis:
                 df = df[df['lc_broad_needle'] == lc_type]
                 # df = df[df['drought_type'] != 'single']
                 df = df[df['drought_type'] != drought_type]
-                min_precip_in_drought_range = df['min_precip_in_drought_range']
-                max_vpd_in_drought_range = df['max_vpd_in_drought_range']
+                min_precip_in_drought_range = df[min_precip_var]
+                max_vpd_in_drought_range = df[max_vpd_var]
                 # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
-                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=10, max_v=0,)
+                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=10,)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
-                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, n=6)
+                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=2, n=6)
+                print('vpd_bins',vpd_bins)
+                print('precip_bins',precip_bins)
                 plt.figure()
                 for i in tqdm(range(len(vpd_bins))):
                     if i + 1 >= len(vpd_bins):
                         continue
-                    df_vpd_bin = df[df['max_vpd_in_drought_range'] > vpd_bins[i]]
-                    df_vpd_bin = df_vpd_bin[df_vpd_bin['max_vpd_in_drought_range'] < vpd_bins[i + 1]]
+                    df_vpd_bin = df[df[max_vpd_var] > vpd_bins[i]]
+                    df_vpd_bin = df_vpd_bin[df_vpd_bin[max_vpd_var] < vpd_bins[i + 1]]
                     x = []
                     y = []
                     for j in range(len(precip_bins)):
                         if j + 1 >= len(precip_bins):
                             continue
-                        df_p_bin = df_vpd_bin[df_vpd_bin['min_precip_in_drought_range'] > precip_bins[j]]
-                        df_p_bin = df_p_bin[df_p_bin['min_precip_in_drought_range'] < precip_bins[j + 1]]
+                        df_p_bin = df_vpd_bin[df_vpd_bin[min_precip_var] > precip_bins[j]]
+                        df_p_bin = df_p_bin[df_p_bin[min_precip_var] < precip_bins[j + 1]]
                         legacy_i = df_p_bin['carbon_loss']
                         legacy_i = -legacy_i
                         mean_legacy = np.mean(legacy_i)
-                        # x.append(vpd_bins[j])
+                        # x.append(precip_bins[j])
                         x.append(j)
                         y.append(mean_legacy)
                         # print(vpd_bins[0])
@@ -2304,6 +2364,18 @@ class Analysis:
         plt.show()
 
         pass
+
+
+
+    def precip_hist(self):
+
+        df,dff = self.__load_df()
+        precip_anomaly = df['min_precip_anomaly_in_drought_range'].tolist()
+        # precip_anomaly = df['max_vpd_in_drought_range'].tolist()
+        # precip_anomaly = list(set(precip_anomaly))
+        plt.hist(precip_anomaly,bins=50)
+        plt.show()
+
 
 
 def main():

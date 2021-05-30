@@ -1,10 +1,76 @@
 # coding=gbk
 
-import re
+# coding='utf-8'
+import sys
+version = sys.version_info.major
+assert version == 3, 'Python Version Error'
+import time
+import os
+from tqdm import tqdm
 import requests
-from __init__ import *
+import re
+import copyreg
+import multiprocessing
+import types
+from multiprocessing.pool import ThreadPool as TPool
 
-root_dir = '/Users/wenzhang/project/soilgrids/'
+
+
+
+class MULTIPROCESS:
+    '''
+    可对类内的函数进行多进程并行
+    由于GIL，多线程无法跑满CPU，对于不占用CPU的计算函数可用多线程
+    并行计算加入进度条
+    '''
+
+    def __init__(self, func, params):
+        self.func = func
+        self.params = params
+        copyreg.pickle(types.MethodType, self._pickle_method)
+        pass
+
+    def _pickle_method(self, m):
+        if m.__self__ is None:
+            return getattr, (m.__self__.__class__, m.__func__.__name__)
+        else:
+            return getattr, (m.__self__, m.__func__.__name__)
+
+    def run(self, process=-9999, process_or_thread='p', **kwargs):
+        '''
+        # 并行计算加进度条
+        :param func: input a kenel_function
+        :param params: para1,para2,para3... = params
+        :param process: number of cpu
+        :param thread_or_process: multi-thread or multi-process,'p' or 't'
+        :param kwargs: tqdm kwargs
+        :return:
+        '''
+
+        if process > 0:
+            if process_or_thread == 'p':
+                pool = multiprocessing.Pool(process)
+            elif process_or_thread == 't':
+                pool = TPool(process)
+            else:
+                raise IOError('process_or_thread key error, input keyword such as "p" or "t"')
+
+            results = list(tqdm(pool.imap(self.func, self.params), total=len(self.params), **kwargs))
+            pool.close()
+            pool.join()
+            return results
+        else:
+            if process_or_thread == 'p':
+                pool = multiprocessing.Pool()
+            elif process_or_thread == 't':
+                pool = TPool()
+            else:
+                raise IOError('process_or_thread key error, input keyword such as "p" or "t"')
+
+            results = list(tqdm(pool.imap(self.func, self.params), total=len(self.params), **kwargs))
+            pool.close()
+            pool.join()
+            return results
 
 
 def mk_dir(dir, force=False):
@@ -14,15 +80,13 @@ def mk_dir(dir, force=False):
         else:
             os.mkdir(dir)
 
-def gen_folder_urls():
+def gen_folder_urls(url,root_dir):
     # req = urllib2.Request(url)
-    url = 'https://files.isric.org/soilgrids/latest/data/nitrogen/nitrogen_0-5cm_mean/'
-    # url = 'https://detail.zol.com.cn/'
     req = requests.request('GET',url)
     html = req.text
     p = re.findall('href=".*?/">', html)
     outdir = root_dir + 'urls/'
-    mk_dir(outdir)
+    mk_dir(outdir,force=True)
     fw = open(outdir + 'folder_urls.txt','w')
     for pi in p:
         if not 'tile' in pi:
@@ -37,7 +101,11 @@ def gen_folder_urls():
 
 def kernel_gen_tif_urls(params):
     line, out_url_dir = params
+    fw = out_url_dir + line.split('/')[-2] + '.txt'
+    if os.path.isfile(fw):
+        return None
     success = 0
+    attempt = 0
     while 1:
         try:
             req = requests.request('GET', line)
@@ -50,6 +118,7 @@ def kernel_gen_tif_urls(params):
                 urls.append(url_i)
             success = 1
         except Exception as e:
+            attempt += 1
             urls = []
             print(e,'sleep 5s')
             time.sleep(5)
@@ -60,12 +129,14 @@ def kernel_gen_tif_urls(params):
             fw.write(content)
             fw.close()
             return None
+        if attempt >= 10:
+            return None
     pass
 
-def gen_tif_urls():
+def gen_tif_urls(root_dir):
     folder_urls_f = root_dir + 'urls/folder_urls.txt'
     out_url_dir = root_dir + 'urls/tif_urls/'
-    mk_dir(out_url_dir)
+    mk_dir(out_url_dir,force=True)
     fr = open(folder_urls_f,'r')
     lines = fr.readlines()
     all_url = []
@@ -90,9 +161,13 @@ def download_i(url,outdir_i):
     # fw.close()
 
     #################
+    attempt = 0
     while 1:
         try:
             fname = url.split('/')[-1]
+            if os.path.isfile(outdir_i + fname):
+                print(outdir_i + fname,' is existed')
+                return None
             req = requests.request('GET', url)
             content = req.content
             fw = open(outdir_i + fname, 'wb')
@@ -103,11 +178,14 @@ def download_i(url,outdir_i):
         except Exception as e:
             print(url, 'error sleep 5s')
             time.sleep(5)
+            attempt += 1
+        if attempt >= 10:
+            return None
 
 def kernel_download_tifs(params):
     outdir,tile,url_dir = params
     outdir_i = outdir + tile.replace('.txt', '') + '/'
-    T.mk_dir(outdir_i)
+    mk_dir(outdir_i)
     fr = open(url_dir + tile, 'r')
     lines = fr.readlines()
     for line in lines:
@@ -115,10 +193,10 @@ def kernel_download_tifs(params):
         download_i(line, outdir_i)
 
 
-def download_tifs():
+def download_tifs(root_dir):
     url_dir = root_dir + 'urls/tif_urls/'
     outdir = root_dir + 'tifs/'
-    T.mk_dir(outdir)
+    mk_dir(outdir)
     params = []
     for tile in os.listdir(url_dir):
         params.append([outdir,tile,url_dir])
@@ -126,14 +204,53 @@ def download_tifs():
     MULTIPROCESS(kernel_download_tifs,params).run(process=50,process_or_thread='t')
 
 
-def main():
-    # 1 generate tiles
-    # gen_folder_urls()
-    # 2 generate tifs in each tiles
-    # gen_tif_urls()
-    # 3 download tifs via multi-thread
-    download_tifs()
+def download_invalid_tiles():
+    invalid_tiles_txt = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/invalid_tiles.txt'
+    outdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+    fr = open(invalid_tiles_txt,'r')
+    lines = fr.readlines()
+    for line in tqdm(lines):
+        # print(line)
+        line = line.split('\n')[0]
+        line_split = line.split('/')
+        tif_name = line_split[-1]
+        tile_folder = line_split[-2]
+        url = 'https://files.isric.org/soilgrids/latest/data/nitrogen/nitrogen_0-5cm_mean/{}/{}'.format(tile_folder,tif_name)
+        outdir_i = outdir + tile_folder + '/'
+        download_i(url,outdir_i)
     pass
+
+
+def main():
+    product_list = ['bdod','cec','phh2o','sand','soc','clay',]
+    layers = [
+        '0-5cm_mean',
+        '5-15cm_mean',
+        '15-30cm_mean',
+        '30-60cm_mean',
+        '60-100cm_mean',
+        '100-200cm_mean',
+    ]
+
+    url_list = []
+    for p in product_list:
+        for l in layers:
+            url = 'https://files.isric.org/soilgrids/latest/data/{}/{}_{}/'.format(p,p,l)
+            print(url)
+            url_list.append(url)
+    for url in url_list:
+        product = url.split('/')[-2]
+        # root_dir = '/Volumes/SSD/soil_test/{}/'.format(product)
+        root_dir = '/volume5/4T25/soilgrids/{}/'.format(product)
+        mk_dir(root_dir)
+        # 1 generate tiles
+        gen_folder_urls(url,root_dir)
+        # # 2 generate tifs in each tiles
+        gen_tif_urls(root_dir)
+        # # 3 download tifs via multi-thread
+        download_tifs(root_dir)
+        # download_invalid_tiles()
+        pass
 
 
 if __name__ == '__main__':

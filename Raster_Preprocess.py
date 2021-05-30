@@ -762,30 +762,58 @@ class Soilgrids:
 
 
     def run(self):
-        fdir = '/Users/wenzhang/Soilgrids/bdod_0-5cm_mean/'
-        step1_dir = fdir + 'step1/'
-        step2_dir = fdir + 'step2/'
-        # self.check_and_redownload(fdir)
-        # self.mosaic_step1(fdir,step1_dir)
-        self.mosaic_step2(step1_dir,step2_dir)
-        pass
 
+        father_dir = '/Users/wenzhang/Soilgrids/'
 
-    def check_and_redownload(self,fdir):
-        attemps = 0
-        while 1:
-            all_is_valid = self.check_tifs(fdir=fdir)
-            print('all_is_valid',all_is_valid)
-            if all_is_valid:
-                break
-            invalid_tif = fdir + 'invalid_tif.txt'
-            tiles_dir = fdir + 'tifs/'
-            self.download_invalid_tiles(invalid_tif, tiles_dir)
-            attemps += 1
-            if attemps >= 10:
-                break
+        # step 1: check all tif
+        # params = []
+        # for fdir in os.listdir(father_dir):
+        #     if fdir.startswith('.'):
+        #         continue
+        #     params.append(father_dir + fdir + '/')
+        # MULTIPROCESS(self.check_tifs,params).run(process=18)
 
-        pass
+        # step 2: re-download invalid tifs
+        # params = []
+        # for fdir in os.listdir(father_dir):
+        #     if fdir.startswith('.'):
+        #         continue
+        #     invalid_tif = father_dir + fdir + '/invalid_tif.txt'
+        #     tiles_dir = father_dir + fdir + '/tifs/'
+        #     params.append([invalid_tif, tiles_dir])
+        # MULTIPROCESS(self.download_invalid_tiles,params).run()
+
+        # step 3: mosaic tiles to tifs
+        #           and mosaic tifs to global
+        # for fdir in os.listdir(father_dir):
+        #     if fdir.startswith('.'):
+        #         continue
+        #     fdir = father_dir + fdir + '/'
+        #     step1_dir = fdir + 'step1/'
+        #     step2_dir = fdir + 'step2/'
+        #     self.mosaic_step1(fdir,step1_dir)
+        #     self.mosaic_step2(step1_dir,step2_dir)
+
+        # step 4: re-projection and resample
+        # outdir = '/Users/wenzhang/soilgrids_global_05/'
+        # for fdir in tqdm(sorted(os.listdir(father_dir))):
+        #     if fdir.startswith('.'):
+        #         continue
+        #     fdir_i = father_dir + fdir + '/'
+        #     tif = fdir_i + 'step2/global_5000m.tif'
+        #     outtif = outdir + fdir + '.tif'
+        #     self.re_projection(tif,outtif)
+
+        # step5 unify raster
+        # tif_dir = '/Users/wenzhang/soilgrids_global_05/'
+        # outdir = '/Users/wenzhang/soilgrids_global_05_unify/'
+        # for f in tqdm(sorted(os.listdir(tif_dir))):
+        #     if f.startswith('.'):
+        #         continue
+        #     tif = tif_dir + f
+        #     outtif = outdir + f
+        #     self.unify_raster(tif, outtif)
+        #     # exit()
 
 
     def kernel_check_tif(self,tif):
@@ -806,11 +834,13 @@ class Soilgrids:
         fdir = fdir + 'tifs/'
         invalid_f_list = []
         all_valid = True
-        for folder in tqdm(os.listdir(fdir),desc='checking tiles'):
+        for folder in tqdm(os.listdir(fdir),desc='checking tiles '+fdir):
             if folder.startswith('.'):
                 continue
             for f in os.listdir(os.path.join(fdir,folder)):
                 if f.startswith('.'):
+                    continue
+                if not f.endswith('.tif'):
                     continue
                 is_ok = self.kernel_check_tif(os.path.join(fdir,folder,f))
                 if not is_ok:
@@ -895,9 +925,10 @@ class Soilgrids:
 
         pass
 
-    def download_invalid_tiles(self,invalid_tiles_txt,outdir):
+    def download_invalid_tiles(self,params):
         # invalid_tiles_txt = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/invalid_tiles.txt'
         # outdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/tiles/'
+        invalid_tiles_txt, outdir = params
         fr = open(invalid_tiles_txt,'r')
         lines = fr.readlines()
         for line in tqdm(lines,desc='re-downloading...'):
@@ -948,6 +979,66 @@ class Soilgrids:
             if attempt >= 10:
                 return None
 
+    def re_projection(self,tif,outtif):
+        # tif = '/Users/wenzhang/Soilgrids/soc_60-100cm_mean/step2/global_5000m.tif'
+        dataset = gdal.Open(tif)
+        inRasterSRS = osr.SpatialReference()
+        prj_info = '''PROJCS["Homolosine", 
+        GEOGCS["WGS 84", 
+            DATUM["WGS_1984", 
+                SPHEROID["WGS 84",6378137,298.257223563, 
+                    AUTHORITY["EPSG","7030"]], 
+       AUTHORITY["EPSG","6326"]], 
+            PRIMEM["Greenwich",0, 
+                AUTHORITY["EPSG","8901"]], 
+            UNIT["degree",0.0174532925199433, 
+                AUTHORITY["EPSG","9122"]], 
+            AUTHORITY["EPSG","4326"]], 
+        PROJECTION["Interrupted_Goode_Homolosine"], 
+        UNIT["Meter",1]]'''
+        inRasterSRS.ImportFromWkt(prj_info)
+        # print(outRasterSRS.ExportToWkt())
+        gdal.Warp(outtif, dataset, xRes=0.5, yRes=0.5, srcSRS=inRasterSRS, dstSRS='EPSG:4326')
+
+
+    def unify_raster(self,tif,outtif):
+        # tif = data_root + 'landcover/glc2000_v1_1_resample.tif'
+        # outtif = data_root + 'landcover/glc2000_v1_1_resample_7200_3600.tif'
+        array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif)
+        # array[array < 0] = np.nan
+        # print(np.shape(array))
+        # print(originY,pixelHeight)
+        # exit()
+        top_line_num = abs((90 - originY) / pixelHeight)
+        bottom_line_num = abs((90 + originY + pixelHeight * len(array)) / pixelHeight)
+        top_line_num = int(round(top_line_num, 0))
+        bottom_line_num = int(round(bottom_line_num, 0))
+        # print(top_line_num)
+        # print(bottom_line_num)
+        # exit()
+        nan_array_insert = np.ones_like(array[0]) * 0
+        # nan_array_insert = np.ones_like(array[0])
+        top_array_insert = []
+        for i in range(top_line_num):
+            top_array_insert.append(nan_array_insert)
+        bottom_array_insert = []
+        for i in range(bottom_line_num):
+            bottom_array_insert.append(nan_array_insert)
+        bottom_array_insert = np.array(bottom_array_insert)
+        if len(top_array_insert) != 0:
+            arr_temp = np.insert(array, 0, top_array_insert, 0)
+        else:
+            arr_temp = array
+        if len(bottom_array_insert) != 0:
+            array_unify = np.vstack((arr_temp, bottom_array_insert))
+        else:
+            array_unify = arr_temp
+
+        # plt.imshow(array_unify)
+        # plt.show()
+        newRasterfn = outtif
+        to_raster.array2raster(newRasterfn,-180,90,pixelWidth,pixelHeight,array_unify)
+        pass
 
 class Terra_climate:
 

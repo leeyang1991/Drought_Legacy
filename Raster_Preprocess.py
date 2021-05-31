@@ -1078,6 +1078,7 @@ class Terra_climate:
         # self.nc_to_tif_pet()
         # self.nc_to_tif_precip()
         # self.nc_to_tif_vpd()
+        # self.nc_to_tif_soil()
         self.resample()
         pass
 
@@ -1264,6 +1265,65 @@ class Terra_climate:
                 # plt.show()
                 # nc_dic[date_str] = arr
                 # exit()
+    def nc_to_tif_soil(self):
+        outdir = '/Volumes/SSD/drought_legacy_new/terraclimate/soil/tif/'
+        T.mk_dir(outdir,force=True)
+        fdir = '/Volumes/SSD/drought_legacy_new/terraclimate/soil/nc/'
+        for fi in os.listdir(fdir):
+            print(fi)
+            if fi.startswith('.'):
+                continue
+            f = fdir + fi
+            year = fi.split('.')[-2].split('_')[-1]
+            # print(year)
+            # exit()
+            ncin = Dataset(f, 'r')
+            # print(ncin.variables)
+            # exit()
+            lat = ncin['lat']
+            lon = ncin['lon']
+            pixelWidth = lon[1] - lon[0]
+            pixelHeight = lat[1] - lat[0]
+            longitude_start = lon[0]
+            latitude_start = lat[0]
+            time = ncin.variables['time']
+
+            start = datetime.datetime(1900, 1, 1)
+            # print(time)
+            # for t in time:
+            #     print(t)
+            # exit()
+            flag = 0
+            for i in tqdm(range(len(time))):
+                # print(i)
+                flag += 1
+                # print(time[i])
+                date = start + datetime.timedelta(days=int(time[i]))
+                year = str(date.year)
+                # exit()
+                month = '%02d' % date.month
+                day = '%02d'%date.day
+                date_str = year + month
+                # print(date_str)
+                # exit()
+                # if not date_str[:4] in valid_year:
+                #     continue
+                # print(date_str)
+                # exit()
+                arr = ncin.variables['soil'][i]
+                arr = np.array(arr)
+                # print(arr)
+                # grid = arr < 99999
+                # arr[np.logical_not(grid)] = -999999
+                newRasterfn = outdir + date_str + '.tif'
+                to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+                # grid = np.ma.masked_where(grid>1000,grid)
+                # DIC_and_TIF().arr_to_tif(arr,newRasterfn)
+                # plt.imshow(arr,'RdBu')
+                # plt.colorbar()
+                # plt.show()
+                # nc_dic[date_str] = arr
+                # exit()
 
 
     def resample(self):
@@ -1271,11 +1331,13 @@ class Terra_climate:
         # outdir = data_root + 'CWD/PET_terra/tif_005/'
 
         # fdir = data_root + 'CWD/Precip_terra/tif/'
-        outdir = data_root + 'CWD/Precip_terra/tif_005/'
+        # outdir = data_root + 'CWD/Precip_terra/tif_005/'
 
-        fdir = '/Volumes/SSD/drought_legacy_new/data/VPD/tif/'
-        outdir = '/Volumes/SSD/drought_legacy_new/data/VPD/tif_005/'
+        # fdir = '/Volumes/SSD/drought_legacy_new/data/VPD/tif/'
+        # outdir = '/Volumes/SSD/drought_legacy_new/data/VPD/tif_005/'
 
+        fdir = '/Volumes/SSD/drought_legacy_new/terraclimate/soil/tif/'
+        outdir = '/Volumes/SSD/drought_legacy_new/terraclimate/soil/tif_005/'
 
         T.mk_dir(outdir)
         for f in tqdm(os.listdir(fdir)):
@@ -1826,6 +1888,85 @@ class Precip:
         #     dic = T.load_npy(fdir + f)
         pass
 
+class Soil_terra:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.per_pix()
+        self.anomaly()
+        # self.check_per_pix()
+        pass
+
+
+    def per_pix(self):
+        fdir = data_root + 'terraclimate/soil/tif_005/'
+        outdir = data_root + 'terraclimate/soil/per_pix/'
+        T.mk_dir(outdir)
+        valid_spatial_dic_f = Landcover().forest_spatial_dic_f
+        valid_spatial_dic = T.load_npy(valid_spatial_dic_f)
+        template_tif = Global_vars().tif_template_7200_3600
+        template_arr = to_raster.raster2array(template_tif)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = {}
+        for pix in valid_spatial_dic:
+            spatial_dic[pix] = []
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                if not pix in valid_spatial_dic:
+                    continue
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+    def anomaly(self):
+        fdir = data_root + 'terraclimate/soil/per_pix/'
+        outdir = data_root + 'terraclimate/soil/per_pix_anomaly/'
+        Pre_Process().cal_anomaly(fdir,outdir)
+        # DIC_and_TIF(Global_vars().tif_template_7200_3600).per_pix_animate(fdir,condition='005')
+        # for f in os.listdir(fdir):
+        #     dic = T.load_npy(fdir + f)
+        pass
+
+    def check_per_pix(self):
+        fdir = data_root + 'terraclimate/soil/per_pix/'
+        for f in T.list_dir(fdir):
+            print(f)
+            dic = T.load_npy(fdir + f)
+            flag = 0
+            matrix = []
+            for pix in dic:
+                vals = dic[pix]
+                flag += 1
+                if flag == len(vals):
+                    break
+                matrix.append(vals)
+            plt.imshow(matrix)
+            plt.show()
+
+        pass
 
 class VPD:
     def __init__(self):
@@ -1894,7 +2035,7 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    Soilgrids().run()
+    # Soilgrids().run()
     # Terra_climate().run()
     # CSIF_005().run()
     # Landcover().run()
@@ -1902,6 +2043,7 @@ def main():
     # SPEI12().run()
     # VPD().run()
     # Precip().run()
+    Soil_terra().run()
     pass
 
 

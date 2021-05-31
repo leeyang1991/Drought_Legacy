@@ -756,14 +756,17 @@ class SM:
 
 
 class Soilgrids:
-
+    '''
+    High IO required
+    Higher is better
+    '''
     def __init__(self):
         pass
 
 
     def run(self):
 
-        father_dir = '/Users/wenzhang/Soilgrids/'
+        # father_dir = '/Volumes/Seagate_5T/Soilgrids/'
 
         # step 1: check all tif
         # params = []
@@ -795,26 +798,30 @@ class Soilgrids:
         #     self.mosaic_step2(step1_dir,step2_dir)
 
         # step 4: re-projection and resample
-        # outdir = '/Users/wenzhang/soilgrids_global_05/'
         # for fdir in tqdm(sorted(os.listdir(father_dir))):
         #     if fdir.startswith('.'):
         #         continue
         #     fdir_i = father_dir + fdir + '/'
         #     tif = fdir_i + 'step2/global_5000m.tif'
-        #     outtif = outdir + fdir + '.tif'
-        #     self.re_projection(tif,outtif)
+        #     res = 0.05
+        #     outtif = fdir_i + 'step2/global_5000m_84_{}.tif'.format(res)
+        #     self.re_projection(tif,outtif,res=res)
 
         # step5 unify raster
-        # tif_dir = '/Users/wenzhang/soilgrids_global_05/'
-        # outdir = '/Users/wenzhang/soilgrids_global_05_unify/'
-        # for f in tqdm(sorted(os.listdir(tif_dir))):
-        #     if f.startswith('.'):
+        # for fdir in tqdm(sorted(os.listdir(father_dir))):
+        #     if fdir.startswith('.'):
         #         continue
-        #     tif = tif_dir + f
-        #     outtif = outdir + f
-        #     self.unify_raster(tif, outtif)
-        #     # exit()
+        #     fdir_i = father_dir + fdir + '/'
+        #     res = 0.05
+        #     tif = fdir_i + 'step2/global_5000m_84_{}.tif'.format(res)
+        #     outtif = fdir_i + 'step2/global_5000m_84_{}_unify.tif'.format(res)
+        #     self.unify_raster(tif,outtif)
+            # exit()
 
+
+        # self.copy_result()
+
+        pass
 
     def kernel_check_tif(self,tif):
         try:
@@ -979,7 +986,7 @@ class Soilgrids:
             if attempt >= 10:
                 return None
 
-    def re_projection(self,tif,outtif):
+    def re_projection(self,tif,outtif,res=0.05):
         # tif = '/Users/wenzhang/Soilgrids/soc_60-100cm_mean/step2/global_5000m.tif'
         dataset = gdal.Open(tif)
         inRasterSRS = osr.SpatialReference()
@@ -998,10 +1005,10 @@ class Soilgrids:
         UNIT["Meter",1]]'''
         inRasterSRS.ImportFromWkt(prj_info)
         # print(outRasterSRS.ExportToWkt())
-        gdal.Warp(outtif, dataset, xRes=0.5, yRes=0.5, srcSRS=inRasterSRS, dstSRS='EPSG:4326')
+        gdal.Warp(outtif, dataset, xRes=res, yRes=res, srcSRS=inRasterSRS, dstSRS='EPSG:4326')
 
 
-    def unify_raster(self,tif,outtif):
+    def unify_raster(self,tif,outtif,insert_value=0):
         # tif = data_root + 'landcover/glc2000_v1_1_resample.tif'
         # outtif = data_root + 'landcover/glc2000_v1_1_resample_7200_3600.tif'
         array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif)
@@ -1009,14 +1016,14 @@ class Soilgrids:
         # print(np.shape(array))
         # print(originY,pixelHeight)
         # exit()
-        top_line_num = abs((90 - originY) / pixelHeight)
-        bottom_line_num = abs((90 + originY + pixelHeight * len(array)) / pixelHeight)
+        top_line_num = abs((90. - originY) / pixelHeight)
+        bottom_line_num = abs((90. + originY + pixelHeight * len(array)) / pixelHeight)
         top_line_num = int(round(top_line_num, 0))
         bottom_line_num = int(round(bottom_line_num, 0))
         # print(top_line_num)
         # print(bottom_line_num)
         # exit()
-        nan_array_insert = np.ones_like(array[0]) * 0
+        nan_array_insert = np.ones_like(array[0]) * insert_value
         # nan_array_insert = np.ones_like(array[0])
         top_array_insert = []
         for i in range(top_line_num):
@@ -1034,11 +1041,32 @@ class Soilgrids:
         else:
             array_unify = arr_temp
 
+        # insert value to column
+        array_unify_1 = []
+        for i in array_unify:
+            n = 360./pixelWidth - len(i)
+            n = int(n)
+            i = list(i)
+            for j in range(n):
+                i.append(insert_value)
+            array_unify_1.append(i)
+        array_unify_1 = np.array(array_unify_1)
         # plt.imshow(array_unify)
         # plt.show()
         newRasterfn = outtif
-        to_raster.array2raster(newRasterfn,-180,90,pixelWidth,pixelHeight,array_unify)
+        to_raster.array2raster(newRasterfn,-180,90,pixelWidth,pixelHeight,array_unify_1)
         pass
+
+    def copy_result(self):
+        father_dir = '/Volumes/Seagate_5T/Soilgrids/'
+        outdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/soilgrids_global_005_unify/'
+        T.mk_dir(outdir)
+        for product in tqdm(T.list_dir(father_dir)):
+            f = os.path.join(father_dir,product,'step2','global_5000m_84_0.05_unify.tif')
+            shutil.copy(f,outdir + product + '.tif')
+
+        pass
+
 
 class Terra_climate:
 

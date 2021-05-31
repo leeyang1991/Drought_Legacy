@@ -52,7 +52,7 @@ from sklearn.inspection import permutation_importance
 import HANTS
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import glob
-
+from osgeo import osr
 
 np.seterr('ignore')
 

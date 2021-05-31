@@ -426,6 +426,22 @@ class Tools:
                 ranges.append([group[0]])
         return ranges
 
+    def list_dir(self,fdir):
+        '''
+        Mac OS
+        list the names of the files in the directory
+        return sorted files list without '.DS_store'
+        '''
+        list_dir = []
+        for f in sorted(os.listdir(fdir)):
+            if f.startswith('.'):
+                continue
+            list_dir.append(f)
+        return list_dir
+
+        pass
+
+
 class SMOOTH:
     '''
     一些平滑算法

@@ -1834,7 +1834,7 @@ class Precip:
         pass
 
     def run(self):
-        # self.per_pix()
+        self.per_pix()
         self.anomaly()
         pass
 
@@ -2042,8 +2042,8 @@ def main():
     # CWD().run()
     # SPEI12().run()
     # VPD().run()
-    # Precip().run()
-    Soil_terra().run()
+    Precip().run()
+    # Soil_terra().run()
     pass
 
 

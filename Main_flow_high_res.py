@@ -87,12 +87,12 @@ class Main_Flow_Pick_drought_events:
         pass
 
     def run(self):
-        threshold = -1.2
+        # threshold = -1.2
         n = 4 * 12
-        self.single_events(n,threshold)
-        self.repetitive_events(n,threshold)
+        # self.single_events(n,threshold)
+        # self.repetitive_events(n)
         # self.check_single_events()
-        # self.check_repetitive_events()
+        self.check_repetitive_events()
         # self.check_single_and_repetitive_events()
         pass
 
@@ -100,7 +100,7 @@ class Main_Flow_Pick_drought_events:
 
 
     def kernel_repetitive_events(self,parmas):
-        fdir,f,outdir,n,threshold = parmas
+        fdir,f,outdir,n,_ = parmas
         gs_mons = Global_vars().gs_mons()
         single_event_dic = {}
         dic = T.load_npy(fdir + f)
@@ -111,7 +111,7 @@ class Main_Flow_Pick_drought_events:
             # vals = vals_detrend
             # print(len(vals))
             # plt.plot
-            # threshold = np.quantile(vals, 0.05)
+            threshold = np.quantile(vals, 0.05)
             # print('threshold',threshold)
             # plt.plot(vals)
             # plt.show()
@@ -178,12 +178,19 @@ class Main_Flow_Pick_drought_events:
 
         pass
 
-    def repetitive_events(self,n,threshold):
+    def repetitive_events(self,n,threshold='auto'):
 
         # threshold = -2
         # n = 4 * 12
-        outdir = self.this_class_arr + 'repetitive_events_{}/'.format(threshold)
-        fdir = data_root + 'SPEI12/per_pix/'
+        # product = 'SPEI12'
+        # fdir = data_root + '{}/per_pix/'.format(product)
+
+        # product = 'VPD'
+        # fdir = data_root + '{}/per_pix_anomaly/'.format(product)
+
+        product = 'Precip'
+        fdir = data_root + 'Precip_terra/per_pix_anomaly/'
+        outdir = self.this_class_arr + 'repetitive_events_{}_{}/'.format(product,threshold)
         T.mk_dir(outdir, force=True)
 
 
@@ -362,7 +369,7 @@ class Main_Flow_Pick_drought_events:
 
     def check_single_events(self):
 
-        fdir = self.this_class_arr + 'single_events/'
+        fdir = self.this_class_arr + 'repetitive_events_Precip_auto/'
         flag = 0
         spatial_dic = {}
         for f in tqdm(os.listdir(fdir)):
@@ -381,7 +388,7 @@ class Main_Flow_Pick_drought_events:
         plt.show()
 
     def check_repetitive_events(self):
-        fdir = self.this_class_arr + 'repetitive_events/'
+        fdir = self.this_class_arr + 'repetitive_events_Precip_auto/'
         dic = T.load_npy_dir(fdir)
         spatial_dic = {}
         for pix in dic:
@@ -809,9 +816,9 @@ class Main_flow_Carbon_loss:
 
 
     def run(self):
-        threshold = '-2'
-        self.single_events(threshold)
-        self.repetitive_events(threshold)
+        # threshold = '-2'
+        # self.single_events(threshold)
+        self.repetitive_events('auto','precip')
 
         pass
 
@@ -822,22 +829,36 @@ class Main_flow_Carbon_loss:
         self.gen_recovery_time_legacy_single(event_dic,spei_dic, sif_dic,out_dir)
         pass
 
-    def repetitive_events(self,threshold):
-        event_dic, spei_dic, sif_dic = self.load_data_repetitive_events(condition='',threshold=threshold)
-        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_repetitive_events_{}/'.format(threshold)
+    def repetitive_events(self,threshold,product):
+        event_dic, spei_dic, sif_dic = self.load_data_repetitive_events(condition='',threshold=threshold,product=product)
+        out_dir = self.this_class_arr + 'gen_recovery_time_legacy_repetitive_events_{}_{}/'.format(product,threshold)
         self.gen_recovery_time_legacy_repetitive(event_dic,spei_dic, sif_dic,out_dir)
 
 
         pass
 
 
-    def load_data_repetitive_events(self,condition='',threshold=''):
+    def load_data_repetitive_events(self,condition='',threshold='',product=''):
         # events_dir = results_root_main_flow + 'arr/SPEI_preprocess/drought_events/'
         # SPEI_dir = data_root + 'SPEI/per_pix_clean/'
         # SIF_dir = data_root + 'CSIF/per_pix_anomaly_detrend/'
 
-        events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events_{}/'.format(threshold)
-        SPEI_dir = data_root + 'SPEI12/per_pix/'
+        if product == 'VPD':
+            SPEI_dir = data_root + 'VPD/per_pix_anomaly/'
+            events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events_VPD_{}/'.format(threshold)
+
+        elif product == 'precip':
+            SPEI_dir = data_root + 'Precip_terra/per_pix_anomaly/'
+            events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events_Precip_{}/'.format(threshold)
+
+        elif product == 'spei12':
+            SPEI_dir = data_root + 'SPEI12/per_pix/'
+            events_dir = Main_Flow_Pick_drought_events().this_class_arr + 'repetitive_events_{}/'.format(threshold)
+
+        else:
+            raise UserWarning('product error')
+
+
         SIF_dir = data_root + 'CSIF005/per_pix_anomaly_detrend/'
 
         event_dic = T.load_npy_dir(events_dir,condition)
@@ -853,6 +874,7 @@ class Main_flow_Carbon_loss:
         # exit()
         # event_start_index = T.pick_min_indx_from_1darray(spei, date_range)
         event_start_index = date_range[0]
+        print(event_start_index)
         event_start_index_trans = self.__drought_indx_to_gs_indx(event_start_index, growing_date_range, len(ndvi))
         # print(event_start_index_trans)
         # exit()
@@ -962,17 +984,7 @@ class Main_flow_Carbon_loss:
         # # plt.xticks(range(len(xtick)), xtick, rotation=90)
         # plt.grid()
         # plt.xlim(minx - 5, maxx + 5)
-
-        # lon, lat, address = Tools().pix_to_address(pix)
-        # try:
-        #     plt.title('lon:{:0.2f} lat:{:0.2f} address:{}\n'.format(lon, lat, address) +
-        #               'recovery_time:'+str(recovery_time)
-        #               )
         #
-        # except:
-        #     plt.title('lon:{:0.2f} lat:{:0.2f}\n'.format(lon, lat)+
-        #               'recovery_time:' + str(recovery_time)
-        #               )
         # plt.show()
         #         # #################plot end ##################
         return result_dic
@@ -1317,14 +1329,16 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 2 add landcover to df
         # df = self.add_landcover_to_df(df)
         # df = self.landcover_compose(df)
-        # df = self.add_min_precip_to_df(df)
-        # df = self.add_min_precip_anomaly_to_df(df)
+        df = self.add_min_precip_to_df(df)
+        df = self.add_min_precip_anomaly_to_df(df)
         # df = self.add_max_vpd_to_df(df)
         # df = self.add_max_vpd_anomaly_to_df(df)
-        # df = self.add_mean_precip_anomaly_to_df(df)
+        df = self.add_mean_precip_anomaly_to_df(df)
         # df = self.add_mean_vpd_anomaly_to_df(df)
+        df = self.add_mean_precip_to_df(df)
+        # df = self.add_mean_vpd_to_df(df)
         # df = self.add_mean_sm_to_df(df)
-        df = self.add_mean_sm_anomaly_to_df(df)
+        # df = self.ad_mean_sm_anomaly_to_df(df)
         # df = self.add_bin_class_to_df(df,bin_var='min_precip_in_drought_range',n=10)
         # df = self.add_bin_class_to_df(df,bin_var='max_vpd_in_drought_range',n=10)
         T.save_df(df,self.dff)
@@ -1603,6 +1617,39 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             min_precip_list.append(mean_precip)
 
         df['mean_precip_anomaly_in_drought_range'] = min_precip_list
+        return df
+        pass
+
+    def add_mean_precip_to_df(self,df):
+
+        fdir = data_root + 'Precip_terra/per_pix/'
+        dic = T.load_npy_dir(fdir)
+        min_precip_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            precip = dic[pix]
+            picked_val = T.pick_vals_from_1darray(precip,drought_event_date_range)
+            mean_precip = np.mean(picked_val)
+            min_precip_list.append(mean_precip)
+
+        df['mean_precip_in_drought_range'] = min_precip_list
+        return df
+
+    def add_mean_vpd_to_df(self,df):
+
+        fdir = data_root + 'VPD/per_pix/'
+        dic = T.load_npy_dir(fdir)
+        max_vpd_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            vpd = dic[pix]
+            picked_val = T.pick_vals_from_1darray(vpd, drought_event_date_range)
+            mean_val = np.mean(picked_val)
+            max_vpd_list.append(mean_val)
+
+        df['mean_vpd_in_drought_range'] = max_vpd_list
         return df
         pass
 
@@ -2153,6 +2200,40 @@ class Analysis:
         return quantiles,d_str
         pass
 
+    def __jenks_breaks(self,arr,min_v=0.,max_v=1.,n=10):
+
+        if min_v == None:
+            min_v = np.min(arr)
+        if max_v == None:
+            max_v = np.max(arr)
+
+        arr = np.array(arr)
+        arr[arr<min_v]=np.nan
+        arr[arr>max_v]=np.nan
+        arr = T.remove_np_nan(arr)
+        imp_list = list(arr)
+        if len(imp_list) > 10000:
+            imp_list = random.sample(imp_list, 10000)
+        jnb = JenksNaturalBreaks(nb_class=n)
+        jnb.fit(imp_list)
+        breaks = jnb.inner_breaks_
+        breaks = list(breaks)
+        breaks.insert(0,min_v)
+        breaks.append(max_v)
+        # print(breaks)
+        # exit()
+        breaks_str = [str(round(i,2)) for i in breaks]
+
+        return breaks,breaks_str
+
+    def __unique_sort_list(self,inlist):
+
+        inlist = list(inlist)
+        inlist = set(inlist)
+        inlist = list(inlist)
+        inlist.sort()
+        return inlist
+
 
 
     def foo(self):
@@ -2326,39 +2407,46 @@ class Analysis:
         # drought_type = 'repetitive_initial'
         # drought_type = 'repetitive_subsequential'
 
-        n = 50
-        # min_precip_var = 'mean_precip_anomaly_in_drought_range'
+        # min_precip_var = 'mean_precip_in_drought_range'
         # min_precip_var = 'mean_soil_in_drought_range'
-        min_precip_var = 'mean_soil_anomaly_in_drought_range'
-        # max_vpd_var = 'max_vpd_anomaly_in_drought_range'
-
-        max_vpd_var = 'mean_vpd_anomaly_in_drought_range'
-        # min_precip_var = 'min_precip_in_drought_range'
+        # min_precip_var = 'mean_soil_in_drought_range'
+        min_precip_var = 'mean_precip_anomaly_in_drought_range'
+        # max_vpd_var = 'max_vpd_in_drought_range'
+        max_vpd_var = 'max_vpd_in_drought_range'
+        # max_vpd_var = 'mean_vpd_anomaly_in_drought_range'
+        # max_vpd_var = 'mean_vpd_in_drought_range'
 
 
         for lc_type in ['Needleleaf', 'Broadleaf']:
             for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
                 df, dff = self.__load_df()
                 df = df.dropna()
-                # df = df[df['recovery_time'] < 12]
+                df = df[df['recovery_time'] < 12]
                 df = df[df['lc_broad_needle'] == lc_type]
                 # df = df[df['drought_type'] != 'single']
                 df = df[df['drought_type'] == drought_type]
                 min_precip_in_drought_range = df[min_precip_var]
                 max_vpd_in_drought_range = df[max_vpd_var]
-                # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
-                precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range,min_v=-2,max_v=2, n=6)
-                # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
+                min_precip_in_drought_range = self.__unique_sort_list(min_precip_in_drought_range)
+                max_vpd_in_drought_range = self.__unique_sort_list(max_vpd_in_drought_range)
+                # precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
+                # precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range, min_v=-2.5,max_v=2.6,step=0.5)
+                precip_bins, precip_bins_str = self.__jenks_breaks(min_precip_in_drought_range, min_v=-2., max_v=0, n=6)
+                # vpd_bins, vpd_bins_str = self.__divide_bins_equal_interval(max_vpd_in_drought_range, min_v=-2.5,max_v=2.6,step=0.5)
+                vpd_bins, vpd_bins_str = self.__jenks_breaks(max_vpd_in_drought_range, min_v=0, max_v=2.5, n=10)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=1, n=10)
-                vpd_bins, vpd_bins_str = self.__divide_bins_equal_interval(max_vpd_in_drought_range, min_v=1,max_v=3, n=9)
+                # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, n=20)
                 print('vpd_bins', vpd_bins)
                 print('precip_bins', precip_bins)
                 plt.figure()
+                count_matrix = []
+                cmap = sns.color_palette("inferno", n_colors=len(precip_bins))
                 for i in tqdm(range(len(precip_bins))):
                     if i + 1 >= len(precip_bins):
                         continue
                     df_p_bin = df[df[min_precip_var] > precip_bins[i]]
                     df_p_bin = df_p_bin[df_p_bin[min_precip_var] < precip_bins[i + 1]]
+                    count_matrix_temp = []
                     x = []
                     y = []
                     for j in range(len(vpd_bins)):
@@ -2366,6 +2454,11 @@ class Analysis:
                             continue
                         df_vpd_bin = df_p_bin[df_p_bin[max_vpd_var] > vpd_bins[j]]
                         df_vpd_bin = df_vpd_bin[df_vpd_bin[max_vpd_var] < vpd_bins[j + 1]]
+                        count = len(df_vpd_bin)
+                        if count<=100:
+                            count_matrix_temp.append(np.nan)
+                            continue
+                        count_matrix_temp.append(count)
                         legacy_i = df_vpd_bin['carbon_loss']
                         legacy_i = -legacy_i
                         mean_legacy = np.mean(legacy_i)
@@ -2377,12 +2470,26 @@ class Analysis:
                     # print(len(x))
                     # print(x)
                     # print(y)
-                    plt.plot(x,y,label='precip '+precip_bins_str[i])
-                    plt.scatter(x,y)
+                    label = min_precip_var
+                    plt.plot(x,y,label=label + ' '+precip_bins_str[i],c=cmap[i])
+                    plt.scatter(x,y,color=cmap[i])
+                    count_matrix.append(count_matrix_temp)
+
                 plt.legend()
-                plt.xlabel('VPD')
+                plt.xlabel(max_vpd_var)
                 plt.ylabel('legacy')
+                plt.ylim(0,8)
                 plt.title(lc_type+' '+drought_type)
+                # plt.xticks(range(len(x))[::2], vpd_bins_str[::2])
+                plt.figure()
+                count_matrix = count_matrix
+                plt.imshow(count_matrix,norm=LogNorm())
+                plt.yticks(range(len(precip_bins))[::2], precip_bins_str[::2])
+                plt.xticks(range(len(vpd_bins_str))[::2], vpd_bins_str[::2])
+                plt.xlabel(max_vpd_var)
+                plt.ylabel(min_precip_var)
+                print('np.sum(count_matrix)',np.nansum(count_matrix))
+                plt.colorbar()
         plt.show()
 
         pass
@@ -2508,12 +2615,12 @@ def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
     # Main_flow_Carbon_loss().run()
-    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # for threshold in ['-1.2','-1.8','-2',]:
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    Analysis().run()
+    # Analysis().run()
     pass
 
 

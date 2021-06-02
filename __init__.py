@@ -53,7 +53,8 @@ import HANTS
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import glob
 from osgeo import osr
-
+from matplotlib.colors import LogNorm
+from jenkspy import JenksNaturalBreaks
 np.seterr('ignore')
 
 def sleep(t=1):

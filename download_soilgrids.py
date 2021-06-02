@@ -222,7 +222,8 @@ def download_invalid_tiles():
 
 
 def main():
-    product_list = ['bdod','cec','phh2o','sand','soc','clay',]
+    product_list = ['nitrogen','ocs','ocd']
+    # product_list = ['bdod','cec','phh2o','sand','soc','clay',]
     layers = [
         '0-5cm_mean',
         '5-15cm_mean',
@@ -242,7 +243,7 @@ def main():
         product = url.split('/')[-2]
         # root_dir = '/Volumes/SSD/soil_test/{}/'.format(product)
         root_dir = '/volume5/4T25/soilgrids/{}/'.format(product)
-        mk_dir(root_dir)
+        mk_dir(root_dir,force=True)
         # 1 generate tiles
         gen_folder_urls(url,root_dir)
         # # 2 generate tifs in each tiles

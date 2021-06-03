@@ -90,9 +90,9 @@ class Main_Flow_Pick_drought_events:
         # threshold = -1.2
         n = 4 * 12
         # self.single_events(n,threshold)
-        # self.repetitive_events(n)
+        self.repetitive_events(n)
         # self.check_single_events()
-        self.check_repetitive_events()
+        # self.check_repetitive_events()
         # self.check_single_and_repetitive_events()
         pass
 
@@ -100,13 +100,16 @@ class Main_Flow_Pick_drought_events:
 
 
     def kernel_repetitive_events(self,parmas):
-        fdir,f,outdir,n,_ = parmas
+        fdir,f,outdir,n,_,product = parmas
         gs_mons = Global_vars().gs_mons()
         single_event_dic = {}
         dic = T.load_npy(fdir + f)
         fname = f.split('/')[-1]
         for pix in dic:
             vals = dic[pix]
+
+            if product == 'VPD':
+                vals = -vals
             # vals_detrend = signal.detrend(vals)
             # vals = vals_detrend
             # print(len(vals))
@@ -185,18 +188,20 @@ class Main_Flow_Pick_drought_events:
         # product = 'SPEI12'
         # fdir = data_root + '{}/per_pix/'.format(product)
 
-        # product = 'VPD'
-        # fdir = data_root + '{}/per_pix_anomaly/'.format(product)
+        product = 'VPD'
+        fdir = data_root + '{}/per_pix_anomaly/'.format(product)
+        # fdir = data_root + '{}/per_pix/'.format(product)
 
-        product = 'Precip'
-        fdir = data_root + 'Precip_terra/per_pix_anomaly/'
+        # product = 'Precip'
+        # fdir = data_root + 'Precip_terra/per_pix_anomaly/'
         outdir = self.this_class_arr + 'repetitive_events_{}_{}/'.format(product,threshold)
         T.mk_dir(outdir, force=True)
 
 
         params = []
         for f in tqdm(os.listdir(fdir)):
-            params.append([fdir,f,outdir,n,threshold])
+            params.append([fdir,f,outdir,n,threshold,product])
+            # self.kernel_repetitive_events([fdir,f,outdir,n,threshold,product])
         MULTIPROCESS(self.kernel_repetitive_events,params).run()
         # arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(spatial_dic)
         # plt.imshow(arr)
@@ -818,7 +823,8 @@ class Main_flow_Carbon_loss:
     def run(self):
         # threshold = '-2'
         # self.single_events(threshold)
-        self.repetitive_events('auto','precip')
+        # self.repetitive_events('auto','precip')
+        self.repetitive_events('auto','VPD')
 
         pass
 
@@ -865,6 +871,13 @@ class Main_flow_Carbon_loss:
         spei_dic = T.load_npy_dir(SPEI_dir,condition)
         sif_dic = T.load_npy_dir(SIF_dir,condition)
 
+        if product == 'VPD':
+            new_spei_dic = {}
+            for pix in spei_dic:
+                vals = spei_dic[pix]
+                new_spei_dic[pix] = -vals
+                # print(vals)
+            spei_dic = new_spei_dic
         return event_dic,spei_dic,sif_dic
         pass
 
@@ -874,7 +887,7 @@ class Main_flow_Carbon_loss:
         # exit()
         # event_start_index = T.pick_min_indx_from_1darray(spei, date_range)
         event_start_index = date_range[0]
-        print(event_start_index)
+        # print(event_start_index)
         event_start_index_trans = self.__drought_indx_to_gs_indx(event_start_index, growing_date_range, len(ndvi))
         # print(event_start_index_trans)
         # exit()
@@ -1329,14 +1342,14 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # 2 add landcover to df
         # df = self.add_landcover_to_df(df)
         # df = self.landcover_compose(df)
-        df = self.add_min_precip_to_df(df)
-        df = self.add_min_precip_anomaly_to_df(df)
-        # df = self.add_max_vpd_to_df(df)
+        # df = self.add_min_precip_to_df(df)
+        # df = self.add_min_precip_anomaly_to_df(df)
+        df = self.add_max_vpd_to_df(df)
         # df = self.add_max_vpd_anomaly_to_df(df)
-        df = self.add_mean_precip_anomaly_to_df(df)
+        # df = self.add_mean_precip_anomaly_to_df(df)
         # df = self.add_mean_vpd_anomaly_to_df(df)
-        df = self.add_mean_precip_to_df(df)
-        # df = self.add_mean_vpd_to_df(df)
+        # df = self.add_mean_precip_to_df(df)
+        df = self.add_mean_vpd_to_df(df)
         # df = self.add_mean_sm_to_df(df)
         # df = self.ad_mean_sm_anomaly_to_df(df)
         # df = self.add_bin_class_to_df(df,bin_var='min_precip_in_drought_range',n=10)
@@ -1426,13 +1439,42 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df_drop_dup.to_excel(self.this_class_arr + 'drop_dup.xlsx')
         pass
 
-    def Carbon_loss_to_df(self,df):
-        single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+
+    def __load_spei_events(self):
+        # single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
         repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events/recovery_time_legacy.pkl'
-        single_events_dic = T.load_dict_from_binary(single_f)
+        # single_events_dic = T.load_dict_from_binary(single_f)
         repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
-        # print(events_dic)
-        # exit()
+
+        return repetitive_events_dic
+
+        pass
+    def __load_precip_events(self):
+        # single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+        repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events_precip_auto/recovery_time_legacy.pkl'
+        # single_events_dic = T.load_dict_from_binary(single_f)
+        repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
+
+        return repetitive_events_dic
+
+        pass
+
+    def __load_vpd_events(self):
+        # single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+        repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events_VPD_auto/recovery_time_legacy.pkl'
+        # single_events_dic = T.load_dict_from_binary(single_f)
+        repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
+
+        return repetitive_events_dic
+
+        pass
+
+    def Carbon_loss_to_df(self,df):
+
+        repetitive_events_dic_spei12 = self.__load_spei_events()
+        repetitive_events_dic_precip = self.__load_precip_events()
+        repetitive_events_dic_vpd = self.__load_vpd_events()
+
         pix_list = []
         recovery_time_list = []
         drought_event_date_range_list = []
@@ -1440,26 +1482,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         legacy_list = []
         drought_type = []
 
-        for pix in tqdm(single_events_dic,desc='single events carbon loss'):
-            events = single_events_dic[pix]
-            for event in events:
-                recovery_time = event['recovery_time']
-                drought_event_date_range = event['drought_event_date_range']
-                recovery_date_range = event['recovery_date_range']
-                legacy = event['carbon_loss']
 
-                drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(drought_event_date_range)
-                recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(recovery_date_range)
-
-                pix_list.append(pix)
-                recovery_time_list.append(recovery_time)
-                drought_event_date_range_list.append(tuple(drought_event_date_range))
-                recovery_date_range_list.append(tuple(recovery_date_range))
-                legacy_list.append(legacy)
-                drought_type.append('single')
-
-        for pix in tqdm(repetitive_events_dic,desc='repetitive events carbon loss'):
-            events = repetitive_events_dic[pix]
+        for pix in tqdm(repetitive_events_dic_spei12,desc='spei12'):
+            events = repetitive_events_dic_spei12[pix]
             if len(events) == 0:
                 continue
             for repetetive_event in events:
@@ -1477,7 +1502,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
                 recovery_date_range_list.append(tuple(initial_recovery_date_range))
                 legacy_list.append(initial_legacy)
-                drought_type.append('repetitive_initial')
+                drought_type.append('repetitive_initial_spei12')
 
                 subsequential_event = repetetive_event[1]
                 subsequential_recovery_time = subsequential_event['recovery_time']
@@ -1493,7 +1518,81 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
                 recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
                 legacy_list.append(subsequential_legacy)
-                drought_type.append('repetitive_subsequential')
+                drought_type.append('repetitive_subsequential_spei12')
+
+        for pix in tqdm(repetitive_events_dic_precip,desc='precip'):
+            events = repetitive_events_dic_precip[pix]
+            if len(events) == 0:
+                continue
+            for repetetive_event in events:
+                initial_event = repetetive_event[0]
+
+                initial_recovery_time = initial_event['recovery_time']
+                initial_drought_event_date_range = initial_event['drought_event_date_range']
+                initial_recovery_date_range = initial_event['recovery_date_range']
+                initial_legacy = initial_event['carbon_loss']
+                initial_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_drought_event_date_range)
+                initial_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(initial_recovery_time)
+                drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
+                recovery_date_range_list.append(tuple(initial_recovery_date_range))
+                legacy_list.append(initial_legacy)
+                drought_type.append('repetitive_initial_precip')
+
+                subsequential_event = repetetive_event[1]
+                subsequential_recovery_time = subsequential_event['recovery_time']
+                subsequential_drought_event_date_range = subsequential_event['drought_event_date_range']
+                subsequential_recovery_date_range = subsequential_event['recovery_date_range']
+                subsequential_legacy = subsequential_event['carbon_loss']
+                subsequential_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(
+                    subsequential_drought_event_date_range)
+                subsequential_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(subsequential_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(subsequential_recovery_time)
+                drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
+                recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
+                legacy_list.append(subsequential_legacy)
+                drought_type.append('repetitive_subsequential_precip')
+
+        for pix in tqdm(repetitive_events_dic_vpd,desc='vpd'):
+            events = repetitive_events_dic_vpd[pix]
+            if len(events) == 0:
+                continue
+            for repetetive_event in events:
+                initial_event = repetetive_event[0]
+
+                initial_recovery_time = initial_event['recovery_time']
+                initial_drought_event_date_range = initial_event['drought_event_date_range']
+                initial_recovery_date_range = initial_event['recovery_date_range']
+                initial_legacy = initial_event['carbon_loss']
+                initial_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_drought_event_date_range)
+                initial_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(initial_recovery_time)
+                drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
+                recovery_date_range_list.append(tuple(initial_recovery_date_range))
+                legacy_list.append(initial_legacy)
+                drought_type.append('repetitive_initial_vpd')
+
+                subsequential_event = repetetive_event[1]
+                subsequential_recovery_time = subsequential_event['recovery_time']
+                subsequential_drought_event_date_range = subsequential_event['drought_event_date_range']
+                subsequential_recovery_date_range = subsequential_event['recovery_date_range']
+                subsequential_legacy = subsequential_event['carbon_loss']
+                subsequential_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(
+                    subsequential_drought_event_date_range)
+                subsequential_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(subsequential_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(subsequential_recovery_time)
+                drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
+                recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
+                legacy_list.append(subsequential_legacy)
+                drought_type.append('repetitive_subsequential_vpd')
 
 
         df['pix'] = pix_list
@@ -2131,11 +2230,14 @@ class Analysis:
         # self.foo2()
         # self.foo()
         # self.foo3()
-        self.decouple_precip_vpd()
+        # self.decouple_precip_vpd()
         # self.decouple_vpd_precip()
         # self.precip_hist()
         # self.extreme_vpd_precip()
         # self.matrix()
+        # self.tree_types_of_drought_type_overview()
+        self.vpd_line()
+
         pass
 
     def __load_df(self):
@@ -2155,6 +2257,8 @@ class Analysis:
             raise UserWarning('step or n is required')
         if n == None:
             d = np.arange(start=min_v,step=step,stop=max_v)
+            d = list(d)
+            d.append(max_v)
             if include_external:
                 print(d)
                 print('n=None')
@@ -2431,9 +2535,9 @@ class Analysis:
                 max_vpd_in_drought_range = self.__unique_sort_list(max_vpd_in_drought_range)
                 # precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
                 # precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range, min_v=-2.5,max_v=2.6,step=0.5)
-                precip_bins, precip_bins_str = self.__jenks_breaks(min_precip_in_drought_range, min_v=-2., max_v=0, n=6)
+                precip_bins, precip_bins_str = self.__divide_bins_equal_interval(min_precip_in_drought_range, min_v=-2., max_v=2, n=6)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_equal_interval(max_vpd_in_drought_range, min_v=-2.5,max_v=2.6,step=0.5)
-                vpd_bins, vpd_bins_str = self.__jenks_breaks(max_vpd_in_drought_range, min_v=0, max_v=2.5, n=10)
+                vpd_bins, vpd_bins_str = self.__jenks_breaks(max_vpd_in_drought_range, min_v=0, max_v=3, n=10)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=1, n=10)
                 # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, n=20)
                 print('vpd_bins', vpd_bins)
@@ -2455,9 +2559,9 @@ class Analysis:
                         df_vpd_bin = df_p_bin[df_p_bin[max_vpd_var] > vpd_bins[j]]
                         df_vpd_bin = df_vpd_bin[df_vpd_bin[max_vpd_var] < vpd_bins[j + 1]]
                         count = len(df_vpd_bin)
-                        if count<=100:
-                            count_matrix_temp.append(np.nan)
-                            continue
+                        # if count<=100:
+                        #     count_matrix_temp.append(np.nan)
+                        #     continue
                         count_matrix_temp.append(count)
                         legacy_i = df_vpd_bin['carbon_loss']
                         legacy_i = -legacy_i
@@ -2478,7 +2582,7 @@ class Analysis:
                 plt.legend()
                 plt.xlabel(max_vpd_var)
                 plt.ylabel('legacy')
-                plt.ylim(0,8)
+                plt.ylim(0,5)
                 plt.title(lc_type+' '+drought_type)
                 # plt.xticks(range(len(x))[::2], vpd_bins_str[::2])
                 plt.figure()
@@ -2611,16 +2715,192 @@ class Analysis:
         plt.title(title)
         plt.show()
 
+    def tree_types_of_drought_type_overview(self):
+        df,dff = self.__load_df()
+        # product = 'vpd'
+        product = 'precip'
+        # product = 'spei12'
+        df_vpd_initial = df[df['drought_type']=='repetitive_initial_{}'.format(product)]
+        df_vpd_subseq = df[df['drought_type']=='repetitive_subsequential_{}'.format(product)]
+
+        df_vpd_initial_needle = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Needleleaf']
+        df_vpd_initial_broad = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Broadleaf']
+
+        df_vpd_subseq_needle = df_vpd_subseq[df_vpd_subseq['lc_broad_needle'] == 'Needleleaf']
+        df_vpd_subseq_broad = df_vpd_subseq[df_vpd_subseq['lc_broad_needle'] == 'Broadleaf']
+
+        carbonloss_df_vpd_initial_needle = df_vpd_initial_needle['carbon_loss'].tolist()
+        carbonloss_df_vpd_initial_broad = df_vpd_initial_broad['carbon_loss'].tolist()
+        carbonloss_df_vpd_subseq_needle = df_vpd_subseq_needle['carbon_loss'].tolist()
+        carbonloss_df_vpd_subseq_broad = df_vpd_subseq_broad['carbon_loss'].tolist()
+
+        boxes = [
+            carbonloss_df_vpd_initial_broad,
+            carbonloss_df_vpd_subseq_broad,
+            carbonloss_df_vpd_initial_needle,
+            carbonloss_df_vpd_subseq_needle,
+                 ]
+        boxes_labels = [
+            'carbonloss_df_{}_initial_broad'.format(product),
+            'carbonloss_df_{}_subseq_broad'.format(product),
+            'carbonloss_df_{}_initial_needle'.format(product),
+            'carbonloss_df_{}_subseq_needle'.format(product),
+                 ]
+        # plt.boxplot(boxes,labels=boxes_labels,showfliers=False)
+        # plt.show()
+        mean_list = []
+        error_list = []
+        for b in boxes:
+            mean = np.mean(b)
+            mean = -mean
+            error = np.std(b)/2.
+            error_list.append(error)
+            mean_list.append(mean)
+        # print(stats.f_oneway(carbonloss_df_vpd_initial_broad,
+        #     carbonloss_df_vpd_subseq_broad,))
+        plt.bar(boxes_labels,mean_list,yerr=error_list)
+        plt.show()
+
+        # print(len(df_vpd_initial))
+
+        # for i,row in tqdm(df.iterrows(),total=len(df)):
+        #     pass
+
+        pass
+
+    def vpd_line(self):
+
+        df,dff = self.__load_df()
+        # product = 'precip'
+        product = 'spei12'
+        vpd_var = 'max_vpd_in_drought_range'
+        df_initial = df[df['drought_type']=='repetitive_initial_{}'.format(product)]
+        df_subseq = df[df['drought_type']=='repetitive_subsequential_{}'.format(product)]
+
+        df_initial_needle = df_initial[df_initial['lc_broad_needle']=='Needleleaf']
+        df_initial_broad = df_initial[df_initial['lc_broad_needle']=='Broadleaf']
+
+        df_subseq_needle = df_subseq[df_subseq['lc_broad_needle'] == 'Needleleaf']
+        df_subseq_broad = df_subseq[df_subseq['lc_broad_needle'] == 'Broadleaf']
+
+        # carbonloss_df_initial_needle = df_initial_needle['carbon_loss'].tolist()
+        # carbonloss_df_initial_broad = df_initial_broad['carbon_loss'].tolist()
+        # carbonloss_df_subseq_needle = df_subseq_needle['carbon_loss'].tolist()
+        # carbonloss_df_subseq_broad = df_subseq_broad['carbon_loss'].tolist()
+
+        # self.__plot_line(df_initial_needle,vpd_var,'df_initial_needle')
+        # self.__plot_line(df_initial_broad,vpd_var,'df_initial_broad')
+        self.__plot_line(df_subseq_needle,vpd_var,'df_subseq_needle')
+        # self.__plot_line(df_subseq_broad,vpd_var,'df_subseq_broad')
+
+    def __plot_line(self,df,vpd_var,title):
+        # print(len(carbonloss_df_initial_broad))
+        # carbon_loss = df['carbon_loss'].tolist()
+        # carbon_loss = np.array(carbon_loss)
+        # carbon_loss = -carbon_loss
+        vpd_df_initial_needle = df[vpd_var].tolist()
+        bins,bins_str = self.__divide_bins_equal_interval(vpd_df_initial_needle,min_v=0,max_v=3,n=10)
+        boxes = []
+        bars = []
+        bars_err = []
+        for i in tqdm(range(len(bins))):
+            if i + 1 >= len(bins):
+                continue
+            df_bin = df[df[vpd_var] > bins[i]]
+            df_bin = df_bin[df_bin[vpd_var] < bins[i + 1]]
+            carbon_loss = df_bin['carbon_loss'].tolist()
+            carbon_loss = np.array(carbon_loss)
+            carbon_loss = -carbon_loss
+            boxes.append(carbon_loss)
+            bars.append(np.mean(carbon_loss))
+            err = np.std(carbon_loss)
+            bars_err.append(err)
+
+        # print(len(boxes))
+        # print(len(bins_str))
+        plt.boxplot(boxes,labels=bins_str[:-1],showfliers=False)
+        plt.title(title)
+
+        plt.figure()
+        plt.bar(bins_str[:-1],bars,yerr=bars_err)
+        plt.title(title)
+        plt.show()
+
+class Check:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        self.foo()
+        pass
+
+
+    def foo(self):
+        repetitive_f = Main_flow_Carbon_loss().this_class_arr + \
+                       'gen_recovery_time_legacy_repetitive_events_VPD_auto/recovery_time_legacy.pkl'
+        repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
+
+        pix_list = []
+        recovery_time_list = []
+        drought_event_date_range_list = []
+        recovery_date_range_list = []
+        legacy_list = []
+        drought_type = []
+
+
+        for pix in tqdm(repetitive_events_dic,desc='repetitive events carbon loss'):
+            events = repetitive_events_dic[pix]
+            if len(events) == 0:
+                continue
+            for repetetive_event in events:
+                initial_event = repetetive_event[0]
+
+                initial_recovery_time = initial_event['recovery_time']
+                initial_drought_event_date_range = initial_event['drought_event_date_range']
+                initial_recovery_date_range = initial_event['recovery_date_range']
+                initial_legacy = initial_event['carbon_loss']
+                initial_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_drought_event_date_range)
+                initial_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(initial_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(initial_recovery_time)
+                drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
+                recovery_date_range_list.append(tuple(initial_recovery_date_range))
+                legacy_list.append(initial_legacy)
+                drought_type.append('repetitive_initial')
+
+                subsequential_event = repetetive_event[1]
+                subsequential_recovery_time = subsequential_event['recovery_time']
+                subsequential_drought_event_date_range = subsequential_event['drought_event_date_range']
+                subsequential_recovery_date_range = subsequential_event['recovery_date_range']
+                subsequential_legacy = subsequential_event['carbon_loss']
+                subsequential_drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(
+                    subsequential_drought_event_date_range)
+                subsequential_recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(subsequential_recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(subsequential_recovery_time)
+                drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
+                recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
+                legacy_list.append(subsequential_legacy)
+                drought_type.append('repetitive_subsequential')
+
+        pass
+
+
 def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
     # Main_flow_Carbon_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # for threshold in ['-1.2','-1.8','-2',]:
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    # Analysis().run()
+    Analysis().run()
+    # Check().run()
     pass
 
 

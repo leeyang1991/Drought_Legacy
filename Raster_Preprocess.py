@@ -766,7 +766,7 @@ class Soilgrids:
 
     def run(self):
 
-        # father_dir = '/Volumes/Seagate_5T/Soilgrids/'
+        father_dir = '/Volumes/SSD/soil_test/'
 
         # step 1: check all tif
         # params = []
@@ -788,7 +788,8 @@ class Soilgrids:
 
         # step 3: mosaic tiles to tifs
         #           and mosaic tifs to global
-        # for fdir in os.listdir(father_dir):
+        # for fdir in sorted(os.listdir(father_dir)):
+        #     print(fdir)
         #     if fdir.startswith('.'):
         #         continue
         #     fdir = father_dir + fdir + '/'
@@ -803,7 +804,7 @@ class Soilgrids:
         #         continue
         #     fdir_i = father_dir + fdir + '/'
         #     tif = fdir_i + 'step2/global_5000m.tif'
-        #     res = 0.05
+        #     res = 0.5
         #     outtif = fdir_i + 'step2/global_5000m_84_{}.tif'.format(res)
         #     self.re_projection(tif,outtif,res=res)
 
@@ -812,14 +813,14 @@ class Soilgrids:
         #     if fdir.startswith('.'):
         #         continue
         #     fdir_i = father_dir + fdir + '/'
-        #     res = 0.05
+        #     res = 0.5
         #     tif = fdir_i + 'step2/global_5000m_84_{}.tif'.format(res)
         #     outtif = fdir_i + 'step2/global_5000m_84_{}_unify.tif'.format(res)
         #     self.unify_raster(tif,outtif)
             # exit()
 
 
-        # self.copy_result()
+        # self.copy_result(father_dir)
 
         pass
 
@@ -864,6 +865,8 @@ class Soilgrids:
     def mosaic_tiles_i(self, params):
         from osgeo.utils import gdal_merge
         in_dir, out_tif = params
+        if os.path.isfile(out_tif):
+            return None
         in_dir = in_dir + '/'
         # forked from https://www.neonscience.org/merge-lidar-geotiff-py
         # GDAL mosaic
@@ -880,6 +883,8 @@ class Soilgrids:
             files_to_mosaic.append(in_dir + f)
         # print(files_to_mosaic)
         # exit()
+        if len(files_to_mosaic) == 0:
+            return None
         files_string = " ".join(files_to_mosaic)
         command = "{} {} -o {} -of gtiff -ot Int16 ".format(anaconda_python_path, gdal_script, out_tif) + files_string
         print(command)
@@ -928,7 +933,10 @@ class Soilgrids:
         # outdir = data_root + 'Soilgrids/mosaic_step2/'
         T.mk_dir(outdir)
         res = 5000 # unit meters
-        self.mosaic_tiles_i_step2([step1_dir,outdir+'global_{}m.tif'.format(res),res])
+        outtif = outdir+'global_{}m.tif'.format(res)
+        if os.path.isfile(outtif):
+            return None
+        self.mosaic_tiles_i_step2([step1_dir,outtif,res])
 
         pass
 
@@ -1057,12 +1065,12 @@ class Soilgrids:
         to_raster.array2raster(newRasterfn,-180,90,pixelWidth,pixelHeight,array_unify_1)
         pass
 
-    def copy_result(self):
-        father_dir = '/Volumes/Seagate_5T/Soilgrids/'
-        outdir = '/Volumes/SSD/drought_legacy_new/data/Soilgrids/soilgrids_global_005_unify/'
+    def copy_result(self,father_dir):
+        # father_dir = '/Volumes/Seagate_5T/Soilgrids/'
+        outdir = '/Users/wenzhang/Desktop/soilgrids_0603/'
         T.mk_dir(outdir)
         for product in tqdm(T.list_dir(father_dir)):
-            f = os.path.join(father_dir,product,'step2','global_5000m_84_0.05_unify.tif')
+            f = os.path.join(father_dir,product,'step2','global_5000m_84_0.5_unify.tif')
             shutil.copy(f,outdir + product + '.tif')
 
         pass
@@ -2035,14 +2043,14 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    # Soilgrids().run()
+    Soilgrids().run()
     # Terra_climate().run()
     # CSIF_005().run()
     # Landcover().run()
     # CWD().run()
     # SPEI12().run()
     # VPD().run()
-    Precip().run()
+    # Precip().run()
     # Soil_terra().run()
     pass
 

@@ -222,27 +222,31 @@ def download_invalid_tiles():
 
 
 def main():
-    product_list = ['nitrogen','ocs','ocd']
+    # product_list = ['nitrogen','ocs','ocd']
+    product_list = ['ocs']
     # product_list = ['bdod','cec','phh2o','sand','soc','clay',]
-    layers = [
-        '0-5cm_mean',
-        '5-15cm_mean',
-        '15-30cm_mean',
-        '30-60cm_mean',
-        '60-100cm_mean',
-        '100-200cm_mean',
-    ]
+    layers = ['0-30cm_mean']
+    # layers = [
+    #     '0-5cm_mean',
+    #     '5-15cm_mean',
+    #     '15-30cm_mean',
+    #     '30-60cm_mean',
+    #     '60-100cm_mean',
+    #     '100-200cm_mean',
+    # ]
 
     url_list = []
     for p in product_list:
         for l in layers:
             url = 'https://files.isric.org/soilgrids/latest/data/{}/{}_{}/'.format(p,p,l)
-            print(url)
+            # print(url)
+            # print('https://files.isric.org/soilgrids/latest/data/ocs/ocs_0-30cm_mean/')
             url_list.append(url)
+    # exit()
     for url in url_list:
         product = url.split('/')[-2]
-        # root_dir = '/Volumes/SSD/soil_test/{}/'.format(product)
-        root_dir = '/volume5/4T25/soilgrids/{}/'.format(product)
+        root_dir = '/Volumes/SSD/soil_test/{}/'.format(product)
+        # root_dir = '/volume5/4T25/soilgrids/{}/'.format(product)
         mk_dir(root_dir,force=True)
         # 1 generate tiles
         gen_folder_urls(url,root_dir)

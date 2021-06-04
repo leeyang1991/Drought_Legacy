@@ -8,8 +8,8 @@ class Tools:
     '''
 
     def __init__(self):
-        self.this_class_arr = results_root + 'arr/Tools/'
-        self.mk_dir(self.this_class_arr, force=True)
+        # self.this_class_arr = results_root + 'arr/Tools/'
+        # self.mk_dir(self.this_class_arr, force=True)
         pass
 
     def mk_dir(self, dir, force=False):
@@ -866,6 +866,7 @@ class DIC_and_TIF:
     def spatial_tif_to_dic(self,tif):
 
         arr = to_raster.raster2array(tif)[0]
+        arr = np.array(arr,dtype=float)
         Tools().mask_999999_arr(arr)
         dic = self.spatial_arr_to_dic(arr)
         return dic

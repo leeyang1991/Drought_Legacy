@@ -69,7 +69,7 @@ def pause():
 this_root = '/Volumes/SSD/drought_legacy_new/'
 data_root = this_root + 'data/'
 results_root = this_root + 'results/'
-results_root_main_flow = this_root + 'main_flow_results/'
+# results_root_main_flow = this_root + 'main_flow_results/'
 # from HANTS import *
 
 # plt.rcParams['font.sans-serif'] = ['STHeiti']

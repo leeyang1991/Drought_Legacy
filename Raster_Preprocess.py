@@ -1334,6 +1334,7 @@ class Terra_climate:
                 # exit()
 
 
+
     def resample(self):
         # fdir = data_root + 'CWD/PET_terra/tif/'
         # outdir = data_root + 'CWD/PET_terra/tif_005/'
@@ -1975,6 +1976,85 @@ class Soil_terra:
             plt.show()
 
         pass
+class PET_terra:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        # self.per_pix()
+        self.anomaly()
+        # self.check_per_pix()
+        pass
+
+
+    def per_pix(self):
+        fdir = data_root + 'CWD/PET_terra/tif_005/'
+        outdir = data_root + 'CWD/PET_terra/per_pix/'
+        T.mk_dir(outdir)
+        valid_spatial_dic_f = Landcover().forest_spatial_dic_f
+        valid_spatial_dic = T.load_npy(valid_spatial_dic_f)
+        template_tif = Global_vars().tif_template_7200_3600
+        template_arr = to_raster.raster2array(template_tif)[0]
+        row = len(template_arr)
+        col = len(template_arr[0])
+        arr_list = []
+        for f in tqdm(sorted(os.listdir(fdir)),desc='loading data'):
+            arr = to_raster.raster2array(fdir + f)[0]
+            arr_list.append(arr)
+        spatial_dic = {}
+        for pix in valid_spatial_dic:
+            spatial_dic[pix] = []
+        for r in tqdm(tqdm(range(row)),desc='transforming...'):
+            for c in range(col):
+                pix = (r,c)
+                if not pix in valid_spatial_dic:
+                    continue
+                for i in range(len(arr_list)):
+                    val = arr_list[i][r][c]
+                    spatial_dic[pix].append(val)
+
+        flag = 0
+        temp_dic = {}
+        for key in tqdm(spatial_dic, 'saving...'):
+            flag += 1
+            # print('saving ',flag,'/',len(void_dic)/100000)
+            arr = spatial_dic[key]
+            arr = np.array(arr)
+            temp_dic[key] = arr
+            if flag % 10000 == 0:
+                # print('\nsaving %02d' % (flag / 10000)+'\n')
+                np.save(outdir + 'per_pix_dic_%03d' % (flag / 10000), temp_dic)
+                temp_dic = {}
+        np.save(outdir + 'per_pix_dic_%03d' % 0, temp_dic)
+
+    def anomaly(self):
+        fdir = data_root + 'terraclimate/soil/per_pix/'
+        outdir = data_root + 'terraclimate/soil/per_pix_anomaly/'
+        Pre_Process().cal_anomaly(fdir,outdir)
+        # DIC_and_TIF(Global_vars().tif_template_7200_3600).per_pix_animate(fdir,condition='005')
+        # for f in os.listdir(fdir):
+        #     dic = T.load_npy(fdir + f)
+        pass
+
+    def check_per_pix(self):
+        fdir = data_root + 'terraclimate/soil/per_pix/'
+        for f in T.list_dir(fdir):
+            print(f)
+            dic = T.load_npy(fdir + f)
+            flag = 0
+            matrix = []
+            for pix in dic:
+                vals = dic[pix]
+                flag += 1
+                if flag == len(vals):
+                    break
+                matrix.append(vals)
+            plt.imshow(matrix)
+            plt.show()
+
+        pass
 
 class VPD:
     def __init__(self):
@@ -2035,6 +2115,43 @@ class VPD:
         #     dic = T.load_npy(fdir + f)
         pass
 
+
+class Water_balance:
+
+    def __init__(self):
+
+        pass
+
+    def run(self):
+        self.cal_water_balance()
+        pass
+
+    def cal_water_balance(self):
+        gs_mons = Global_vars().gs_mons()
+        precip_dir = data_root + 'Precip_terra/per_pix/'
+        pet_dir = data_root + 'CWD/PET_terra/per_pix/'
+        outdir = data_root + 'Water_balance/'
+        T.mk_dir(outdir)
+        spatial_dic = {}
+        for f in tqdm(T.list_dir(precip_dir)):
+            pre_dic = T.load_npy(precip_dir + f)
+            pet_dic = T.load_npy(pet_dir + f)
+            for pix in pre_dic:
+                pre = pre_dic[pix]
+                pet = pet_dic[pix]
+                pre_gs = []
+                pet_gs = []
+                for i in range(len(pre)):
+                    mon = i % 12 + 1
+                    if mon in gs_mons:
+                        pre_gs.append(pre[i])
+                        pet_gs.append(pet[i])
+                MAP = np.mean(pre_gs)
+                MA_PET = np.mean(pet_gs)
+                wb = MAP / MA_PET
+                spatial_dic[pix] = wb
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_tif(spatial_dic,outdir + 'Aridity_Index.tif')
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -2043,7 +2160,7 @@ def main():
     # NDVI().run()
     # Climate().run()
     # SM().run()
-    Soilgrids().run()
+    # Soilgrids().run()
     # Terra_climate().run()
     # CSIF_005().run()
     # Landcover().run()
@@ -2052,6 +2169,8 @@ def main():
     # VPD().run()
     # Precip().run()
     # Soil_terra().run()
+    # PET_terra().run()
+    Water_balance().run()
     pass
 
 

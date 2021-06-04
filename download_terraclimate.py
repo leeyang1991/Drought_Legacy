@@ -9,16 +9,17 @@ import analysis
 from __init__ import *
 
 year = []
-for y in range(2002,2019):
+for y in range(2003,2019):
     year.append(str(y))
 
 def download(y):
-    outdir = '/Volumes/SSD/drought_legacy_new/terraclimate/soil/nc/'
+    outdir = '/Volumes/SSD/drought_legacy_new/data/PET/nc/'
     T.mk_dir(outdir,force=True)
-    product = 'soil'
+    product = 'pet'
     # url = 'https://climate.northwestknowledge.net/TERRACLIMATE-DATA/TerraClimate_pet_{}.nc'.format(y)
     # url = 'https://climate.northwestknowledge.net/TERRACLIMATE-DATA/TerraClimate_ppt_{}.nc'.format(y)
     # url = 'https://climate.northwestknowledge.net/TERRACLIMATE-DATA/TerraClimate_vpd_{}.nc'.format(y)
+    # url = 'https://climate.northwestknowledge.net/TERRACLIMATE-DATA/TerraClimate_{}_{}.nc'.format(product,y)
     url = 'https://climate.northwestknowledge.net/TERRACLIMATE-DATA/TerraClimate_{}_{}.nc'.format(product,y)
     print(url)
     while 1:

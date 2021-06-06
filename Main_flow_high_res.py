@@ -2447,9 +2447,13 @@ class Analysis:
             if i + 1 >= len(d):
                 break
             d_str.append('{}-{}'.format(round(d[i], round_),round(d[i+1], round_)))
-        # print d_str
-        # exit()
-        return d,d_str
+        d_mean = []
+        for i in range(len(d)):
+            if i + 1 >= len(d):
+                break
+            mean_i = (d[i + 1] + d[i]) / 2.
+            d_mean.append(mean_i)
+        return d,d_str,d_mean
         pass
 
 
@@ -2465,14 +2469,24 @@ class Analysis:
         arr = T.remove_np_nan(arr)
 
         d_str = []
-        quantiles = []
+        d = []
         for i in range(n):
             q_i = float(i)/float(n)
             q = np.quantile(arr,q_i)
-            quantiles.append(q)
-        for i in quantiles:
-            d_str.append('{}'.format(round(i, round_)))
-        return quantiles,d_str
+            d.append(q)
+        d.append(max_v)
+        d_str = []
+        for i in range(len(d)):
+            if i + 1 >= len(d):
+                break
+            d_str.append('{}-{}'.format(round(d[i], round_), round(d[i + 1], round_)))
+        d_mean = []
+        for i in range(len(d)):
+            if i + 1 >= len(d):
+                break
+            mean_i = (d[i+1] + d[i])/2.
+            d_mean.append(mean_i)
+        return d,d_str,d_mean
         pass
 
     def __jenks_breaks(self,arr,min_v=0.,max_v=1.,n=10):
@@ -2498,7 +2512,13 @@ class Analysis:
         # print(breaks)
         # exit()
         breaks_str = [str(round(i,2)) for i in breaks]
-
+        d_mean = []
+        d = breaks
+        for i in range(len(d)):
+            if i + 1 >= len(d):
+                break
+            mean_i = (d[i + 1] + d[i]) / 2.
+            d_mean.append(mean_i)
         return breaks,breaks_str
 
     def __unique_sort_list(self,inlist):
@@ -3028,37 +3048,101 @@ class Analysis:
         plt.show()
 
 
+    def __normalize(self,vals):
+        min_v = np.min(vals)
+        max_v = np.max(vals)
+        normalized_list = []
+        for i in vals:
+            norm = (i - min_v)/max_v
+            normalized_list.append(norm)
+        return normalized_list
+
     def AI_bins(self):
-        df,dff = self.__load_df()
-        df = df[df['lat']>23]
-        df = df[df['recovery_time']<10]
-        df = df[df['lc_broad_needle']=='Needleleaf']
-        # df = df[df['lc_broad_needle']=='Broadleaf']
-        # df = df[df['drought_type']=='repetitive_initial_spei12']
-        df = df[df['drought_type']=='repetitive_subsequential_spei12']
+        # lc_type_dic = {'EBF','DBF','ENF','DNF',}
+        # for lc_broad_needle in lc_type_dic:
+        color_list = sns.color_palette('muted')
+        color_list = sns.color_palette('dark')
+        color_list_line = sns.color_palette('colorblind')
+        # color_list = sns.color_palette('Paired',n_colors=4)
 
+        color_flag = -1
+        for lc_broad_needle in ['Needleleaf','Broadleaf']:
+            for drought_type in ['repetitive_initial_spei12','repetitive_subsequential_spei12']:
+                color_flag += 1
+                title = '{}\n{}'.format(lc_broad_needle,drought_type)
+                print(title)
+                df,dff = self.__load_df()
+                df = df[df['lat']>23]
+                df = df[df['recovery_time']<10]
+                df = df[df['lc_broad_needle']==lc_broad_needle]
+                # df = df[df['lc']==lc_broad_needle]
+                df = df[df['drought_type']==drought_type]
+                waterbalance = df['water_balance']
+                # plt.hist(waterbalance,bins=80)
+                # plt.show()
+                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(waterbalance,min_v=0.2,max_v=2,n=100)
+                # bins,bins_str,bins_mean = self.__divide_bins_quantile(waterbalance,min_v=0.,max_v=2,n=100)
+                # print(bins)
+                # print(bins_str)
+                # exit()
+                mean_list = []
+                events_number = []
+                boxes = []
+                err_list = []
+                for i in tqdm(range(len(bins))):
+                    if i + 1 >= len(bins):
+                        break
+                    df_wb = df[df['water_balance']>bins[i]]
+                    df_wb = df_wb[df_wb['water_balance']<bins[i+1]]
+                    carbonloss = df_wb['carbon_loss_'].tolist()
+                    events_number.append(len(carbonloss))
+                    bar = np.mean(carbonloss)
+                    err = np.std(carbonloss)/6.
+                    mean_list.append(bar)
+                    err_list.append(err)
+                    boxes.append(carbonloss)
+                mean_list = np.array(mean_list)
+                err_list = np.array(err_list)
+                err_list = SMOOTH().smooth_convolve(err_list,window_len=11)
+                mean_list = SMOOTH().smooth_convolve(mean_list,window_len=11)[:-1]
 
-        waterbalance = df['water_balance']
-        # plt.hist(waterbalance,bins=80)
-        # plt.show()
-        bins,bins_str = self.__divide_bins_equal_interval(waterbalance,min_v=0.,max_v=2,n=20)
-        bars = []
-        events_number = []
-        boxes = []
-        for i in tqdm(range(len(bins))):
-            if i + 1 >= len(bins):
-                break
-            df_wb = df[df['water_balance']>bins[i]]
-            df_wb = df_wb[df_wb['water_balance']<bins[i+1]]
-            carbonloss = df_wb['carbon_loss_'].tolist()
-            events_number.append(len(carbonloss))
-            bar = np.mean(carbonloss)
-            bars.append(bar)
-            boxes.append(carbonloss)
-        # plt.bar(bins_str,bars)
-        plt.boxplot(boxes,labels=bins_str,showfliers=False)
-        plt.twinx()
-        plt.plot(events_number,zorder=99,c='r')
+                plt.plot(bins_mean,mean_list,label=title,c=color_list_line[color_flag],linewidth=3,zorder=99)
+                # plt.scatter(bins_mean[::5],mean_list[::5],label=title,c=color_list_line[color_flag],zorder=100)
+                # plt.errorbar(bins_me`an,mean_list,yerr=err_list)
+                color_gradient_n = 200
+                alpha_range_ = np.linspace(0,0.6,int(color_gradient_n/2))
+                # alpha_range_ = np.logspace(0,1,int(color_gradient_n/2))
+                # alpha_range_ = self.__normalize(alpha_range_)
+                # print(alpha_range_)
+                # exit()
+                alpha_range__ = alpha_range_[::-1]
+                alpha_range = np.hstack((alpha_range_,alpha_range__))
+                bottom = []
+                top = []
+                for i in range(len(mean_list)):
+                    b = mean_list[i] - err_list[i]
+                    t = mean_list[i] + err_list[i]
+                    bins_i = np.linspace(b,t,color_gradient_n)
+                    bottom_i = []
+                    top_i = []
+                    for j in range(len(bins_i)):
+                        if j + 1 >= len(bins_i):
+                            break
+                        bottom_i.append(bins_i[j])
+                        top_i.append(bins_i[j+1])
+                    bottom.append(bottom_i)
+                    top.append(top_i)
+                # plt.imshow(bottom)
+                # plt.show()
+                bottom = np.array(bottom)
+                top = np.array(top)
+                bottom = bottom.T
+                top = top.T
+                for i in range(color_gradient_n-1):
+                    plt.fill_between(bins_mean,bottom[i],top[i],alpha=alpha_range[i],zorder=-99,color=color_list[color_flag],edgecolor=None)
+                # plt.ylim(0,4)
+                # plt.title(title)
+        plt.legend()
         plt.show()
 
 

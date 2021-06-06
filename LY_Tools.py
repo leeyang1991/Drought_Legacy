@@ -842,7 +842,8 @@ class DIC_and_TIF:
         pass
 
     def spatial_tif_to_lon_lat_dic(self):
-        outf = self.this_class_arr + 'pix_to_lon_lat_dic.npy'
+        prefix = self.tif_template.split('/')[-1].split('.')[0]
+        outf = self.this_class_arr + '{}_pix_to_lon_lat_dic.npy'.format(prefix)
         if os.path.isfile(outf):
             dic = Tools().load_npy(outf)
             return dic
@@ -852,7 +853,7 @@ class DIC_and_TIF:
             # print(originX, originY, pixelWidth, pixelHeight)
             # exit()
             pix_to_lon_lat_dic = {}
-            for i in tqdm(list(range(len(arr)))):
+            for i in tqdm(list(range(len(arr))),desc='tif_to_lon_lat_dic'):
                 for j in range(len(arr[0])):
                     pix = (i, j)
                     lon = originX + pixelWidth * j

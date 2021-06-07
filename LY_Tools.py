@@ -1645,6 +1645,44 @@ class Pre_Process:
         pass
 
 
+class Plot_line:
+    def __init__(self):
+
+        pass
+
+    def plot_line_with_gradient_error_band(self,x,y,yerr,color_gradient_n=100,c=None,
+                                           pow=2,min_alpha=0,max_alpha=1,**kwargs):
+        x = np.array(x)
+        y = np.array(y)
+        yerr = np.array(yerr)
+        alpha_range_ = np.linspace(min_alpha, math.pow(max_alpha, int(pow)), int(color_gradient_n / 2))
+        alpha_range_ = alpha_range_ ** pow
+        alpha_range__ = alpha_range_[::-1]
+        alpha_range = np.hstack((alpha_range_, alpha_range__))
+        bottom = []
+        top = []
+        for i in range(len(x)):
+            b = y[i] - yerr[i]
+            t = y[i] + yerr[i]
+            bins_i = np.linspace(b, t, color_gradient_n)
+            bottom_i = []
+            top_i = []
+            for j in range(len(bins_i)):
+                if j + 1 >= len(bins_i):
+                    break
+                bottom_i.append(bins_i[j])
+                top_i.append(bins_i[j + 1])
+            bottom.append(bottom_i)
+            top.append(top_i)
+        bottom = np.array(bottom)
+        top = np.array(top)
+        bottom = bottom.T
+        top = top.T
+        for i in range(color_gradient_n - 1):
+            plt.fill_between(x, bottom[i], top[i], alpha=alpha_range[i], zorder=-99,
+                             color=c, edgecolor=None,**kwargs)
+        pass
+
 def main():
     raise UserWarning('Do not run this script')
     pass

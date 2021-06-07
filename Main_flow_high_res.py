@@ -2406,7 +2406,8 @@ class Analysis:
         # self.tree_types_of_drought_type_overview()
         # self.vpd_line()
         # self.dominate_drought()
-        self.AI_bins()
+        # self.AI_bins()
+        self.Precip_bins()
         pass
 
     def __load_df(self):
@@ -3142,6 +3143,69 @@ class Analysis:
                     plt.fill_between(bins_mean,bottom[i],top[i],alpha=alpha_range[i],zorder=-99,color=color_list[color_flag],edgecolor=None)
                 # plt.ylim(0,4)
                 # plt.title(title)
+        plt.legend()
+        plt.show()
+
+
+        pass
+    def Precip_bins(self):
+        color_list = sns.color_palette('muted')
+        color_list_line = sns.color_palette('colorblind')
+
+        # min_precip_var = 'mean_precip_anomaly_in_drought_range'
+        # max_vpd_var = 'max_vpd_in_drought_range'
+        var_ = 'max_vpd_in_drought_range'
+        # var_ = 'mean_precip_anomaly_in_drought_range'
+        # max_vpd_var = 'mean_vpd_anomaly_in_drought_range'
+        # max_vpd_var = 'mean_vpd_in_drought_range'
+
+        color_flag = -1
+        for lc_broad_needle in ['Needleleaf','Broadleaf']:
+            for drought_type in ['repetitive_initial_spei12','repetitive_subsequential_spei12']:
+                color_flag += 1
+                title = '{}\n{}'.format(lc_broad_needle,drought_type)
+                print(title)
+                df,dff = self.__load_df()
+                df = df[df['lat']>23]
+                df = df[df['recovery_time']<10]
+                df = df[df['lc_broad_needle']==lc_broad_needle]
+                df = df['']
+                # df = df[df['lc']==lc_broad_needle]
+                df = df[df['drought_type']==drought_type]
+                vals = df[var_]
+                # plt.hist(waterbalance,bins=80)
+                # plt.show()
+                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(vals,min_v=-2,max_v=2,n=100)
+                # bins,bins_str,bins_mean = self.__divide_bins_quantile(waterbalance,min_v=0.,max_v=2,n=100)
+                # print(bins)
+                # print(bins_str)
+                # exit()
+                mean_list = []
+                events_number = []
+                boxes = []
+                err_list = []
+                for i in tqdm(range(len(bins))):
+                    if i + 1 >= len(bins):
+                        break
+                    df_wb = df[df[var_]>bins[i]]
+                    df_wb = df_wb[df_wb[var_]<bins[i+1]]
+                    carbonloss = df_wb['carbon_loss_'].tolist()
+                    events_number.append(len(carbonloss))
+                    bar = np.mean(carbonloss)
+                    err = np.std(carbonloss)/4.
+                    mean_list.append(bar)
+                    err_list.append(err)
+                    boxes.append(carbonloss)
+                mean_list = np.array(mean_list)
+                err_list = np.array(err_list)
+                # err_list = SMOOTH().smooth_convolve(err_list,window_len=11)
+                mean_list_smooth = SMOOTH().smooth_convolve(mean_list,window_len=11)[:-1]
+
+                plt.plot(bins_mean,mean_list_smooth,label=title,c=color_list_line[color_flag],linewidth=3,zorder=99)
+                Plot_line().plot_line_with_gradient_error_band(bins_mean,mean_list_smooth,err_list,
+                                                               c=color_list[color_flag],color_gradient_n=200)
+        plt.xlabel(var_)
+        plt.ylabel('CSIF Anomaly')
         plt.legend()
         plt.show()
 

@@ -842,10 +842,10 @@ class Main_flow_Carbon_loss:
 
 
     def run(self):
-        # threshold = '-2'
-        # self.single_events(threshold)
+        threshold = '-2'
+        self.single_events(threshold)
         # self.repetitive_events('auto','precip')
-        self.repetitive_events('auto','VPD')
+        # self.repetitive_events('auto','VPD')
 
         pass
 
@@ -1360,7 +1360,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # exit()
         # 1 add drought event and delta legacy into df
         # df = self.Carbon_loss_to_df(df)
-        self.minus_carbon_loss(df)
+        # self.minus_carbon_loss(df)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1381,6 +1381,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_AI_index_to_df(df)
         # df = self.precip_vpd_dominate(df)
         # df =
+        # df = self.__rename_drought_type(df)
+        df = self.__rename_dataframe_columns(df)
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff,random=True)
         pass
@@ -1495,6 +1497,27 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         return repetitive_events_dic
 
         pass
+
+    def __rename_dataframe_columns(self,df):
+        new_name_dic = {
+            'water_balance':'Aridity_Index',
+            # 'CSIF anomaly loss':'CSIF_anomaly_loss'
+        }
+        df = pd.DataFrame(df)
+        df = df.rename(columns=new_name_dic)
+
+        return df
+
+    def __rename_drought_type(self,df):
+        drought_type = df['drought_type']
+        drought_type_new = []
+        for d in drought_type:
+            d = str(d)
+            dnew = d.replace('repetitive','repeatedly')
+            drought_type_new.append(dnew)
+        df['drought_type'] = drought_type_new
+
+        return df
 
     def Carbon_loss_to_df(self,df):
 
@@ -1937,7 +1960,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             pix = row.pix
             val = dic[pix]/10000.
             wb_list.append(val)
-        df['water_balance'] = wb_list
+        df['Aridity_Index'] = wb_list
         return df
 
         pass
@@ -2037,7 +2060,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         carbon_loss = df['carbon_loss']
         carbon_loss = np.array(carbon_loss)
         carbon_loss = -carbon_loss
-        df['carbon_loss_'] = carbon_loss
+        df['CSIF_anomaly_loss'] = carbon_loss
         return df
 
 
@@ -2391,7 +2414,8 @@ class Tif:
 class Analysis:
 
     def __init__(self):
-
+        self.this_class_png = results_root_main_flow + 'png/Analysis/'
+        Tools().mk_dir(self.this_class_png, force=True)
         pass
 
     def run(self):
@@ -2407,7 +2431,30 @@ class Analysis:
         # self.vpd_line()
         # self.dominate_drought()
         # self.AI_bins()
-        self.Precip_bins()
+        # self.Bins_line()
+        # x_var = 'mean_precip_anomaly_in_drought_range'
+        # x_var = 'max_vpd_in_drought_range'
+        # x_var = 'water_balance'
+        # y_var = 'Recovery_rc'
+        # y_var = 'Resilience_rs'
+        # y_var = 'Resistance_rt'
+        # y_var = 'carbon_loss_'
+        x_var_list = [
+            # 'min_precip_anomaly_in_drought_range',
+            # 'mean_precip_anomaly_in_drought_range',
+            # 'max_vpd_in_drought_range',
+            'max_vpd_anomaly_in_drought_range',
+            # 'Aridity_Index',
+                      ]
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
+        for x in x_var_list:
+            for y in y_var_list:
+                self.Bins_scatter_line(x,y)
         pass
 
     def __load_df(self):
@@ -2458,7 +2505,7 @@ class Analysis:
         pass
 
 
-    def __divide_bins_quantile(self,arr,min_v=None,max_v=None,n=10,round_=2):
+    def __divide_bins_quantile(self,arr,min_v=None,max_v=None,n=10,round_=2,bins_mean_type='mean'):
         if min_v == None:
             min_v = np.min(arr)
         if max_v == None:
@@ -2481,12 +2528,22 @@ class Analysis:
             if i + 1 >= len(d):
                 break
             d_str.append('{}-{}'.format(round(d[i], round_), round(d[i + 1], round_)))
-        d_mean = []
-        for i in range(len(d)):
-            if i + 1 >= len(d):
-                break
-            mean_i = (d[i+1] + d[i])/2.
-            d_mean.append(mean_i)
+        if bins_mean_type == 'mean':
+            d_mean = []
+            for i in range(len(d)):
+                if i + 1 >= len(d):
+                    break
+                mean_i = (d[i+1] + d[i])/2.
+                d_mean.append(mean_i)
+        elif bins_mean_type == 'quantile':
+            d_mean = []
+            for i in range(len(d)):
+                if i + 1 >= len(d):
+                    break
+                mean_i = i
+                d_mean.append(mean_i)
+        else:
+            raise UserWarning('bins_mean_type error')
         return d,d_str,d_mean
         pass
 
@@ -2535,7 +2592,7 @@ class Analysis:
     def foo(self):
         df,dff = self.__load_df()
 
-        drought_types_list = ['single','repetitive_initial','repetitive_subsequential',]
+        drought_types_list = ['single','repeatedly_initial','repeatedly_subsequential',]
         bar_list = []
         for drought_type in drought_types_list:
             df_drought_type = df[df['drought_type']==drought_type]
@@ -2561,8 +2618,8 @@ class Analysis:
 
         df = df[df['drought_type']!='single']
         # df = df[df['drought_type']=='single']
-        # df = df[df['drought_type']=='repetitive_initial']
-        # df = df[df['drought_type']=='repetitive_subsequential']
+        # df = df[df['drought_type']=='repeatedly_initial']
+        # df = df[df['drought_type']=='repeatedly_subsequential']
         # print(len(df))
         # exit()
 
@@ -2592,8 +2649,8 @@ class Analysis:
         df = df[df['lc_broad_needle']==lc_type]
         df = df[df['drought_type']!='single']
         # df = df[df['drought_type']=='single']
-        # df = df[df['drought_type']=='repetitive_initial']
-        # df = df[df['drought_type']=='repetitive_subsequential']
+        # df = df[df['drought_type']=='repeatedly_initial']
+        # df = df[df['drought_type']=='repeatedly_subsequential']
         # print(len(df))
         # exit()
 
@@ -2626,8 +2683,8 @@ class Analysis:
         df = df.dropna()
         # lc_type = 'Needleleaf'
         # lc_type = 'Broadleaf'
-        # drought_type = 'repetitive_initial'
-        # drought_type = 'repetitive_subsequential'
+        # drought_type = 'repeatedly_initial'
+        # drought_type = 'repeatedly_subsequential'
 
         n = 50
 
@@ -2640,7 +2697,7 @@ class Analysis:
         # precip_var = 'min_precip_in_drought_range'
 
         for lc_type in ['Needleleaf','Broadleaf']:
-            for drought_type in ['repetitive_initial','repetitive_subsequential']:
+            for drought_type in ['repeatedly_initial','repeatedly_subsequential']:
                 df, dff = self.__load_df()
                 df = df.dropna()
                 df = df[df['recovery_time'] < 12]
@@ -2700,8 +2757,8 @@ class Analysis:
         '''
         # lc_type = 'Needleleaf'
         # lc_type = 'Broadleaf'
-        # drought_type = 'repetitive_initial'
-        # drought_type = 'repetitive_subsequential'
+        # drought_type = 'repeatedly_initial'
+        # drought_type = 'repeatedly_subsequential'
 
         # min_precip_var = 'mean_precip_in_drought_range'
         # min_precip_var = 'mean_soil_in_drought_range'
@@ -2714,7 +2771,7 @@ class Analysis:
 
 
         for lc_type in ['Needleleaf', 'Broadleaf']:
-            for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
+            for drought_type in ['repeatedly_initial', 'repeatedly_subsequential']:
                 df, dff = self.__load_df()
                 df = df.dropna()
                 df = df[df['recovery_time'] < 12]
@@ -2790,130 +2847,14 @@ class Analysis:
 
         pass
 
-    def decouple_vpd_precip(self):
-        '''
-        x: precip
-        y: legacy
-        bin: vpd
-        '''
-        df, dff = self.__load_df()
-        df = df.dropna()
-        # lc_type = 'Needleleaf'
-        # lc_type = 'Broadleaf'
-        # drought_type = 'repetitive_initial'
-        # drought_type = 'repetitive_subsequential'
-
-        n = 50
-
-        min_precip_var = 'min_precip_anomaly_in_drought_range'
-        # max_vpd_var = 'max_vpd_anomaly_in_drought_range'
-        #
-        max_vpd_var = 'max_vpd_in_drought_range'
-        # min_precip_var = 'min_precip_in_drought_range'
-
-
-        for lc_type in ['Needleleaf', 'Broadleaf']:
-            for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
-                df, dff = self.__load_df()
-                df = df.dropna()
-                df = df[df['lc_broad_needle'] == lc_type]
-                # df = df[df['drought_type'] != 'single']
-                df = df[df['drought_type'] != drought_type]
-                min_precip_in_drought_range = df[min_precip_var]
-                max_vpd_in_drought_range = df[max_vpd_var]
-                # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, min_v=-2, max_v=0, n=5)
-                precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range, n=10,)
-                # vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=0, max_v=2, n=10)
-                vpd_bins, vpd_bins_str = self.__divide_bins_quantile(max_vpd_in_drought_range, min_v=2, n=6)
-                print('vpd_bins',vpd_bins)
-                print('precip_bins',precip_bins)
-                plt.figure()
-                for i in tqdm(range(len(vpd_bins))):
-                    if i + 1 >= len(vpd_bins):
-                        continue
-                    df_vpd_bin = df[df[max_vpd_var] > vpd_bins[i]]
-                    df_vpd_bin = df_vpd_bin[df_vpd_bin[max_vpd_var] < vpd_bins[i + 1]]
-                    x = []
-                    y = []
-                    for j in range(len(precip_bins)):
-                        if j + 1 >= len(precip_bins):
-                            continue
-                        df_p_bin = df_vpd_bin[df_vpd_bin[min_precip_var] > precip_bins[j]]
-                        df_p_bin = df_p_bin[df_p_bin[min_precip_var] < precip_bins[j + 1]]
-                        legacy_i = df_p_bin['carbon_loss']
-                        legacy_i = -legacy_i
-                        mean_legacy = np.mean(legacy_i)
-                        # x.append(precip_bins[j])
-                        x.append(j)
-                        y.append(mean_legacy)
-                        # print(vpd_bins[0])
-                        # exit()
-                    # print(len(x))
-                    # print(x)
-                    # print(y)
-                    plt.plot(x,y,label=vpd_bins_str[i])
-                    plt.scatter(x,y)
-                plt.legend()
-                plt.xlabel('Precip')
-                plt.ylabel('legacy')
-                plt.title(lc_type+' '+drought_type)
-        plt.show()
-
-        pass
-
-
-
-    def precip_hist(self):
-
-        df,dff = self.__load_df()
-        precip_anomaly = df['min_precip_anomaly_in_drought_range'].tolist()
-        # precip_anomaly = df['max_vpd_in_drought_range'].tolist()
-        # precip_anomaly = list(set(precip_anomaly))
-        plt.hist(precip_anomaly,bins=50)
-        plt.show()
-
-
-    def extreme_vpd_precip(self):
-        df, dff = self.__load_df()
-        x_list = []
-        y_list = []
-
-        for lc_type in ['Needleleaf', 'Broadleaf']:
-            for drought_type in ['repetitive_initial', 'repetitive_subsequential']:
-                df, dff = self.__load_df()
-                # df_ext = df[df['max_vpd_anomaly_in_drought_range'] < 0]
-                df_ext = df[df['max_vpd_anomaly_in_drought_range'] > 0]
-
-                # df_ext = df_ext[df_ext['min_precip_anomaly_in_drought_range'] > 0]
-                df_ext = df_ext[df_ext['min_precip_anomaly_in_drought_range'] < 0]
-                # title = 'vpd < 0, pre > 0'
-                # title = 'vpd < 0, pre < 0'
-                # title = 'vpd > 0, pre > 0'
-                title = 'vpd > 0, pre < 0'
-
-                # df_ext = df
-                # title = var.split('_')[1]
-                df_ext = df_ext[df_ext['lc_broad_needle'] == lc_type]
-                df_ext = df_ext[df_ext['drought_type'] == drought_type]
-                carbon_loss = df_ext['carbon_loss']
-                print(len(df_ext))
-                carbon_loss_mean = np.mean(carbon_loss)
-                x = lc_type + '_' + drought_type
-                print(x)
-                y = -carbon_loss_mean
-                x_list.append(x)
-                y_list.append(y)
-        plt.bar(x_list,y_list)
-        plt.title(title)
-        plt.show()
 
     def tree_types_of_drought_type_overview(self):
         df,dff = self.__load_df()
         # product = 'vpd'
         product = 'precip'
         # product = 'spei12'
-        df_vpd_initial = df[df['drought_type']=='repetitive_initial_{}'.format(product)]
-        df_vpd_subseq = df[df['drought_type']=='repetitive_subsequential_{}'.format(product)]
+        df_vpd_initial = df[df['drought_type']=='repeatedly_initial_{}'.format(product)]
+        df_vpd_subseq = df[df['drought_type']=='repeatedly_subsequential_{}'.format(product)]
 
         df_vpd_initial_needle = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Needleleaf']
         df_vpd_initial_broad = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Broadleaf']
@@ -2960,70 +2901,12 @@ class Analysis:
 
         pass
 
-    def vpd_line(self):
-
-        df,dff = self.__load_df()
-        # product = 'precip'
-        product = 'spei12'
-        vpd_var = 'max_vpd_in_drought_range'
-        df_initial = df[df['drought_type']=='repetitive_initial_{}'.format(product)]
-        df_subseq = df[df['drought_type']=='repetitive_subsequential_{}'.format(product)]
-
-        df_initial_needle = df_initial[df_initial['lc_broad_needle']=='Needleleaf']
-        df_initial_broad = df_initial[df_initial['lc_broad_needle']=='Broadleaf']
-
-        df_subseq_needle = df_subseq[df_subseq['lc_broad_needle'] == 'Needleleaf']
-        df_subseq_broad = df_subseq[df_subseq['lc_broad_needle'] == 'Broadleaf']
-
-        # carbonloss_df_initial_needle = df_initial_needle['carbon_loss'].tolist()
-        # carbonloss_df_initial_broad = df_initial_broad['carbon_loss'].tolist()
-        # carbonloss_df_subseq_needle = df_subseq_needle['carbon_loss'].tolist()
-        # carbonloss_df_subseq_broad = df_subseq_broad['carbon_loss'].tolist()
-
-        # self.__plot_line(df_initial_needle,vpd_var,'df_initial_needle')
-        # self.__plot_line(df_initial_broad,vpd_var,'df_initial_broad')
-        self.__plot_line(df_subseq_needle,vpd_var,'df_subseq_needle')
-        # self.__plot_line(df_subseq_broad,vpd_var,'df_subseq_broad')
-
-    def __plot_line(self,df,vpd_var,title):
-        # print(len(carbonloss_df_initial_broad))
-        # carbon_loss = df['carbon_loss'].tolist()
-        # carbon_loss = np.array(carbon_loss)
-        # carbon_loss = -carbon_loss
-        vpd_df_initial_needle = df[vpd_var].tolist()
-        bins,bins_str = self.__divide_bins_equal_interval(vpd_df_initial_needle,min_v=0,max_v=3,n=10)
-        boxes = []
-        bars = []
-        bars_err = []
-        for i in tqdm(range(len(bins))):
-            if i + 1 >= len(bins):
-                continue
-            df_bin = df[df[vpd_var] > bins[i]]
-            df_bin = df_bin[df_bin[vpd_var] < bins[i + 1]]
-            carbon_loss = df_bin['carbon_loss'].tolist()
-            carbon_loss = np.array(carbon_loss)
-            carbon_loss = -carbon_loss
-            boxes.append(carbon_loss)
-            bars.append(np.mean(carbon_loss))
-            err = np.std(carbon_loss)
-            bars_err.append(err)
-
-        # print(len(boxes))
-        # print(len(bins_str))
-        plt.boxplot(boxes,labels=bins_str[:-1],showfliers=False)
-        plt.title(title)
-
-        plt.figure()
-        plt.bar(bins_str[:-1],bars,yerr=bars_err)
-        plt.title(title)
-        plt.show()
-
     def dominate_drought(self):
 
         df,dff = self.__load_df()
         hue = 'dominate'
-        drought_type = 'repetitive_subsequential_spei12'
-        # drought_type = 'repetitive_initial_spei12'
+        drought_type = 'repeatedly_subsequential_spei12'
+        # drought_type = 'repeatedly_initial_spei12'
         # hue = 'drought_type'
         df = df[df['lat']>30]
         df = df[df['drought_type']==drought_type]
@@ -3058,110 +2941,21 @@ class Analysis:
             normalized_list.append(norm)
         return normalized_list
 
-    def AI_bins(self):
-        # lc_type_dic = {'EBF','DBF','ENF','DNF',}
-        # for lc_broad_needle in lc_type_dic:
-        color_list = sns.color_palette('muted')
-        color_list = sns.color_palette('dark')
-        color_list_line = sns.color_palette('colorblind')
-        # color_list = sns.color_palette('Paired',n_colors=4)
-
-        color_flag = -1
-        for lc_broad_needle in ['Needleleaf','Broadleaf']:
-            for drought_type in ['repetitive_initial_spei12','repetitive_subsequential_spei12']:
-                color_flag += 1
-                title = '{}\n{}'.format(lc_broad_needle,drought_type)
-                print(title)
-                df,dff = self.__load_df()
-                df = df[df['lat']>23]
-                df = df[df['recovery_time']<10]
-                df = df[df['lc_broad_needle']==lc_broad_needle]
-                # df = df[df['lc']==lc_broad_needle]
-                df = df[df['drought_type']==drought_type]
-                waterbalance = df['water_balance']
-                # plt.hist(waterbalance,bins=80)
-                # plt.show()
-                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(waterbalance,min_v=0.2,max_v=2,n=100)
-                # bins,bins_str,bins_mean = self.__divide_bins_quantile(waterbalance,min_v=0.,max_v=2,n=100)
-                # print(bins)
-                # print(bins_str)
-                # exit()
-                mean_list = []
-                events_number = []
-                boxes = []
-                err_list = []
-                for i in tqdm(range(len(bins))):
-                    if i + 1 >= len(bins):
-                        break
-                    df_wb = df[df['water_balance']>bins[i]]
-                    df_wb = df_wb[df_wb['water_balance']<bins[i+1]]
-                    carbonloss = df_wb['carbon_loss_'].tolist()
-                    events_number.append(len(carbonloss))
-                    bar = np.mean(carbonloss)
-                    err = np.std(carbonloss)/6.
-                    mean_list.append(bar)
-                    err_list.append(err)
-                    boxes.append(carbonloss)
-                mean_list = np.array(mean_list)
-                err_list = np.array(err_list)
-                err_list = SMOOTH().smooth_convolve(err_list,window_len=11)
-                mean_list = SMOOTH().smooth_convolve(mean_list,window_len=11)[:-1]
-
-                plt.plot(bins_mean,mean_list,label=title,c=color_list_line[color_flag],linewidth=3,zorder=99)
-                # plt.scatter(bins_mean[::5],mean_list[::5],label=title,c=color_list_line[color_flag],zorder=100)
-                # plt.errorbar(bins_me`an,mean_list,yerr=err_list)
-                color_gradient_n = 200
-                alpha_range_ = np.linspace(0,0.6,int(color_gradient_n/2))
-                # alpha_range_ = np.logspace(0,1,int(color_gradient_n/2))
-                # alpha_range_ = self.__normalize(alpha_range_)
-                # print(alpha_range_)
-                # exit()
-                alpha_range__ = alpha_range_[::-1]
-                alpha_range = np.hstack((alpha_range_,alpha_range__))
-                bottom = []
-                top = []
-                for i in range(len(mean_list)):
-                    b = mean_list[i] - err_list[i]
-                    t = mean_list[i] + err_list[i]
-                    bins_i = np.linspace(b,t,color_gradient_n)
-                    bottom_i = []
-                    top_i = []
-                    for j in range(len(bins_i)):
-                        if j + 1 >= len(bins_i):
-                            break
-                        bottom_i.append(bins_i[j])
-                        top_i.append(bins_i[j+1])
-                    bottom.append(bottom_i)
-                    top.append(top_i)
-                # plt.imshow(bottom)
-                # plt.show()
-                bottom = np.array(bottom)
-                top = np.array(top)
-                bottom = bottom.T
-                top = top.T
-                for i in range(color_gradient_n-1):
-                    plt.fill_between(bins_mean,bottom[i],top[i],alpha=alpha_range[i],zorder=-99,color=color_list[color_flag],edgecolor=None)
-                # plt.ylim(0,4)
-                # plt.title(title)
-        plt.legend()
-        plt.show()
-
-
-        pass
-    def Precip_bins(self):
+    def Bins_line(self):
         color_list = sns.color_palette('muted')
         color_list_line = sns.color_palette('colorblind')
 
         # min_precip_var = 'mean_precip_anomaly_in_drought_range'
         # max_vpd_var = 'max_vpd_in_drought_range'
-        var_ = 'max_vpd_in_drought_range'
+        # var_ = 'max_vpd_in_drought_range'
+        var_ = 'water_balance'
         # var_ = 'mean_precip_anomaly_in_drought_range'
         # max_vpd_var = 'mean_vpd_anomaly_in_drought_range'
         # max_vpd_var = 'mean_vpd_in_drought_range'
 
         color_flag = -1
         for lc_broad_needle in ['Needleleaf','Broadleaf']:
-            for drought_type in ['repetitive_initial_spei12','repetitive_subsequential_spei12']:
+            for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
                 color_flag += 1
                 title = '{}\n{}'.format(lc_broad_needle,drought_type)
                 print(title)
@@ -3169,13 +2963,14 @@ class Analysis:
                 df = df[df['lat']>23]
                 df = df[df['recovery_time']<10]
                 df = df[df['lc_broad_needle']==lc_broad_needle]
-                df = df['']
+                # df = df[df['dominate']=='supply']
+                # df = df[df['dominate']=='demand']
                 # df = df[df['lc']==lc_broad_needle]
                 df = df[df['drought_type']==drought_type]
                 vals = df[var_]
                 # plt.hist(waterbalance,bins=80)
                 # plt.show()
-                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(vals,min_v=-2,max_v=2,n=100)
+                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(vals,min_v=-0,max_v=3,n=30)
                 # bins,bins_str,bins_mean = self.__divide_bins_quantile(waterbalance,min_v=0.,max_v=2,n=100)
                 # print(bins)
                 # print(bins_str)
@@ -3198,10 +2993,12 @@ class Analysis:
                     boxes.append(carbonloss)
                 mean_list = np.array(mean_list)
                 err_list = np.array(err_list)
-                # err_list = SMOOTH().smooth_convolve(err_list,window_len=11)
-                mean_list_smooth = SMOOTH().smooth_convolve(mean_list,window_len=11)[:-1]
-
+                window = 5
+                err_list = SMOOTH().smooth_convolve(err_list,window_len=window)
+                mean_list_smooth = SMOOTH().smooth_convolve(mean_list,window_len=window)[:-1]
+                # mean_list_smooth = mean_list
                 plt.plot(bins_mean,mean_list_smooth,label=title,c=color_list_line[color_flag],linewidth=3,zorder=99)
+                # plt.scatter(bins_mean,mean_list_smooth,c='w',zorder=100)
                 Plot_line().plot_line_with_gradient_error_band(bins_mean,mean_list_smooth,err_list,
                                                                c=color_list[color_flag],color_gradient_n=200)
         plt.xlabel(var_)
@@ -3212,6 +3009,187 @@ class Analysis:
 
         pass
 
+    def Bins_scatter_line(self,x_var,y_var):
+        outpngdir = self.this_class_png + 'Bins_scatter_line_equal_interval/'
+        # outpngdir = self.this_class_png + 'Bins_scatter_line_quantile/'
+        outf = outpngdir + '{}__{}.png'.format(x_var,y_var)
+
+        T.mk_dir(outpngdir)
+        # color_list = sns.color_palette('muted')
+        color_list = []
+        color_list1 = sns.color_palette('Reds_r',n_colors=10)
+        # color_list2 = sns.color_palette('YlOrBr_r',n_colors=10)
+        color_list2 = sns.color_palette('Greens_r',n_colors=10)
+        # color_list_line = sns.color_palette('colorblind')
+        color_list_line = []
+        color_list.append(color_list1[1])
+        color_list.append(color_list1[1])
+        color_list.append(color_list2[1])
+        color_list.append(color_list2[1])
+
+        color_list_line.append(color_list1[6])
+        color_list_line.append(color_list1[3])
+        color_list_line.append(color_list2[6])
+        color_list_line.append(color_list2[3])
+
+        # color_list_line = color_list
+        # exit()
+        bin_n = 10
+        if 'Re' in y_var:
+            y_var_max = 1.3
+            y_var_min = 0.7
+        else:
+            y_var_max = 9999
+            y_var_min = -9999
+        color_flag = -1
+        plt.figure(figsize=(10,8))
+        for lc_broad_needle in ['Needleleaf','Broadleaf']:
+            for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
+                color_flag += 1
+                title = '{}\n{}'.format(lc_broad_needle,drought_type)
+                print(title)
+                df,dff = self.__load_df()
+                # for i in df:
+                    # print(i)
+                # T.print_head_n(df)
+                # exit()
+                df = df[df['lat']>23]
+                # plt.hist(var_all_vals,bins=100)
+                # plt.show()
+                # df = df[df['recovery_time']<10]
+                df = df[df['lc_broad_needle']==lc_broad_needle]
+                df = df[df['drought_type']==drought_type]
+                # df = df[df['dominate']=='demand']
+                # df = df[df['dominate']=='supply']
+                df = df[df[y_var]>y_var_min]
+                df = df[df[y_var]<y_var_max]
+                carbonloss_all = df[y_var]
+                vals = df[x_var]
+                var_all_vals_std = np.nanstd(vals)
+                var_all_vals_mean = np.nanmean(vals)
+                # bin_min = var_all_vals_mean - 3 * var_all_vals_std
+                # bin_max = var_all_vals_mean + 3 * var_all_vals_std
+                if 'precip' in x_var:
+                    bin_min = -2.5
+                    bin_max = -0.
+                elif 'vpd' in x_var:
+                    bin_min = 0
+                    bin_max = 2.5
+                elif 'Aridity' in x_var:
+                    bin_min = 0
+                    bin_max = 2.
+                else:
+                    raise UserWarning('Y var error')
+                print('bin_max', bin_max)
+                print('bin_min', bin_min)
+                # plt.hist(carbonloss_all,bins=80)
+                # plt.show()
+                bins,bins_str,bins_mean = self.__divide_bins_equal_interval(vals,min_v=bin_min,max_v=bin_max,n=bin_n,include_external=False)
+                # bins,bins_str,bins_mean = self.__divide_bins_quantile(vals,min_v=bin_min,max_v=bin_max,n=bin_n,
+                #                                                       bins_mean_type='quantile')
+                mean_list = []
+                events_number = []
+                boxes = []
+                err_list = []
+                x_err_list = []
+
+                for i in tqdm(range(len(bins))):
+                    if i + 1 >= len(bins):
+                        break
+                    df_wb = df[df[x_var]>bins[i]]
+                    df_wb = df_wb[df_wb[x_var]<bins[i+1]]
+                    wb = df_wb[x_var]
+                    carbonloss = df_wb[y_var].tolist()
+                    events_number.append(len(carbonloss))
+                    bar = np.nanmean(carbonloss)
+                    err = np.nanstd(carbonloss)/4.
+                    xerr = np.nanstd(wb)
+                    mean_list.append(bar)
+                    err_list.append(err)
+                    x_err_list.append(xerr)
+                    boxes.append(carbonloss)
+                mean_list = np.array(mean_list)
+                err_list = np.array(err_list)
+                window = 5
+                # err_list = SMOOTH().smooth_convolve(err_list,window_len=window)
+                # mean_list_smooth = SMOOTH().smooth_convolve(mean_list,window_len=window)[:-1]
+                mean_list_smooth = mean_list
+                # bins_mean = range(len(bins_mean))
+                plt.plot(bins_mean,mean_list_smooth,label=title,c=color_list_line[color_flag],linewidth=3,zorder=99)
+                plt.scatter(bins_mean,mean_list_smooth,color=color_list_line[color_flag],s=80,zorder=100)
+                plt.errorbar(bins_mean, mean_list_smooth, yerr=err_list,
+                             capsize=4,ecolor=color_list_line[color_flag],
+                             ls='none')
+                # Plot_line().plot_line_with_gradient_error_band(bins_mean,mean_list_smooth,err_list,
+                #                                                c=color_list[color_flag],color_gradient_n=200)
+                plt.xlabel(x_var)
+                plt.ylabel(y_var)
+                # ax_hist = plt.twinx()
+                # plt.plot(bins_mean,events_number,label=title+' events number')
+                plt.tight_layout()
+                plt.legend()
+        # plt.show()
+        plt.savefig(outf, dpi=300)
+        plt.close()
+        plt.figure(figsize=(10,8))
+        for lc_broad_needle in ['Needleleaf','Broadleaf']:
+            for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
+                color_flag += 1
+                title = '{}\n{}'.format(lc_broad_needle,drought_type)
+                print(title)
+                df,dff = self.__load_df()
+                # for i in df:
+                    # print(i)
+                # T.print_head_n(df)
+                # exit()
+                df = df[df['lat']>23]
+                # plt.hist(var_all_vals,bins=100)
+                # plt.show()
+                # df = df[df['recovery_time']<10]
+                df = df[df['lc_broad_needle']==lc_broad_needle]
+                df = df[df['drought_type']==drought_type]
+                # df = df[df['dominate']=='demand']
+                # df = df[df['dominate']=='supply']
+                df = df[df[y_var]>y_var_min]
+                df = df[df[y_var]<y_var_max]
+                vals = df[x_var]
+                if 'precip' in x_var:
+                    bin_min = -2.
+                    bin_max = -0.
+                elif 'vpd' in x_var:
+                    bin_min = 0
+                    bin_max = 2.5
+                elif 'Aridity' in x_var:
+                    bin_min = 0
+                    bin_max = 2.
+                else:
+                    raise UserWarning('Y var error')
+                print('bin_max', bin_max)
+                print('bin_min', bin_min)
+                bins, bins_str, bins_mean = self.__divide_bins_equal_interval(vals, min_v=bin_min, max_v=bin_max,
+                                                                              n=bin_n,include_external=False)
+                events_number = []
+
+                for i in tqdm(range(len(bins))):
+                    if i + 1 >= len(bins):
+                        break
+                    df_wb = df[df[x_var]>bins[i]]
+                    df_wb = df_wb[df_wb[x_var]<bins[i+1]]
+                    carbonloss = df_wb[y_var].tolist()
+                    events_number.append(len(carbonloss))
+                plt.plot(bins_mean,events_number,label=title+' events number')
+                plt.scatter(bins_mean,events_number,s=80)
+                # plt.yscale('log', base=10)
+                plt.tight_layout()
+                plt.legend()
+        # plt.show()
+        plt.savefig(outf.replace('.png','')+'_events_number.png', dpi=300)
+        plt.close()
+
+
+
+
+        pass
 
 class Check:
 

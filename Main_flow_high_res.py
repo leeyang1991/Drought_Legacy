@@ -95,6 +95,11 @@ class Global_vars:
             map_dic[i] = new_indx
         return map_dic
 
+    def clean_df(self,df):
+        df = df[df['lat'] > 23]
+        return df
+
+
 class Main_Flow_Pick_drought_events:
 
     def __init__(self):
@@ -2419,33 +2424,20 @@ class Analysis:
         pass
 
     def run(self):
-        # self.foo2()
-        # self.foo()
-        # self.foo3()
-        # self.decouple_precip_vpd()
-        # self.decouple_vpd_precip()
-        # self.precip_hist()
-        # self.extreme_vpd_precip()
-        # self.matrix()
-        # self.tree_types_of_drought_type_overview()
-        # self.vpd_line()
+
+        # self.run_Bins_scatter_line()
         # self.dominate_drought()
-        # self.AI_bins()
-        # self.Bins_line()
-        # x_var = 'mean_precip_anomaly_in_drought_range'
-        # x_var = 'max_vpd_in_drought_range'
-        # x_var = 'water_balance'
-        # y_var = 'Recovery_rc'
-        # y_var = 'Resilience_rs'
-        # y_var = 'Resistance_rt'
-        # y_var = 'carbon_loss_'
+        self.scatter_vpd_precip()
+
+
+
+    def run_Bins_scatter_line(self):
         x_var_list = [
-            # 'min_precip_anomaly_in_drought_range',
-            # 'mean_precip_anomaly_in_drought_range',
-            # 'max_vpd_in_drought_range',
+            'min_precip_anomaly_in_drought_range',
+            'max_vpd_in_drought_range',
             'max_vpd_anomaly_in_drought_range',
-            # 'Aridity_Index',
-                      ]
+            'Aridity_Index',
+        ]
         y_var_list = [
             'Recovery_rc',
             'Resilience_rs',
@@ -2454,8 +2446,7 @@ class Analysis:
         ]
         for x in x_var_list:
             for y in y_var_list:
-                self.Bins_scatter_line(x,y)
-        pass
+                self.Bins_scatter_line(x, y)
 
     def __load_df(self):
 
@@ -2908,18 +2899,16 @@ class Analysis:
         drought_type = 'repeatedly_subsequential_spei12'
         # drought_type = 'repeatedly_initial_spei12'
         # hue = 'drought_type'
-        df = df[df['lat']>30]
+        df = Global_vars().clean_df(df)
         df = df[df['drought_type']==drought_type]
-        carbonloss = df['carbon_loss']
-        carbonloss = np.array(carbonloss)
-        carbonloss_ = -carbonloss
-        df['carbon_loss_'] = carbonloss_
+        CSIF_anomaly_loss = df['CSIF_anomaly_loss']
+        df['CSIF_anomaly_loss'] = CSIF_anomaly_loss
         # dominate
         # lc_broad_needle
         # drought_type
         g = sns.catplot(
             data=df, kind="bar",
-            x="lc_broad_needle", y="carbon_loss_",hue=hue, hue_order=['supply','demand'],
+            x="lc_broad_needle", y="CSIF_anomaly_loss",hue=hue, hue_order=['supply','demand'],
             alpha=0.6,palette={"supply": "b", "demand": ".85"},)
         plt.ylim(1.5,3.5)
 
@@ -3049,26 +3038,14 @@ class Analysis:
                 title = '{}\n{}'.format(lc_broad_needle,drought_type)
                 print(title)
                 df,dff = self.__load_df()
-                # for i in df:
-                    # print(i)
-                # T.print_head_n(df)
-                # exit()
                 df = df[df['lat']>23]
-                # plt.hist(var_all_vals,bins=100)
-                # plt.show()
-                # df = df[df['recovery_time']<10]
                 df = df[df['lc_broad_needle']==lc_broad_needle]
                 df = df[df['drought_type']==drought_type]
                 # df = df[df['dominate']=='demand']
                 # df = df[df['dominate']=='supply']
                 df = df[df[y_var]>y_var_min]
                 df = df[df[y_var]<y_var_max]
-                carbonloss_all = df[y_var]
                 vals = df[x_var]
-                var_all_vals_std = np.nanstd(vals)
-                var_all_vals_mean = np.nanmean(vals)
-                # bin_min = var_all_vals_mean - 3 * var_all_vals_std
-                # bin_max = var_all_vals_mean + 3 * var_all_vals_std
                 if 'precip' in x_var:
                     bin_min = -2.5
                     bin_max = -0.
@@ -3190,6 +3167,55 @@ class Analysis:
 
 
         pass
+
+
+    def scatter_vpd_precip(self):
+        color_list1 = sns.color_palette('Reds_r',n_colors=10)
+        color_list2 = sns.color_palette('Greens_r', n_colors=10)
+        color_list_line = []
+
+        color_list_line.append(color_list1[6])
+        color_list_line.append(color_list1[3])
+        color_list_line.append(color_list2[6])
+        color_list_line.append(color_list2[3])
+
+        df, dff = self.__load_df()
+        df = Global_vars().clean_df(df)
+        df = df[df['max_vpd_in_drought_range']<3]
+        sns.JointGrid(x='max_vpd_in_drought_range',
+                      y='min_precip_anomaly_in_drought_range',
+                      data=df )
+        plt.show()
+        # vpd = df['max_vpd_in_drought_range']
+        # pre = df['min_precip_anomaly_in_drought_range']
+        # vpd = np.array(vpd)
+        # pre = np.array(pre)
+
+        # color_flag = -1
+        # for lc_broad_needle in ['Needleleaf','Broadleaf']:
+        #     for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
+        #         title = '{}\n{}'.format(lc_broad_needle,drought_type)
+        #         print(title)
+        #         color_flag += 1
+        #         df,dff = self.__load_df()
+        #         df = Global_vars().clean_df(df)
+        #         df = df[df['lc_broad_needle']==lc_broad_needle]
+        #         df = df[df['drought_type']==drought_type]
+        #         vpd = df['max_vpd_in_drought_range']
+        #         pre = df['min_precip_anomaly_in_drought_range']
+        #         vpd = np.array(vpd)
+        #         pre = np.array(pre)
+        #
+        #         vpd[vpd>3] = np.nan
+        #         # vpd[vpd>3] = np.nan
+        #
+        #         sns.jointplot(x=vpd, y=pre, kind="hex", color=color_list_line[color_flag], dropna=True, )
+        plt.show()
+
+
+
+
+
 
 class Check:
 

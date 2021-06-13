@@ -1,4 +1,5 @@
 # coding=utf-8
+import numpy as np
 
 from __init__ import *
 # from Main_flow_csif_legacy_2002 import *
@@ -2437,14 +2438,17 @@ class Analysis:
 
     def __init__(self):
         self.this_class_png = results_root_main_flow + 'png/Analysis/'
+        self.this_class_tif = results_root_main_flow + 'tif/Analysis/'
         Tools().mk_dir(self.this_class_png, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
         pass
 
     def run(self):
 
         # self.run_Bins_scatter_line()
         # self.dominate_drought()
-        self.scatter_vpd_precip()
+        # self.scatter_vpd_precip()
+        self.delta()
 
 
 
@@ -2464,6 +2468,7 @@ class Analysis:
         for x in x_var_list:
             for y in y_var_list:
                 self.Bins_scatter_line(x, y)
+                # self.delta(x, y)
 
     def __load_df(self):
 
@@ -3231,16 +3236,39 @@ class Analysis:
 
 
     def delta(self):
-        df,dff = self.__load_df()
+        outtifdir = self.this_class_tif + 'delta/'
+        outf = outtifdir + 'subseq_init_delta.tif'
+        T.mk_dir(outtifdir)
+        df, dff = self.__load_df()
+        events_dic = {}
+        pix_list = df['pix'].to_list()
+        pix_list = set(pix_list)
+        for pix in pix_list:
+            events_dic[pix] = {}
+            events_dic[pix]['repeatedly_initial_spei12'] = []
+            events_dic[pix]['repeatedly_subsequential_spei12'] = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            CSIF_anomaly_loss = row.CSIF_anomaly_loss
+            drought_type = row.drought_type
+            if drought_type == 'repeatedly_initial_spei12':
+                events_dic[pix]['repeatedly_initial_spei12'].append(CSIF_anomaly_loss)
+            elif drought_type == 'repeatedly_subsequential_spei12':
+                events_dic[pix]['repeatedly_subsequential_spei12'].append(CSIF_anomaly_loss)
+            else:
+                raise UserWarning('drought_type error')
 
-        df = Global_vars().clean_df(df)
+        delta_spatial_dic = {}
+        for pix in tqdm(events_dic,desc='cal delta...'):
+            events = events_dic[pix]
+            repeatedly_initial_spei12 = events['repeatedly_initial_spei12']
+            repeatedly_subsequential_spei12 = events['repeatedly_subsequential_spei12']
+            init_mean = np.mean(repeatedly_initial_spei12)
+            subseq_mean = np.mean(repeatedly_subsequential_spei12)
+            delta = subseq_mean - init_mean
+            delta_spatial_dic[pix] = delta
+        DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_tif(delta_spatial_dic,outf)
 
-
-        CSIF_anomaly_loss = df['CSIF_anomaly_loss']
-
-
-
-        pass
 
 
 class Check:

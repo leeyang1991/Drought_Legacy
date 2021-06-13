@@ -1,4 +1,5 @@
 # coding=utf-8
+import time
 
 from __init__ import *
 results_root_main_flow_2002 = this_root + 'results_root_main_flow_2002/'
@@ -442,22 +443,23 @@ class Main_flow_Early_Peak_Late_Dormant:
 
     def hants_smooth_annual(self):
         start = time.time()
-        # outdir = self.this_class_arr + 'hants_smooth_annual/'
-        outdir = '/Users/wenzhang/Desktop/hants_smooth_annual_m1/'
+        outdir = self.this_class_arr + 'hants_smooth_annual_m1/'
         T.mk_dir(outdir)
         # gs_f = Phenology_based_on_Temperature_NDVI().this_class_arr + 'growing_season_index.npy'
         # gs_dic = T.load_npy(gs_f)
-        # per_pix_dir = self.this_class_arr + 'data_transform_annual/'
-        per_pix_dir = '/Users/wenzhang/Desktop/data_transform_annual/'
+        per_pix_dir = self.this_class_arr + 'data_transform_annual/'
         params = []
         for year in os.listdir(per_pix_dir):
             # print year
+            if year.startswith('.'):
+                continue
             params.append([per_pix_dir,year,outdir])
             self.kernel_hants_smooth_annual([per_pix_dir,year,outdir])
         # MULTIPROCESS(self.kernel_hants_smooth_annual,params).run()
         end = time.time()
-        duration = end - start
-        print('duration {} s'.format(duration))
+        duration = end-start
+        print('duration:{} s'.format(duration))
+
 
 
     def data_transform_annual(self):

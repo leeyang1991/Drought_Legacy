@@ -1151,6 +1151,41 @@ class DIC_and_TIF:
         plt.show()
 
         pass
+    def lon_lat_val_to_tif(self,lon_list,lat_list,val_list,outtif):
+        lonlist_set = list(set(lon_list))
+        latlist_set = list(set(lat_list))
+        lonlist_set.sort()
+        latlist_set.sort()
+        latlist_set = latlist_set[::-1]
+        originX = min(lonlist_set)
+        originY = max(latlist_set)
+        pixelWidth = lonlist_set[1] - lonlist_set[0]
+        pixelHeight = latlist_set[1] - latlist_set[0]
+        spatial_dic = {}
+        for i in range(len(lon_list)):
+            lon = lon_list[i]
+            lat = lat_list[i]
+            val = val_list[i]
+            r = abs(int((lat - originY) / pixelHeight))
+            c = abs(int((lon - originX) / pixelWidth))
+            spatial_dic[(r, c)] = val
+        spatial = []
+        row = abs(int((max(latlist_set) - min(latlist_set)) / pixelHeight))
+        col = abs(int((max(lonlist_set) - min(lonlist_set)) / pixelWidth))
+        for r in range(row):
+            temp = []
+            for c in range(col):
+                key = (r, c)
+                if key in spatial_dic:
+                    val_pix = spatial_dic[key]
+                    temp.append(val_pix)
+                else:
+                    temp.append(np.nan)
+            spatial.append(temp)
+        spatial = np.array(spatial, dtype=float)
+        longitude_start = originX
+        latitude_start = originY
+        to_raster.array2raster(outtif, longitude_start, latitude_start, pixelWidth, pixelHeight, spatial)
 
 
 class MULTIPROCESS:

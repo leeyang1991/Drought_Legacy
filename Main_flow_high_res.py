@@ -10,9 +10,16 @@ results_root = results_root_main_flow_high_res
 class Global_vars:
     def __init__(self):
         # self.growing_date_range = list(range(5,11))
+        self.vars_()
         self.tif_template_7200_3600 = this_root + 'conf/tif_template_005.tif'
         self.growing_date_range = self.gs_mons()
         pass
+
+    def vars_(self):
+        self.lc_broad_needle = ['Needleleaf','Broadleaf']
+        self.drought_type = ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']
+        self.dominate = ['supply','demand']
+
 
     def koppen_landuse(self):
         kl_list = [u'Forest.A', u'Forest.B', u'Forest.Cf', u'Forest.Csw', u'Forest.Df', u'Forest.Dsw', u'Forest.E',
@@ -1387,7 +1394,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.precip_vpd_dominate(df)
         # df =
         # df = self.__rename_drought_type(df)
-        df = self.__rename_dataframe_columns(df)
+        # df = self.__rename_dataframe_columns(df)
+        df = self.add_initial_supsequential_delta(df)
+        exit()
         T.save_df(df,self.dff)
         self.__df_to_excel(df,self.dff,random=True)
         pass
@@ -2068,6 +2077,14 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['CSIF_anomaly_loss'] = carbon_loss
         return df
 
+
+
+    def add_initial_supsequential_delta(self,df):
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            print(row)
+            pause()
+
+        return df
 
 
 # class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
@@ -3213,8 +3230,17 @@ class Analysis:
         plt.show()
 
 
+    def delta(self):
+        df,dff = self.__load_df()
+
+        df = Global_vars().clean_df(df)
 
 
+        CSIF_anomaly_loss = df['CSIF_anomaly_loss']
+
+
+
+        pass
 
 
 class Check:

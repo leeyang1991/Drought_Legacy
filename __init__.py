@@ -55,6 +55,7 @@ import glob
 from osgeo import osr
 from matplotlib.colors import LogNorm
 from jenkspy import JenksNaturalBreaks
+import scipy.io
 np.seterr('ignore')
 
 def sleep(t=1):
@@ -67,6 +68,7 @@ def pause():
 # results_root_main_flow = 'G:\Drought_legacy\\main_flow_results\\'
 
 this_root = '/Volumes/SSD/drought_legacy_new/'
+# this_root = '/Users/wenzhang/Desktop/'
 data_root = this_root + 'data/'
 results_root = this_root + 'results/'
 # results_root_main_flow = this_root + 'main_flow_results/'

@@ -199,9 +199,9 @@ class Main_flow_Early_Peak_Late_Dormant:
         # 2 data transform
         # self.data_transform_annual()
         # 3 smooth bi-weekly to daily
-        # self.hants_smooth_annual()
+        self.hants_smooth_annual()
         # 4 calculate phenology
-        self.early_peak_late_dormant_period_annual()
+        # self.early_peak_late_dormant_period_annual()
         # 5 transform daily to monthly
         # self.transform_early_peak_late_dormant_period_annual()
         # 99 check get_early_peak_late_dormant_period_long_term
@@ -441,17 +441,23 @@ class Main_flow_Early_Peak_Late_Dormant:
         pass
 
     def hants_smooth_annual(self):
-        outdir = self.this_class_arr + 'hants_smooth_annual/'
+        start = time.time()
+        # outdir = self.this_class_arr + 'hants_smooth_annual/'
+        outdir = '/Users/wenzhang/Desktop/hants_smooth_annual_m1/'
         T.mk_dir(outdir)
         # gs_f = Phenology_based_on_Temperature_NDVI().this_class_arr + 'growing_season_index.npy'
         # gs_dic = T.load_npy(gs_f)
-        per_pix_dir = self.this_class_arr + 'data_transform_annual/'
+        # per_pix_dir = self.this_class_arr + 'data_transform_annual/'
+        per_pix_dir = '/Users/wenzhang/Desktop/data_transform_annual/'
         params = []
         for year in os.listdir(per_pix_dir):
             # print year
             params.append([per_pix_dir,year,outdir])
-        MULTIPROCESS(self.kernel_hants_smooth_annual,params).run(process=6)
-
+            self.kernel_hants_smooth_annual([per_pix_dir,year,outdir])
+        # MULTIPROCESS(self.kernel_hants_smooth_annual,params).run()
+        end = time.time()
+        duration = end - start
+        print('duration {} s'.format(duration))
 
 
     def data_transform_annual(self):
@@ -3667,7 +3673,7 @@ class Main_flow_RF:
 
 
 def main():
-    # Main_flow_Early_Peak_Late_Dormant().run()
+    Main_flow_Early_Peak_Late_Dormant().run()
 
     # Main_Flow_Pick_drought_events().run()
     # Main_flow_Legacy().run()
@@ -3676,7 +3682,7 @@ def main():
     # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # Analysis().run()
     # Tif().run()
-    Main_flow_RF().run()
+    # Main_flow_RF().run()
 
 
 

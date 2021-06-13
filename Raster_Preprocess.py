@@ -2152,6 +2152,43 @@ class Water_balance:
                 spatial_dic[pix] = wb
         DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_tif(spatial_dic,outdir + 'Aridity_Index.tif')
 
+class Plant_Strategy:
+    def __init__(self):
+        '''
+        https://github.com/yalingliu-cu/plant-strategies
+        '''
+        pass
+
+    def run(self):
+        # mat_f = data_root + 'plant-strategies/Zr.mat'
+        mat_f = data_root + 'plant-strategies/Rplant.mat'
+        self.foo(mat_f)
+        pass
+
+
+    def foo(self,mat_f):
+        # mat_f = data_root + 'plant-strategies/Zr.mat'
+        loc_f = data_root + 'plant-strategies/latlon.mat'
+        var = mat_f.split('/')[-1].split('.')[0]
+        outtif = data_root + 'plant-strategies/{}1.tif'.format(var)
+        mat_f_r = scipy.io.loadmat(mat_f)
+        loc_f_r = scipy.io.loadmat(loc_f)
+        mat = mat_f_r[var]
+        latlon = loc_f_r['latlon']
+        lonlist = []
+        latlist = []
+        val_list = []
+        for i in range(len(latlon)):
+            lon = latlon[i][1]
+            lat = latlon[i][0]
+            val = mat[i][0]
+            lonlist.append(lon)
+            latlist.append(lat)
+            val_list.append(val)
+
+        DIC_and_TIF().lon_lat_val_to_tif(lonlist,latlist,val_list,outtif)
+
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -2170,7 +2207,8 @@ def main():
     # Precip().run()
     # Soil_terra().run()
     # PET_terra().run()
-    Water_balance().run()
+    # Water_balance().run()
+    Plant_Strategy().run()
     pass
 
 

@@ -1187,6 +1187,62 @@ class DIC_and_TIF:
         latitude_start = originY
         to_raster.array2raster(outtif, longitude_start, latitude_start, pixelWidth, pixelHeight, spatial)
 
+    def unify_raster(self, in_tif, out_tif, ndv=-999999.):
+        '''
+        Unify raster to the extend of global (-180 180 90 -90)
+        '''
+        insert_value = ndv
+        array, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(in_tif)
+        # insert values to row
+        top_line_num = abs((90. - originY) / pixelHeight)
+        bottom_line_num = abs((90. + originY + pixelHeight * len(array)) / pixelHeight)
+        top_line_num = int(round(top_line_num, 0))
+        bottom_line_num = int(round(bottom_line_num, 0))
+        nan_array_insert = np.ones_like(array[0]) * insert_value
+        top_array_insert = []
+        for i in range(top_line_num):
+            top_array_insert.append(nan_array_insert)
+        bottom_array_insert = []
+        for i in range(bottom_line_num):
+            bottom_array_insert.append(nan_array_insert)
+        bottom_array_insert = np.array(bottom_array_insert)
+        if len(top_array_insert) != 0:
+            arr_temp = np.insert(array, obj=0, values=top_array_insert, axis=0)
+        else:
+            arr_temp = array
+        if len(bottom_array_insert) != 0:
+            array_unify_top_bottom = np.vstack((arr_temp, bottom_array_insert))
+        else:
+            array_unify_top_bottom = arr_temp
+
+        # insert values to column
+        left_line_num = abs((-180. - originX) / pixelWidth)
+        right_line_num = abs((180. - (originX + pixelWidth * len(array[0]))) / pixelWidth)
+        left_line_num = int(round(left_line_num, 0))
+        right_line_num = int(round(right_line_num, 0))
+        left_array_insert = []
+        right_array_insert = []
+        for i in range(left_line_num):
+            left_array_insert.append(insert_value)
+        for i in range(right_line_num):
+            right_array_insert.append(insert_value)
+
+        array_unify_left_right = []
+        for i in array_unify_top_bottom:
+            if len(left_array_insert) != 0:
+                arr_temp = np.insert(i, obj=0, values=left_line_num, axis=0)
+            else:
+                arr_temp = i
+            if len(right_array_insert) != 0:
+                array_temp1 = np.hstack((arr_temp, right_array_insert))
+            else:
+                array_temp1 = arr_temp
+            array_unify_left_right.append(array_temp1)
+        array_unify_left_right = np.array(array_unify_left_right)
+        print('{} is unified to the shape of'.format(in_tif), np.shape(array_unify_left_right))
+        newRasterfn = out_tif
+        to_raster.array2raster(newRasterfn, -180, 90, pixelWidth, pixelHeight, array_unify_left_right, ndv=ndv)
+
 
 class MULTIPROCESS:
     '''

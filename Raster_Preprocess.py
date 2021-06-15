@@ -2161,16 +2161,18 @@ class Plant_Strategy:
 
     def run(self):
         # mat_f = data_root + 'plant-strategies/Zr.mat'
-        mat_f = data_root + 'plant-strategies/Rplant.mat'
-        self.foo(mat_f)
+        # mat_f = data_root + 'plant-strategies/Rplant.mat'
+        # self.mat_to_tif(mat_f)
+        # self.resample()
+        self.unify_raster()
         pass
 
 
-    def foo(self,mat_f):
+    def mat_to_tif(self,mat_f):
         # mat_f = data_root + 'plant-strategies/Zr.mat'
         loc_f = data_root + 'plant-strategies/latlon.mat'
         var = mat_f.split('/')[-1].split('.')[0]
-        outtif = data_root + 'plant-strategies/{}1.tif'.format(var)
+        outtif = data_root + 'plant-strategies/{}.tif'.format(var)
         mat_f_r = scipy.io.loadmat(mat_f)
         loc_f_r = scipy.io.loadmat(loc_f)
         mat = mat_f_r[var]
@@ -2187,6 +2189,23 @@ class Plant_Strategy:
             val_list.append(val)
 
         DIC_and_TIF().lon_lat_val_to_tif(lonlist,latlist,val_list,outtif)
+
+
+    def resample(self):
+        # var = 'Rplant'
+        var = 'Zr'
+        in_tif = data_root + 'plant-strategies/{}.tif'.format(var)
+        out_tif = data_root + 'plant-strategies/{}_005.tif'.format(var)
+        dataset = gdal.Open(in_tif)
+        gdal.Warp(out_tif, dataset, xRes=0.05, yRes=0.05, srcSRS='EPSG:4326', dstSRS='EPSG:4326')
+
+
+    def unify_raster(self):
+        # var = 'Zr_005'
+        var = 'Rplant_005'
+        in_tif = data_root + 'plant-strategies/{}.tif'.format(var)
+        out_tif = data_root + 'plant-strategies/{}_unify.tif'.format(var)
+        DIC_and_TIF().unify_raster(in_tif,out_tif)
 
 
 def main():

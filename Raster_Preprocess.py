@@ -891,14 +891,14 @@ class Soilgrids:
         os.system(command)
 
     def mosaic_tiles_i_step2(self, params):
-        from osgeo.utils import gdal_merge
+        # from osgeo_utils import gdal_merge
         in_dir, out_tif, res = params
         in_dir = in_dir + '/'
         # forked from https://www.neonscience.org/merge-lidar-geotiff-py
         # GDAL mosaic
         anaconda_python_path = r'python3 '
         # gdal_script = r'/Library/Python/3.8/site-packages/GDAL-3.2.2-py3.8-macosx-10.14.6-x86_64.egg/EGG-INFO/scripts/gdal_merge.py'
-        gdal_script = r'/usr/local/Cellar/gdal/3.2.2/bin/gdal_merge.py' # homebrew directory
+        gdal_script = r'/Users/liyang/miniforge3/lib/python3.9/site-packages/osgeo_utils/gdal_merge.py' # miniforge gdal_merge script
         # files_to_mosaic = glob.glob('{}/*.tif'.format(in_dir))
         files_to_mosaic = []
         for f in os.listdir(in_dir):
@@ -932,7 +932,8 @@ class Soilgrids:
         # fdir = data_root + 'Soilgrids/mosaic_step1/'
         # outdir = data_root + 'Soilgrids/mosaic_step2/'
         T.mk_dir(outdir)
-        res = 5000 # unit meters
+        # res = 5000 # unit meters
+        res = 250 # unit meters
         outtif = outdir+'global_{}m.tif'.format(res)
         if os.path.isfile(outtif):
             return None
@@ -2227,7 +2228,15 @@ def main():
     # Soil_terra().run()
     # PET_terra().run()
     # Water_balance().run()
-    Plant_Strategy().run()
+    # Plant_Strategy().run()
+    # step1 = '/Users/liyang/Desktop/step1/'
+    # step2 = '/Users/liyang/Desktop/step2/'
+    # Soilgrids().mosaic_step2(step1,step2)
+    tif = '/Users/liyang/Desktop/step2/global_250m.tif'
+    outtif = '/Users/liyang/Desktop/step2/global_250m_reproj.tif'
+    res = 0.0025
+    Soilgrids().re_projection(tif,outtif,res=res)
+
     pass
 
 

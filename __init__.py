@@ -62,6 +62,20 @@ def sleep(t=1):
     time.sleep(t)
 def pause():
     input('\33[7m'+"PRESS ENTER TO CONTINUE."+'\33[0m')
+
+def kill_python_process():
+    '''
+    from:
+    https://stackoverflow.com/questions/3510673/find-and-kill-a-process-in-one-line-using-bash-and-regex
+    '''
+    project_folder = os.getcwd()
+    cmd = "kill $(ps aux|grep %s |awk '{print $2}')"%project_folder
+    # cmd = "kill $(ps aux|grep 'python3 -c from multiprocessing.' |awk '{print $2}')"
+    # kill $(ps aux|grep /Users/liyang/PycharmProjects/Drought_Legacy |awk '{print $2}')
+    print(cmd)
+    # os.system(cmd)
+# kill_matplotlib()
+# exit()
 # this_root = 'G:\Drought_legacy\\'
 # data_root = 'G:\Drought_legacy\\data\\'
 # results_root = 'G:\Drought_legacy\\results\\'

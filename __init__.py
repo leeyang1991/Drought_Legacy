@@ -56,6 +56,7 @@ from osgeo import osr
 from matplotlib.colors import LogNorm
 from jenkspy import JenksNaturalBreaks
 import scipy.io
+from scipy.stats import kruskal
 np.seterr('ignore')
 
 def sleep(t=1):

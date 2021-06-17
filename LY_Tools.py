@@ -1244,6 +1244,31 @@ class DIC_and_TIF:
         to_raster.array2raster(newRasterfn, -180, 90, pixelWidth, pixelHeight, array_unify_left_right, ndv=ndv)
 
 
+    def resample_reproj(self,in_tif,out_tif,res,srcSRS='EPSG:4326',dstSRS='EPSG:4326'):
+        dataset = gdal.Open(in_tif)
+        gdal.Warp(out_tif, dataset, xRes=res, yRes=res, srcSRS=srcSRS, dstSRS=dstSRS)
+
+    def gen_srs_from_wkt(self,proj_wkt):
+        '''
+        proj_wkt example:
+        prj_info = PROJCS["Homolosine",
+                GEOGCS["WGS 84",
+                    DATUM["WGS_1984",
+                        SPHEROID["WGS 84",6378137,298.257223563,
+                            AUTHORITY["EPSG","7030"]],
+               AUTHORITY["EPSG","6326"]],
+                    PRIMEM["Greenwich",0,
+                        AUTHORITY["EPSG","8901"]],
+                    UNIT["degree",0.0174532925199433,
+                        AUTHORITY["EPSG","9122"]],
+                    AUTHORITY["EPSG","4326"]],
+                PROJECTION["Interrupted_Goode_Homolosine"],
+                UNIT["Meter",1]]
+        '''
+        inRasterSRS = osr.SpatialReference()
+        inRasterSRS.ImportFromWkt(proj_wkt)
+        return inRasterSRS
+
 class MULTIPROCESS:
     '''
     可对类内的函数进行多进程并行

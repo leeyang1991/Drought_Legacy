@@ -1,5 +1,4 @@
 # coding=utf-8
-import numpy as np
 
 from __init__ import *
 # from Main_flow_csif_legacy_2002 import *
@@ -7,6 +6,7 @@ from __init__ import *
 results_root_main_flow_high_res = this_root + 'results_root_main_flow_high_res/'
 results_root_main_flow = results_root_main_flow_high_res
 results_root = results_root_main_flow_high_res
+
 
 class Global_vars:
     def __init__(self):
@@ -266,7 +266,7 @@ class Main_Flow_Pick_drought_events:
         f, outdir,n,threshold = params
         # n = 4*12
         gs_mons = Global_vars().gs_mons()
-        T.mk_dir(outdir,force=True)
+        T.mk_dir(outdir, force=True)
         single_event_dic = {}
         single_event_number_dic = {}
         dic = T.load_npy(f)
@@ -1041,7 +1041,6 @@ class Main_flow_Carbon_loss:
     def gen_recovery_time_legacy_repetitive(self, events, spei_dic, ndvi_dic, out_dir):
         '''
         生成全球恢复期
-        :param interval: SPEI_{interval}
         :return:
         '''
 
@@ -1397,8 +1396,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.__rename_drought_type(df)
         # df = self.__rename_dataframe_columns(df)
         # df = self.add_initial_supsequential_delta(df)
-        df = self.add_zr_in_df(df)
-        df = self.add_Rplant_in_df(df)
+        # df = self.add_zr_in_df(df)
+        # df = self.add_Rplant_in_df(df)
+        df = self.add_isohydricity_to_df(df)
         # df
         # exit()
         T.save_df(df,self.dff)
@@ -1675,8 +1675,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         pass
 
     def add_isohydricity_to_df(self,df):
-        tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity.tif'
-        dic = DIC_and_TIF().spatial_tif_to_dic(tif)
+        tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity_005.tif'
+        dic = DIC_and_TIF(Global_vars().tif_template_7200_3600).spatial_tif_to_dic(tif)
         iso_hyd_list = []
         for i,row in tqdm(df.iterrows(),total=len(df),desc='adding iso-hydricity to df'):
             pix = row.pix
@@ -2512,13 +2512,16 @@ class Analysis:
 
     def run(self):
 
+        # self.overview()
+        self.overview_ANOVA_test()
+        # self.tree_types_of_drought_type_overview()
         # self.run_Bins_scatter_line()
         # self.dominate_drought()
         # self.scatter_vpd_precip()
         # self.delta()
         # self.matrix()
         # self.bin_scatter()
-        self.bin_correlation()
+        # self.bin_correlation()
 
 
         pass
@@ -2702,55 +2705,98 @@ class Analysis:
         elif 'Rplant' in bin_var:
             bin_min = 0
             bin_max = 0.06
+        elif 'isohydricity' in bin_var:
+            bin_min = 0
+            bin_max = 1.2
         else:
             raise UserWarning('Y var error')
         pass
         return bin_min,bin_max
 
-    def foo(self):
+
+
+    def overview(self):
         df,dff = self.__load_df()
-
-        drought_types_list = ['single','repeatedly_initial','repeatedly_subsequential',]
-        bar_list = []
-        for drought_type in drought_types_list:
-            df_drought_type = df[df['drought_type']==drought_type]
-            vals = []
-            for i,row in tqdm(df_drought_type.iterrows(),total=len(df_drought_type),desc=drought_type):
-                pix = row.pix
-                r,c = pix
-                if r > 1800:
-                    continue
-                carbon_loss = row.carbon_loss
-                vals.append(carbon_loss)
-            bar_list.append(vals)
-        plt.boxplot(bar_list,showfliers=False)
-        plt.show()
-
-
-    def foo2(self):
-        # threshold = '-2'
-        # dff = Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).dff
-        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
-        df = T.load_df(dff)
-        df = df.dropna()
-
-        df = df[df['drought_type']!='single']
-        # df = df[df['drought_type']=='single']
-        # df = df[df['drought_type']=='repeatedly_initial']
-        # df = df[df['drought_type']=='repeatedly_subsequential']
-        # print(len(df))
-        # exit()
-
-        carbon_loss = df['carbon_loss']
-        carbon_loss_ = -carbon_loss
-        df['carbon_loss_'] = carbon_loss_
+        # y_var = 'CSIF_anomaly_loss'
+        # y_var = 'Resilience_rs'
+        # y_var = 'Resistance_rt'
+        y_var = 'Recovery_rc'
+        if 'Re' in y_var:
+            y_var_max = 1.3
+            y_var_min = 0.7
+        else:
+            y_var_max = 9999
+            y_var_min = 0
+        df = df[df[y_var] > y_var_min]
+        df = df[df[y_var] < y_var_max]
+        df = df[df['recovery_time']<20]
         # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci='sd')
         # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=60)
-        sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df)
+        # sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type',data=df)
+        sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type',data=df)
         # sns.catplot(x='lc_broad_needle',kind="violin",y='carbon_loss_',hue='drought_type',data=df)
         # sns.catplot(x='lc_broad_needle',kind="swarm",y='carbon_loss_',hue='drought_type',data=df)
+        # plt.tight_layout()
+        # plt.title(y_var)
         plt.show()
         pass
+
+
+    def overview_ANOVA_test(self):
+        df,dff = self.__load_df()
+        # y_var = 'CSIF_anomaly_loss'
+        # y_var = 'Resilience_rs'
+        y_var = 'Resistance_rt'
+        # y_var = 'Recovery_rc'
+        if 'Re' in y_var:
+            y_var_max = 1.3
+            y_var_min = 0.7
+        else:
+            y_var_max = 9999
+            y_var_min = 0
+
+        lc_list = df['lc_broad_needle'].tolist()
+        lc_list = list(set(lc_list))
+        lc_list.sort()
+
+        drought_type_list = df['drought_type'].tolist()
+        drought_type_list = list(set(drought_type_list))
+        drought_type_list.sort()
+
+        # for lc_broad_needle in ['Needleleaf','Broadleaf']:
+        for lc in lc_list:
+            vals_test = []
+            for dt in drought_type_list:
+                df, dff = self.__load_df()
+                df = df[df[y_var] > y_var_min]
+                df = df[df[y_var] < y_var_max]
+                df = df[df['CSIF_anomaly_loss'] < 20]
+                df_lc = df[df['lc_broad_needle']==lc]
+                df_dt = df_lc[df_lc['drought_type']==dt]
+                y_val = df_dt[y_var].tolist()
+                vals_test.append(y_val)
+
+            f,p = f_oneway(vals_test[0],vals_test[1])
+            # f,p = kruskal(vals_test[0],vals_test[1])
+            # plt.figure()
+            # plt.hist(vals_test[0],label=drought_type_list[0],alpha=0.6,bins=80)
+            # plt.hist(vals_test[1],label=drought_type_list[1],alpha=0.6,bins=80)
+            if p < 0.01:
+                star = '***'
+            elif 0.01 < p < 0.05:
+                star = '**'
+            elif 0.05 < p < 0.01:
+                star = '*'
+            else:
+                star = '---'
+            print(lc,f,p,star)
+            # plt.legend()
+            # plt.show()
+
+        # plt.show()
+        pass
+
+
 
     def foo3(self):
         # threshold = '-2'
@@ -2970,55 +3016,7 @@ class Analysis:
 
     def tree_types_of_drought_type_overview(self):
         df,dff = self.__load_df()
-        # product = 'vpd'
-        product = 'precip'
-        # product = 'spei12'
-        df_vpd_initial = df[df['drought_type']=='repeatedly_initial_{}'.format(product)]
-        df_vpd_subseq = df[df['drought_type']=='repeatedly_subsequential_{}'.format(product)]
-
-        df_vpd_initial_needle = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Needleleaf']
-        df_vpd_initial_broad = df_vpd_initial[df_vpd_initial['lc_broad_needle']=='Broadleaf']
-
-        df_vpd_subseq_needle = df_vpd_subseq[df_vpd_subseq['lc_broad_needle'] == 'Needleleaf']
-        df_vpd_subseq_broad = df_vpd_subseq[df_vpd_subseq['lc_broad_needle'] == 'Broadleaf']
-
-        carbonloss_df_vpd_initial_needle = df_vpd_initial_needle['carbon_loss'].tolist()
-        carbonloss_df_vpd_initial_broad = df_vpd_initial_broad['carbon_loss'].tolist()
-        carbonloss_df_vpd_subseq_needle = df_vpd_subseq_needle['carbon_loss'].tolist()
-        carbonloss_df_vpd_subseq_broad = df_vpd_subseq_broad['carbon_loss'].tolist()
-
-        boxes = [
-            carbonloss_df_vpd_initial_broad,
-            carbonloss_df_vpd_subseq_broad,
-            carbonloss_df_vpd_initial_needle,
-            carbonloss_df_vpd_subseq_needle,
-                 ]
-        boxes_labels = [
-            'carbonloss_df_{}_initial_broad'.format(product),
-            'carbonloss_df_{}_subseq_broad'.format(product),
-            'carbonloss_df_{}_initial_needle'.format(product),
-            'carbonloss_df_{}_subseq_needle'.format(product),
-                 ]
-        # plt.boxplot(boxes,labels=boxes_labels,showfliers=False)
-        # plt.show()
-        mean_list = []
-        error_list = []
-        for b in boxes:
-            mean = np.mean(b)
-            mean = -mean
-            error = np.std(b)/2.
-            error_list.append(error)
-            mean_list.append(mean)
-        # print(stats.f_oneway(carbonloss_df_vpd_initial_broad,
-        #     carbonloss_df_vpd_subseq_broad,))
-        plt.bar(boxes_labels,mean_list,yerr=error_list)
-        plt.show()
-
-        # print(len(df_vpd_initial))
-
-        # for i,row in tqdm(df.iterrows(),total=len(df)):
-        #     pass
-
+        # x
         pass
 
     def dominate_drought(self):
@@ -3552,25 +3550,28 @@ class Analysis:
             'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
+        algrithm = 'r'
+        # algrithm = 'k'
         Y_var = 'CSIF_anomaly_loss'
         X_var = 'max_vpd_in_drought_range'
         # X_var = 'max_vpd_anomaly_in_drought_range'
         # X_var = 'min_precip_anomaly_in_drought_range'
-        bin_var = 'Rplant'
+        # bin_var = 'Rplant'
         # bin_var = 'zr'
+        bin_var = 'isohydricity'
         bin_min, bin_max = self.__bin_min_max(bin_var)
         bin_n = 10
         df, dff = self.__load_df()
-        lc_list = df['lc_broad_needle'].tolist()
-        # lc_list = df['drought_type'].tolist()
+        # lc_list = df['lc_broad_needle'].tolist()
+        lc_list = df['drought_type'].tolist()
         # lc_list = df['dominate'].tolist()
         lc_list = list(set(lc_list))
         lc_list.sort()
 
         for lc in lc_list:
             df, dff = self.__load_df()
-            df = df[df['lc_broad_needle']==lc]
-            # df = df[df['drought_type']==lc]
+            # df = df[df['lc_broad_needle']==lc]
+            df = df[df['drought_type']==lc]
             # df = df[df['dominate']==lc]
             df = Global_vars().clean_df(df)
             df = df[df['CSIF_anomaly_loss']<5]
@@ -3598,16 +3599,21 @@ class Analysis:
                 reg.fit(xval,yval)
                 coef_ = reg.coef_[0]
                 coef_list.append(coef_)
-            # plt.plot(bins_mean,coef_list,label=lc)
-            # plt.scatter(bins_mean,coef_list)
 
-            plt.plot(bins_mean,r_list,label=lc)
-            plt.scatter(bins_mean,r_list)
+            if algrithm == 'k':
+                plt.plot(bins_mean,coef_list,label=lc)
+                plt.scatter(bins_mean,coef_list)
+                plt.xticks(bins_mean, bins_str, rotation=90)
+                plt.ylabel('{} {} K'.format(X_var, Y_var))
 
-            # plt.xticks(bins_mean,bins_str,rotation=90)
-            # plt.ylabel('{} {} K'.format(X_var,Y_var))
-            plt.ylabel('{} {} r'.format(X_var,Y_var))
-            plt.xlabel(bin_var)
+            elif algrithm == 'r':
+                plt.plot(bins_mean,r_list,label=lc)
+                plt.scatter(bins_mean,r_list)
+                plt.ylabel('{} {} r'.format(X_var,Y_var))
+                plt.xlabel(bin_var)
+            else:
+                raise UserWarning
+
         plt.legend()
         plt.tight_layout()
         plt.show()

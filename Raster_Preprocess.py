@@ -2209,6 +2209,23 @@ class Plant_Strategy:
         DIC_and_TIF().unify_raster(in_tif,out_tif)
 
 
+
+class Isohydricity:
+
+    def __init__(self):
+
+        pass
+
+    def resample(self):
+        tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity.tif'
+        out_tif = data_root + 'Isohydricity/tif_all_year/ISO_Hydricity_005.tif'
+        # print(tif)
+        # print(out_tif)
+        # exit()
+        DIC_and_TIF().resample_reproj(tif,out_tif,res=0.05)
+
+        pass
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -2232,10 +2249,11 @@ def main():
     # step1 = '/Users/liyang/Desktop/step1/'
     # step2 = '/Users/liyang/Desktop/step2/'
     # Soilgrids().mosaic_step2(step1,step2)
-    tif = '/Users/liyang/Desktop/step2/global_250m.tif'
-    outtif = '/Users/liyang/Desktop/step2/global_250m_reproj.tif'
-    res = 0.0025
-    Soilgrids().re_projection(tif,outtif,res=res)
+    # tif = '/Users/liyang/Desktop/step2/global_250m.tif'
+    # outtif = '/Users/liyang/Desktop/step2/global_250m_reproj.tif'
+    # res = 0.0025
+    # Soilgrids().re_projection(tif,outtif,res=res)
+    Isohydricity().resample()
 
     pass
 

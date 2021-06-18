@@ -1380,6 +1380,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.landcover_compose(df)
         # df = self.add_min_precip_to_df(df)
         # df = self.add_min_precip_anomaly_to_df(df)
+        df = self.add_max_precip_to_df(df)
         # df = self.add_max_vpd_to_df(df)
         # df = self.add_max_vpd_anomaly_to_df(df)
         # df = self.add_mean_precip_anomaly_to_df(df)
@@ -1398,7 +1399,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_initial_supsequential_delta(df)
         # df = self.add_zr_in_df(df)
         # df = self.add_Rplant_in_df(df)
-        df = self.add_isohydricity_to_df(df)
+        # df = self.add_isohydricity_to_df(df)
         # df
         # exit()
         T.save_df(df,self.dff)
@@ -1816,6 +1817,24 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         df['mean_precip_in_drought_range'] = min_precip_list
         return df
+
+
+    def add_max_precip_to_df(self,df):
+
+        fdir = data_root + 'Precip_terra/per_pix/'
+        dic = T.load_npy_dir(fdir)
+        min_precip_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            precip = dic[pix]
+            picked_val = T.pick_vals_from_1darray(precip,drought_event_date_range)
+            mean_precip = np.max(picked_val)
+            min_precip_list.append(mean_precip)
+
+        df['max_precip_in_drought_range'] = min_precip_list
+        return df
+
 
     def add_mean_vpd_to_df(self,df):
 
@@ -2513,8 +2532,8 @@ class Analysis:
     def run(self):
 
         # self.overview()
-        self.overview_ANOVA_test()
-        # self.tree_types_of_drought_type_overview()
+        self.correlation()
+        # self.overview_ANOVA_test()
         # self.run_Bins_scatter_line()
         # self.dominate_drought()
         # self.scatter_vpd_precip()
@@ -2528,12 +2547,14 @@ class Analysis:
 
     def run_Bins_scatter_line(self):
         x_var_list = [
-            'min_precip_anomaly_in_drought_range',
-            'max_vpd_in_drought_range',
-            'Aridity_Index',
-            'zr',
-            'Rplant',
-            'Aridity_Index',
+            # 'min_precip_anomaly_in_drought_range',
+            # 'min_precip_in_drought_range',
+            'max_precip_in_drought_range',
+            # 'max_vpd_in_drought_range',
+            # 'Aridity_Index',
+            # 'zr',
+            # 'Rplant',
+            # 'Aridity_Index',
         ]
         y_var_list = [
             'Recovery_rc',
@@ -2541,20 +2562,20 @@ class Analysis:
             'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
-        y1_var_list = [
-            'min_precip_anomaly_in_drought_range',
-            'max_vpd_in_drought_range',
-            'Aridity_Index',
-            'zr',
-            'Rplant',
-        ]
+        # y1_var_list = [
+        #     'min_precip_anomaly_in_drought_range',
+        #     'max_vpd_in_drought_range',
+        #     'Aridity_Index',
+        #     'zr',
+        #     'Rplant',
+        # ]
         flag = 0
         for x in x_var_list:
             for y in y_var_list:
-                for y1 in y1_var_list:
-                    flag += 1
-                    print('{} / {}'.format(flag,len(x_var_list)*len(y_var_list)*len(y1_var_list)))
-                    self.Bins_scatter_line(x, y, y1)
+                # for y1 in y1_var_list:
+                flag += 1
+                print('{} / {}'.format(flag,len(x_var_list)*len(y_var_list)))
+                self.Bins_scatter_line(x, y)
 
     def __load_df(self):
 
@@ -2687,9 +2708,15 @@ class Analysis:
         return inlist
 
     def __bin_min_max(self,bin_var):
-        if 'precip' in bin_var:
+        if 'min_precip_anomaly_in_drought_range' in bin_var:
             bin_min = -2
             bin_max = -0.
+        elif 'min_precip_in_drought_range' in bin_var:
+            bin_min = 0
+            bin_max = 400
+        elif 'max_precip_in_drought_range' in bin_var:
+            bin_min = 0
+            bin_max = 400
         elif 'vpd_anomaly' in bin_var:
             bin_min = 0
             bin_max = 2.5
@@ -2708,11 +2735,33 @@ class Analysis:
         elif 'isohydricity' in bin_var:
             bin_min = 0
             bin_max = 1.2
+        elif 'CSIF_anomaly_loss' in bin_var:
+            bin_min = 0
+            bin_max = 10
+        elif 'Recovery_rc' in bin_var:
+            bin_max = 1.3
+            bin_min = 0.7
+        elif 'Resilience_rs' in bin_var:
+            bin_max = 1.3
+            bin_min = 0.7
+        elif 'Resistance_rt' in bin_var:
+            bin_max = 1.3
+            bin_min = 0.7
+        elif 'subseq-init_csif_anomaly_loss' in bin_var:
+            bin_max = 3
+            bin_min = -3
         else:
             raise UserWarning('Y var error')
         pass
         return bin_min,bin_max
 
+    def __get_unique_list(self,df,xvar):
+
+        unique_list = df[xvar].tolist()
+        unique_list = list(set(unique_list))
+        unique_list.sort()
+
+        return unique_list
 
 
     def overview(self):
@@ -2797,75 +2846,47 @@ class Analysis:
         pass
 
 
-
-    def foo3(self):
-        # threshold = '-2'
-        # dff = Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).dff
-        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
-        df = T.load_df(dff)
-        df = df.dropna()
-        lc_type = 'Needleleaf'
-
-        # lc_type = 'Broadleaf'
-        # class_var = 'min_precip_in_drought_range_bin_class'
-        class_var = 'max_vpd_in_drought_range_bin_class'
-        # df = df[df['lc_broad_needle']=='Needleleaf']
-        df = df[df['lc_broad_needle']==lc_type]
-        df = df[df['drought_type']!='single']
-        # df = df[df['drought_type']=='single']
-        # df = df[df['drought_type']=='repeatedly_initial']
-        # df = df[df['drought_type']=='repeatedly_subsequential']
-        # print(len(df))
-        # exit()
-
-        carbon_loss = df['carbon_loss']
-        carbon_loss_ = -carbon_loss
-        df['carbon_loss_'] = carbon_loss_
-        order = df[class_var].tolist()
-        order = list(set(order))
-        order.sort()
-        # print(hue_order)
-        # exit()
-
-        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci='sd')
-        # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=60)
-        sns.catplot(x=class_var,kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=None,order=order)
-        # sns.catplot(x='lc_broad_needle',kind="violin",y='carbon_loss_',hue='drought_type',data=df)
-        # sns.catplot(x='lc_broad_needle',kind="swarm",y='carbon_loss_',hue='drought_type',data=df)
-        plt.title(lc_type + '_' + class_var)
-        new_ticks = [round(i,2) for i in order]
-        plt.xticks(range(len(order)),new_ticks,rotation=90)
-        plt.ylim(0,3)
-        plt.tight_layout()
-        plt.show()
-        pass
-
-
     def matrix(self):
 
-        n = 100
-
-        # vpd_var = 'mean_vpd_anomaly_in_drought_range'
-        # vpd_var = 'max_vpd_anomaly_in_drought_range'
-        vpd_var = 'max_vpd_in_drought_range'
+        n = 200
+        # y_var = 'CSIF_anomaly_loss'
+        # y_var = 'Resilience_rs'
+        # y_var = 'Resistance_rt'
+        # y_var = 'Recovery_rc'
+        y_var = 'subseq-init_csif_anomaly_loss'
+        vpd_var = 'max_vpd_anomaly_in_drought_range'
+        # vpd_var = 'max_vpd_in_drought_range'
 
         # precip_var = 'mean_precip_anomaly_in_drought_range'
         precip_var = 'min_precip_anomaly_in_drought_range'
+        if 'Re' in y_var:
+            y_var_max = 1.3
+            y_var_min = 0.7
+            y_var_plt_min = 0.9
+            y_var_plt_max = 1
+        else:
+            y_var_max = 9999
+            y_var_min = -9999
+            y_var_plt_min = -3
+            y_var_plt_max = 3
 
         for lc_type in ['Needleleaf','Broadleaf']:
-            for drought_type in ['repeatedly_initial_spei12', 'repeatedly_subsequential_spei12']:
+            # for drought_type in ['repeatedly_initial_spei12', 'repeatedly_subsequential_spei12']:
                 df, dff = self.__load_df()
                 df = df.dropna()
+                df = df[df[y_var] > y_var_min]
+                df = df[df[y_var] < y_var_max]
+                df = df[df['CSIF_anomaly_loss'] < 20]
                 # df = df[df['recovery_time'] < 12]
                 df = df[df['lc_broad_needle'] == lc_type]
                 # df = df[df['drought_type'] != 'single']
-                df = df[df['drought_type'] == drought_type]
+                # df = df[df['drought_type'] == drought_type]
+                # y_val
                 min_precip_in_drought_range = df[precip_var]
                 max_vpd_in_drought_range = df[vpd_var]
                 # print(df)
-                # exit()
-                d1,d1_str,d1_mean = self.__divide_bins_equal_interval(min_precip_in_drought_range,min_v=-2.5,max_v=0,n=n)
-                d2,d2_str,d2_mean = self.__divide_bins_equal_interval(max_vpd_in_drought_range,min_v=0,max_v=3.5,n=n)
+                d1,d1_str,d1_mean = self.__divide_bins_equal_interval(min_precip_in_drought_range,min_v=-2.5,max_v=2.5,n=n)
+                d2,d2_str,d2_mean = self.__divide_bins_equal_interval(max_vpd_in_drought_range,min_v=-2.5,max_v=2.5,n=n)
                 # print(min_precip_in_drought_range)
 
                 # precip_bins, precip_bins_str = self.__divide_bins_quantile(min_precip_in_drought_range,n=n)
@@ -2891,7 +2912,7 @@ class Analysis:
                             continue
                         df_vpd_bin = df_p_bin[df_p_bin[vpd_var]>d2[j]]
                         df_vpd_bin = df_vpd_bin[df_vpd_bin[vpd_var]<d2[j+1]]
-                        legacy_i = df_vpd_bin['CSIF_anomaly_loss']
+                        legacy_i = df_vpd_bin[y_var]
                         # print(legacy_i)
                         if len(legacy_i)==0:
                             temp.append(np.nan)
@@ -2901,15 +2922,16 @@ class Analysis:
                 matrix = np.array(matrix)[::-1]
                 plt.figure()
                 # plt.imshow(matrix,cmap='OrRd')
-                plt.imshow(matrix,vmin=1,vmax=6,cmap='jet')
+                plt.imshow(matrix,vmin=y_var_plt_min,vmax=y_var_plt_max,cmap='jet')
                 # plt.xticks(range(len(vpd_bins))[::10],vpd_bins_str[::10])
                 precip_bins_str = d1_str[::-1]
-                plt.yticks(range(len(d1_str))[::5],precip_bins_str[::5])
-                plt.xticks(range(len(d2_str))[::5],d2_str[::5],rotation=90)
+                plt.yticks(range(len(d1_str))[::1],precip_bins_str[::1])
+                plt.xticks(range(len(d2_str))[::1],d2_str[::1],rotation=90)
                 plt.xlabel(vpd_var)
                 plt.ylabel(precip_var)
                 plt.colorbar()
-                plt.title(lc_type+' '+drought_type)
+                # plt.title(lc_type+' '+drought_type+'\n'+y_var)
+                plt.title(lc_type+'\n'+y_var)
                 plt.tight_layout()
                 # exit()
         plt.show()
@@ -3125,7 +3147,7 @@ class Analysis:
 
         pass
 
-    def Bins_scatter_line(self,x_var,y_var,y1_var):
+    def Bins_scatter_line(self,x_var,y_var):
         outpngdir = self.this_class_png + 'Bins_scatter_line_equal_interval/'
         # outpngdir = self.this_class_png + 'Bins_scatter_line_quantile/'
 
@@ -3165,11 +3187,13 @@ class Analysis:
         color_flag = -1
         # plt.figure(figsize=(10,8))
         for drought_type in ['repeatedly_initial_spei12', 'repeatedly_subsequential_spei12']:
-            fig,ax0 = plt.subplots(figsize=(8,8))
+            fig,ax0 = plt.subplots(figsize=(6,4))
             ax1 = ax0.twinx()
-
+            styles = ['-','--']
+            styles_flag = -1
             for lc_broad_needle in ['Needleleaf','Broadleaf']:
                 color_flag += 1
+                styles_flag += 1
                 title = '{}\n{}'.format(lc_broad_needle,drought_type)
                 print(title)
                 df,dff = self.__load_df()
@@ -3184,31 +3208,12 @@ class Analysis:
                 vals = df[x_var]
                 # plt.hist(vals,bins=80)
                 # plt.show()
-                if 'precip' in x_var:
-                    bin_min = -2
-                    bin_max = -0.
-                elif 'vpd_anomaly' in x_var:
-                    bin_min = 0
-                    bin_max = 2.5
-                elif 'vpd_in' in x_var:
-                    bin_min = 0
-                    bin_max = 3.
-                elif 'Aridity' in x_var:
-                    bin_min = 0
-                    bin_max = 2.
-                elif 'zr' in x_var:
-                    bin_min = 0
-                    bin_max = 8.
-                elif 'Rplant' in x_var:
-                    bin_min = 0
-                    bin_max = 0.06
-                else:
-                    raise UserWarning('Y var error')
+                bin_min,bin_max = self.__bin_min_max(x_var)
                 print('bin_max', bin_max)
                 print('bin_min', bin_min)
                 bins,bins_str,bins_mean = self.__divide_bins_equal_interval(vals,min_v=bin_min,max_v=bin_max,n=bin_n,include_external=False)
                 # bins,bins_str,bins_mean = self.__divide_bins_quantile(vals,min_v=bin_min,max_v=bin_max,n=bin_n,
-                #                                                       bins_mean_type='quantile')
+                #                                                       bins_mean_type='mean')
                 mean_list = []
                 events_number = []
                 boxes = []
@@ -3224,11 +3229,11 @@ class Analysis:
                     df_wb = df_wb[df_wb[x_var]<bins[i+1]]
                     wb = df_wb[x_var]
                     carbonloss = df_wb[y_var].tolist()
-                    y1 = df_wb[y1_var].tolist()
-                    y1_mean = np.nanmean(y1)
-                    y1_err = np.nanstd(y1) / 4.
-                    mean1_list.append(y1_mean)
-                    err_list1.append(y1_err)
+                    # y1 = df_wb[y1_var].tolist()
+                    # y1_mean = np.nanmean(y1)
+                    # y1_err = np.nanstd(y1) / 4.
+                    # mean1_list.append(y1_mean)
+                    # err_list1.append(y1_err)
                     events_number.append(len(carbonloss))
                     bar = np.nanmean(carbonloss)
                     err = np.nanstd(carbonloss)/4.
@@ -3246,7 +3251,7 @@ class Analysis:
                 # mean_list_smooth = SMOOTH().smooth_convolve(mean_list,window_len=window)[:-1]
                 mean_list_smooth = mean_list
                 # bins_mean = range(len(bins_mean))
-                ax0.plot(bins_mean,mean_list_smooth,label=title,color=color_list_line[color_flag],linewidth=3,zorder=99)
+                ax0.plot(bins_mean,mean_list_smooth,styles[styles_flag],label=title,color=color_list_line[color_flag],linewidth=3,zorder=99)
                 ax0.scatter(bins_mean,mean_list_smooth,color=color_list_line[color_flag],s=80,zorder=100)
                 ax0.errorbar(bins_mean, mean_list_smooth, yerr=err_list,
                              capsize=4,ecolor=color_list_line[color_flag],
@@ -3258,16 +3263,16 @@ class Analysis:
                 # ax0.set_ylim(0,4)
                 # ax_hist = plt.twinx()
                 # plt.plot(bins_mean,events_number,label=title+' events number')
-                ax1.plot(bins_mean,mean1_list,label=title+' '+y1_var,color=color_list_line[color_flag+2])
-                ax1.scatter(bins_mean,mean1_list,color=color_list_line[color_flag+2])
-                ax1.set_ylabel(y1_var)
+                # ax1.plot(bins_mean,mean1_list,label=title+' '+y1_var,color=color_list_line[color_flag+2])
+                # ax1.scatter(bins_mean,mean1_list,color=color_list_line[color_flag+2])
+                # ax1.set_ylabel(y1_var)
                 plt.tight_layout()
-                ax0.legend(loc='upper right')
-                ax1.legend(loc='lower left')
+                ax0.legend()
+                # ax1.legend(loc='lower left')
 
             # plt.show()
 
-            outf = outpngdir + '{}__{}__{}__{}.png'.format(drought_type,x_var, y_var,y1_var)
+            outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
             plt.savefig(outf, dpi=300)
             plt.close()
         # plt.figure(figsize=(10,8))
@@ -3617,6 +3622,94 @@ class Analysis:
         plt.legend()
         plt.tight_layout()
         plt.show()
+
+
+    def correlation(self):
+
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+            'subseq-init_csif_anomaly_loss'
+        ]
+
+        x_var_list = [
+            'min_precip_anomaly_in_drought_range',
+            'max_vpd_in_drought_range',
+            'max_vpd_anomaly_in_drought_range',
+            'Aridity_Index',
+            'zr',
+            'Rplant',
+            'Aridity_Index',
+        ]
+        # y_var = y_var_list[-1]
+        x_var = x_var_list[1]
+        y_var = y_var_list[-1]
+        # y_var = x_var_list[2]
+        df, dff = self.__load_df()
+        lc_var = 'lc_broad_needle'
+        drought_type_var = 'drought_type'
+        dominate_var = 'dominate'
+        lc_list = self.__get_unique_list(df,lc_var)
+        drought_type_list = self.__get_unique_list(df,drought_type_var)
+        dominate_list = self.__get_unique_list(df,dominate_var)
+        # for x_var in x_var_list:
+        #     df, dff = self.__load_df()
+        # for dt in drought_type_list:
+        for lc in lc_list:
+            df, dff = self.__load_df()
+            # df_lc = df[df[drought_type_var]==dt]
+            df_lc = df[df[lc_var]==lc]
+            # print(df_lc)
+            # exit()
+            for dominate in dominate_list:
+                # df, dff = self.__load_df()
+
+                df_type = df_lc[df_lc[dominate_var]==dominate]
+                # print(df_type)
+                # exit()
+                x_min, x_max = self.__bin_min_max(x_var)
+                y_min, y_max = self.__bin_min_max(y_var)
+                df_type = df_type[df_type[x_var]>x_min]
+                df_type = df_type[df_type[x_var]<x_max]
+                df_type = df_type[df_type[y_var] > y_min]
+                df_type = df_type[df_type[y_var] < y_max]
+                x_val = df_type[x_var].tolist()
+                y_val = df_type[y_var].tolist()
+                # print(y_val)
+                # exit()
+                # df = df[df[x_var] > x_min]
+                # df = df[df[x_var] < x_max]
+                # df = df[df[y_var] > y_min]
+                # df = df[df[y_var] < y_max]
+                # print(df)
+                # exit()
+                # x_val = df[x_var].tolist()
+                # y_val = df[y_var].tolist()
+                x_val_new = []
+                y_val_new = []
+                for i in range(len(x_val)):
+                    x_val_ = x_val[i]
+                    y_val_ = y_val[i]
+                    if np.isnan(x_val_):
+                        continue
+                    if np.isnan(y_val_):
+                        continue
+                    x_val_new.append(x_val_)
+                    y_val_new.append(y_val_)
+                # r,p = stats.pearsonr(x_val,y_val)
+                r,p = stats.pearsonr(x_val_new,y_val_new)
+                KDE_plot().plot_scatter(x_val,y_val,plot_fit_line=True,max_n=30000)
+                plt.xlabel(x_var)
+                plt.ylabel(y_var)
+                # title = '{}__{}__r:{}'.format(dt,dominate,r)
+                title = '{}__{}__r:{}'.format(lc,dominate,r)
+                plt.title(title)
+        plt.show()
+
+
+        pass
 
 
 

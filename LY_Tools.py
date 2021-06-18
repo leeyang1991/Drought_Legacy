@@ -1446,7 +1446,7 @@ class KDE_plot:
                 ax.plot(x,y,linestyle='dashed',c=c,alpha=0.7,label=label,**argvs)
 
 
-    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='magma', reverse=0, s=0.3, title='',ax=None,silent=False,is_KDE=True,**kwargs):
+    def plot_scatter(self, val1, val2,plot_fit_line=False,max_n=10000,is_plot_1_1_line=False, cmap='ocean', reverse=0, s=0.3, title='',ax=None,silent=False,is_KDE=True,**kwargs):
         val1 = np.array(val1)
         val2 = np.array(val2)
         if not silent:

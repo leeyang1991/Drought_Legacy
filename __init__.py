@@ -57,24 +57,24 @@ from matplotlib.colors import LogNorm
 from jenkspy import JenksNaturalBreaks
 import scipy.io
 from scipy.stats import kruskal
+import psutil
 np.seterr('ignore')
 
 def sleep(t=1):
     time.sleep(t)
 def pause():
+    # ANSI colors: https://gist.github.com/rene-d/9e584a7dd2935d0f461904b9f2950007
     input('\33[7m'+"PRESS ENTER TO CONTINUE."+'\33[0m')
 
 def kill_python_process():
-    '''
-    from:
-    https://stackoverflow.com/questions/3510673/find-and-kill-a-process-in-one-line-using-bash-and-regex
-    '''
-    project_folder = os.getcwd()
-    cmd = "kill $(ps aux|grep %s |awk '{print $2}')"%project_folder
-    # cmd = "kill $(ps aux|grep 'python3 -c from multiprocessing.' |awk '{print $2}')"
-    # kill $(ps aux|grep /Users/liyang/PycharmProjects/Drought_Legacy |awk '{print $2}')
-    print(cmd)
-    # os.system(cmd)
+    print('will kill all python3.9 process, \033[7m\033[31mdouble\33[0m press ENTER to continue')
+    pause()
+    print('One more ENTER...')
+    pause()
+    for p in psutil.process_iter():
+        name = p.name()
+        if 'python3.9' in name:
+            p.kill()
 # kill_matplotlib()
 # exit()
 # this_root = 'G:\Drought_legacy\\'
@@ -96,3 +96,6 @@ T = Tools()
 D = DIC_and_TIF()
 S = SMOOTH()
 M = MULTIPROCESS
+
+if __name__ == '__main__':
+    kill_python_process()

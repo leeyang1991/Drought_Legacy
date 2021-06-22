@@ -2532,10 +2532,10 @@ class Analysis:
     def run(self):
 
         # self.overview()
-        self.correlation()
+        # self.correlation()
         # self.overview_ANOVA_test()
         # self.run_Bins_scatter_line()
-        # self.dominate_drought()
+        self.dominate_drought()
         # self.scatter_vpd_precip()
         # self.delta()
         # self.matrix()
@@ -3700,7 +3700,7 @@ class Analysis:
                     y_val_new.append(y_val_)
                 # r,p = stats.pearsonr(x_val,y_val)
                 r,p = stats.pearsonr(x_val_new,y_val_new)
-                KDE_plot().plot_scatter(x_val,y_val,plot_fit_line=True,max_n=30000)
+                KDE_plot().plot_scatter(x_val,y_val,plot_fit_line=True,max_n=1000)
                 plt.xlabel(x_var)
                 plt.ylabel(y_var)
                 # title = '{}__{}__r:{}'.format(dt,dominate,r)
@@ -3783,12 +3783,12 @@ def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
     # Main_flow_Carbon_loss().run()
-    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # for threshold in ['-1.2','-1.8','-2',]:
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    Analysis().run()
+    # Analysis().run()
     # Check().run()
     pass
 

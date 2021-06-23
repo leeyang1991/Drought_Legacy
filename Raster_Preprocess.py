@@ -2226,6 +2226,50 @@ class Isohydricity:
 
         pass
 
+
+class Hydraulic_Traits_RS:
+    '''
+    https://github.com/YanlanLiu/VOD_hydraulics
+    https://figshare.com/articles/dataset/Datasets_Global_ecosystem-scale_plant_hydraulic_traits_retrieved_using_model-data_fusion/13350713/2?file=27851388
+    Code and data availability
+    The maps of retrieved ensemble mean and standard deviation of plant hydraulic traits are publicly available on Figshare https://doi.org/10.6084/m9.figshare.13350713.v2 (Liu et al., 2020). The source code of the used plant hydraulic model and the model–data fusion algorithm is available at https://github.com/YanlanLiu/VOD_hydraulics (Liu et al., 2020b). All the assimilation and forcing data sets used in this study are publicly available from the referenced sources, except for the microwave-based ALEXI ET, which was obtained upon request from Thomas R. Holmes and Christopher R. Hain on 28 January 2020.
+    '''
+    def __init__(self):
+
+        pass
+
+
+    def run(self):
+        self.nc_to_tif_P50()
+        pass
+    def nc_to_tif_P50(self):
+        outdir = data_root + 'RemoteSensing_Traits/'
+        T.mk_dir(outdir)
+        var = 'P50_{}'.format(50)
+        f = '/Users/liyang/Desktop/MDF_P50.nc'
+        ncin = Dataset(f, 'r')
+        lat = ncin['lat'][::-1]
+        lon = ncin['lon']
+        pixelWidth = lon[1] - lon[0]
+        pixelHeight = lat[1] - lat[0]
+        longitude_start = lon[0]
+        latitude_start = lat[0]
+        print(ncin.variables)
+        arr = ncin.variables[var][::-1]
+        arr = np.array(arr)
+        # print(arr)
+        # grid = arr < 99999
+        # arr[np.logical_not(grid)] = -999999
+        newRasterfn = outdir + var + '.tif'
+        to_raster.array2raster(newRasterfn, longitude_start, latitude_start, pixelWidth, pixelHeight, arr)
+        # grid = np.ma.masked_where(grid>1000,grid)
+        # DIC_and_TIF().arr_to_tif(arr,newRasterfn)
+        # plt.imshow(arr,'RdBu')
+        # plt.colorbar()
+        # plt.show()
+        # nc_dic[date_str] = arr
+        # exit()
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -2253,7 +2297,7 @@ def main():
     # outtif = '/Users/liyang/Desktop/step2/global_250m_reproj.tif'
     # res = 0.0025
     # Soilgrids().re_projection(tif,outtif,res=res)
-    Isohydricity().resample()
+    Hydraulic_Traits_RS().run()
 
     pass
 

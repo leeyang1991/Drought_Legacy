@@ -1386,8 +1386,9 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # self._check_spatial(df)
         # exit()
         # 1 add drought event and delta legacy into df
-        df = self.Carbon_loss_to_df(df)
+        # df = self.Carbon_loss_to_df(df)
         # df = self.minus_carbon_loss(df)
+        # df = self.cal_rt_rs_rc(df)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1418,6 +1419,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_zr_in_df(df)
         # df = self.add_Rplant_in_df(df)
         # df = self.add_isohydricity_to_df(df)
+        df = self.add_compose_drought_types(df)
         # df
         # exit()
         T.save_df(df,self.dff)
@@ -1559,6 +1561,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
     def Carbon_loss_to_df(self,df):
 
         single_events_dic,repetitive_events_dic = self.__load_spei_events()
+        # single_events_dic,_ = self.__load_spei_events()
         # repetitive_events_dic_precip = self.__load_precip_events()
         # repetitive_events_dic_vpd = self.__load_vpd_events()
 
@@ -1589,7 +1592,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(initial_drought_event_date_range))
                 recovery_date_range_list.append(tuple(initial_recovery_date_range))
                 legacy_list.append(initial_legacy)
-                drought_type.append('repetitive_initial_spei12')
+                drought_type.append('repeatedly_initial_spei12')
 
                 subsequential_event = repetetive_event[1]
                 subsequential_recovery_time = subsequential_event['recovery_time']
@@ -1605,7 +1608,26 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
                 drought_event_date_range_list.append(tuple(subsequential_drought_event_date_range))
                 recovery_date_range_list.append(tuple(subsequential_recovery_date_range))
                 legacy_list.append(subsequential_legacy)
-                drought_type.append('repetitive_subsequential_spei12')
+                drought_type.append('repeatedly_subsequential_spei12')
+
+        for pix in tqdm(single_events_dic,desc='spei12'):
+            events = single_events_dic[pix]
+            if len(events) == 0:
+                continue
+            for event in events:
+                recovery_time = event['recovery_time']
+                drought_event_date_range = event['drought_event_date_range']
+                recovery_date_range = event['recovery_date_range']
+                legacy = event['carbon_loss']
+                drought_event_date_range = Global_vars().growing_season_indx_to_all_year_indx(drought_event_date_range)
+                recovery_date_range = Global_vars().growing_season_indx_to_all_year_indx(recovery_date_range)
+
+                pix_list.append(pix)
+                recovery_time_list.append(recovery_time)
+                drought_event_date_range_list.append(tuple(drought_event_date_range))
+                recovery_date_range_list.append(tuple(recovery_date_range))
+                legacy_list.append(legacy)
+                drought_type.append('single_spei12')
 
         # for pix in tqdm(repetitive_events_dic_precip,desc='precip'):
         #     events = repetitive_events_dic_precip[pix]
@@ -2179,6 +2201,26 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
 
+    def add_compose_drought_types(self,df):
+
+        drought_type_dic = {
+            'single_spei12':'single',
+            'repeatedly_subsequential_spei12':'repeatedly',
+            'repeatedly_initial_spei12':'single',
+        }
+
+        drought_type_new_list = []
+
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            drought_type = row['drought_type']
+            drought_type_new = drought_type_dic[drought_type]
+            drought_type_new_list.append(drought_type_new)
+
+        df['drought_type_new'] = drought_type_new_list
+
+        return df
+
+
 # class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
 #
 #     def __init__(self,threshold):
@@ -2590,11 +2632,11 @@ class Analysis:
             # 'min_precip_anomaly_in_drought_range',
             # 'min_precip_in_drought_range',
             # 'max_precip_in_drought_range',
-            'max_vpd_in_drought_range',
+            # 'max_vpd_in_drought_range',
             # 'Aridity_Index',
             # 'zr',
             # 'Rplant',
-            # 'pre_1_precip_anomaly',
+            'pre_1_precip_anomaly',
             # 'pre_2_precip_anomaly',
             # 'pre_3_precip_anomaly',
             # 'pre_6_precip_anomaly',
@@ -2841,7 +2883,8 @@ class Analysis:
         # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci='sd')
         # sns.catplot(x='lc_broad_needle',kind="bar",y='carbon_loss_',hue='drought_type',data=df,ci=60)
         # sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type',data=df)
-        sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type',data=df)
+        # sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type',data=df)
+        sns.catplot(x='lc_broad_needle',kind="bar",y=y_var,hue='drought_type_new',data=df)
         # sns.catplot(x='lc_broad_needle',kind="violin",y='carbon_loss_',hue='drought_type',data=df)
         # sns.catplot(x='lc_broad_needle',kind="swarm",y='carbon_loss_',hue='drought_type',data=df)
         # plt.tight_layout()
@@ -3253,7 +3296,7 @@ class Analysis:
             y_var_min = -9999
         color_flag = -1
         # plt.figure(figsize=(10,8))
-        for drought_type in ['repeatedly_initial_spei12', 'repeatedly_subsequential_spei12']:
+        for drought_type in ['single', 'repeatedly']:
             fig,ax0 = plt.subplots(figsize=(6,4))
             # ax1 = ax0.twinx()
             styles = ['-','--']
@@ -3267,7 +3310,7 @@ class Analysis:
                 df = df[df['lat']>23]
                 # df = df[df['Rplant']<0.06]
                 df = df[df['lc_broad_needle']==lc_broad_needle]
-                df = df[df['drought_type']==drought_type]
+                df = df[df['drought_type_new']==drought_type]
                 # df = df[df['dominate']=='demand']
                 # df = df[df['dominate']=='supply']
                 df = df[df[y_var]>y_var_min]
@@ -3337,12 +3380,12 @@ class Analysis:
                 ax0.legend()
                 # ax1.legend(loc='lower left')
 
-            # plt.show()
+            plt.show()
 
             # outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
-            outf = outpngdir + '{}__{}__{}.pdf'.format(drought_type,x_var, y_var)
-            plt.savefig(outf, dpi=300)
-            plt.close()
+            # outf = outpngdir + '{}__{}__{}.pdf'.format(drought_type,x_var, y_var)
+            # plt.savefig(outf, dpi=300)
+            # plt.close()
         # plt.figure(figsize=(10,8))
         # for lc_broad_needle in ['Needleleaf','Broadleaf']:
         #     for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
@@ -3870,12 +3913,12 @@ def main():
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
     # Main_flow_Carbon_loss().run()
-    Main_flow_Dataframe_NDVI_SPEI_legacy().run()
+    # Main_flow_Dataframe_NDVI_SPEI_legacy().run()
     # for threshold in ['-1.2','-1.8','-2',]:
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    # Analysis().run()
+    Analysis().run()
     # Check().run()
     pass
 

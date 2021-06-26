@@ -77,10 +77,7 @@ class Tools:
         pass
 
     def save_df(self,df,outf):
-        if outf.endswith('.df'):
-            df.to_pickle(outf)
-        else:
-            df.to_pickle(outf + '.df')
+        df.to_pickle(outf)
 
 
     def mask_999999_arr(self,arr):

@@ -105,6 +105,21 @@ class Global_vars:
 
     def clean_df(self,df):
         df = df[df['lat'] > 23]
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
+        for y_var in y_var_list:
+            if 'Re' in y_var:
+                y_var_max = 1.2
+                y_var_min = 0.8
+            else:
+                y_var_max = 6
+                y_var_min = -9999
+            df = df[df[y_var] > y_var_min]
+            df = df[df[y_var] < y_var_max]
         return df
 
 
@@ -1371,8 +1386,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # self._check_spatial(df)
         # exit()
         # 1 add drought event and delta legacy into df
-        # df = self.Carbon_loss_to_df(df)
-        # self.minus_carbon_loss(df)
+        df = self.Carbon_loss_to_df(df)
+        # df = self.minus_carbon_loss(df)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1380,7 +1395,10 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.landcover_compose(df)
         # df = self.add_min_precip_to_df(df)
         # df = self.add_min_precip_anomaly_to_df(df)
-        df = self.add_max_precip_to_df(df)
+        # for lag in [1,2,3,6]:
+        #     print(lag)
+        #     df = self.add_lagged_precip_anomaly_to_df(df,lag)
+        # df = self.add_max_precip_to_df(df)
         # df = self.add_max_vpd_to_df(df)
         # df = self.add_max_vpd_anomaly_to_df(df)
         # df = self.add_mean_precip_anomaly_to_df(df)
@@ -1489,18 +1507,18 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
 
     def __load_spei_events(self):
-        # single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+        single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
         repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events/recovery_time_legacy.pkl'
-        # single_events_dic = T.load_dict_from_binary(single_f)
+        single_events_dic = T.load_dict_from_binary(single_f)
         repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
 
-        return repetitive_events_dic
+        return single_events_dic,repetitive_events_dic
 
         pass
     def __load_precip_events(self):
-        # single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
+        single_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_single_events/recovery_time_legacy.pkl'
         repetitive_f = Main_flow_Carbon_loss().this_class_arr + 'gen_recovery_time_legacy_repetitive_events_precip_auto/recovery_time_legacy.pkl'
-        # single_events_dic = T.load_dict_from_binary(single_f)
+        single_events_dic = T.load_dict_from_binary(single_f)
         repetitive_events_dic = T.load_dict_from_binary(repetitive_f)
 
         return repetitive_events_dic
@@ -1540,7 +1558,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
     def Carbon_loss_to_df(self,df):
 
-        repetitive_events_dic_spei12 = self.__load_spei_events()
+        single_events_dic,repetitive_events_dic = self.__load_spei_events()
         # repetitive_events_dic_precip = self.__load_precip_events()
         # repetitive_events_dic_vpd = self.__load_vpd_events()
 
@@ -1552,8 +1570,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         drought_type = []
 
 
-        for pix in tqdm(repetitive_events_dic_spei12,desc='spei12'):
-            events = repetitive_events_dic_spei12[pix]
+        for pix in tqdm(repetitive_events_dic,desc='spei12'):
+            events = repetitive_events_dic[pix]
             if len(events) == 0:
                 continue
             for repetetive_event in events:
@@ -1782,6 +1800,27 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             min_precip_list.append(min_precip_v)
 
         df['min_precip_anomaly_in_drought_range'] = min_precip_list
+        return df
+        pass
+    def add_lagged_precip_anomaly_to_df(self,df,lag):
+        # lag = 3  # months
+        fdir = data_root + 'Precip_terra/per_pix_anomaly/'
+        dic = T.load_npy_dir(fdir)
+        pre_precip_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            precip = dic[pix]
+            drought_start = drought_event_date_range[0]
+            if drought_start - lag <= 0:
+                pre_precip_list.append(np.nan)
+                continue
+            pre_n_month_index = list(range(drought_start - lag,drought_start))
+            pre_precip_val = T.pick_vals_from_1darray(precip,pre_n_month_index)
+            pre_precip_val_mean = np.mean(pre_precip_val)
+            pre_precip_list.append(pre_precip_val_mean)
+
+        df['pre_{}_precip_anomaly'.format(lag)] = pre_precip_list
         return df
         pass
 
@@ -2534,13 +2573,14 @@ class Analysis:
         # self.overview()
         # self.correlation()
         # self.overview_ANOVA_test()
-        # self.run_Bins_scatter_line()
-        self.dominate_drought()
+        self.run_Bins_scatter_line()
+        # self.dominate_drought()
         # self.scatter_vpd_precip()
         # self.delta()
         # self.matrix()
         # self.bin_scatter()
         # self.bin_correlation()
+        # self.factors_auto_correlation()
 
 
         pass
@@ -2549,17 +2589,20 @@ class Analysis:
         x_var_list = [
             # 'min_precip_anomaly_in_drought_range',
             # 'min_precip_in_drought_range',
-            'max_precip_in_drought_range',
-            # 'max_vpd_in_drought_range',
+            # 'max_precip_in_drought_range',
+            'max_vpd_in_drought_range',
             # 'Aridity_Index',
             # 'zr',
             # 'Rplant',
-            # 'Aridity_Index',
+            # 'pre_1_precip_anomaly',
+            # 'pre_2_precip_anomaly',
+            # 'pre_3_precip_anomaly',
+            # 'pre_6_precip_anomaly',
         ]
         y_var_list = [
-            'Recovery_rc',
-            'Resilience_rs',
-            'Resistance_rt',
+            # 'Recovery_rc',
+            # 'Resilience_rs',
+            # 'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
         # y1_var_list = [
@@ -2570,13 +2613,17 @@ class Analysis:
         #     'Rplant',
         # ]
         flag = 0
+        start = time.time()
+        params = []
         for x in x_var_list:
             for y in y_var_list:
-                # for y1 in y1_var_list:
-                flag += 1
-                print('{} / {}'.format(flag,len(x_var_list)*len(y_var_list)))
-                self.Bins_scatter_line(x, y)
-
+                params.append([x,y])
+                self.Bins_scatter_line([x,y])
+        # MULTIPROCESS(self.Bins_scatter_line,params).run()
+        end = time.time()
+        duration = end - start
+        duration = round(duration,2)
+        print(duration,'s')
     def __load_df(self):
 
         dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
@@ -2710,6 +2757,18 @@ class Analysis:
     def __bin_min_max(self,bin_var):
         if 'min_precip_anomaly_in_drought_range' in bin_var:
             bin_min = -2
+            bin_max = -0.
+        elif 'pre_1_precip_anomaly' in bin_var:
+            bin_min = -2
+            bin_max = -0.
+        elif 'pre_2_precip_anomaly' in bin_var:
+            bin_min = -2
+            bin_max = -0.
+        elif 'pre_3_precip_anomaly' in bin_var:
+            bin_min = -1.5
+            bin_max = -0.
+        elif 'pre_6_precip_anomaly' in bin_var:
+            bin_min = -1
             bin_max = -0.
         elif 'min_precip_in_drought_range' in bin_var:
             bin_min = 0
@@ -3044,29 +3103,36 @@ class Analysis:
     def dominate_drought(self):
 
         df,dff = self.__load_df()
-        hue = 'dominate'
-        drought_type = 'repeatedly_subsequential_spei12'
-        # drought_type = 'repeatedly_initial_spei12'
-        # hue = 'drought_type'
         df = Global_vars().clean_df(df)
-        df = df[df['drought_type']==drought_type]
-        CSIF_anomaly_loss = df['CSIF_anomaly_loss']
-        df['CSIF_anomaly_loss'] = CSIF_anomaly_loss
-        # dominate
-        # lc_broad_needle
-        # drought_type
-        g = sns.catplot(
-            data=df, kind="bar",
-            x="lc_broad_needle", y="CSIF_anomaly_loss",hue=hue, hue_order=['supply','demand'],
-            alpha=0.6,palette={"supply": "b", "demand": ".85"},)
-        plt.ylim(1.5,3.5)
-
-        # sns.violinplot(data=df, x="lc_broad_needle", y="carbon_loss_", hue=hue,
-        #                split=True, inner="quart", linewidth=1,
-        #                palette={"supply": "b", "demand": ".85"})
-        sns.despine(left=True)
-        plt.title(drought_type)
-        plt.tight_layout()
+        hue = 'dominate'
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
+        for y in y_var_list:
+            # drought_type = 'repeatedly_subsequential_spei12'
+            # drought_type = 'repeatedly_initial_spei12'
+            # hue = 'drought_type'
+            df = Global_vars().clean_df(df)
+            # df = df[df['drought_type']==drought_type]
+            # y_val = df[y]
+            # dominate
+            # lc_broad_needle
+            # drought_type
+            plt.figure()
+            g = sns.catplot(
+                data=df, kind="bar",
+                x="lc_broad_needle", y=y,hue=hue, hue_order=['supply','demand'],
+                alpha=0.6,palette={"supply": "b", "demand": ".85"},)
+            # plt.ylim(1.5,3.5)
+            # sns.violinplot(data=df, x="lc_broad_needle", y=y, hue=hue,
+            #                split=True, inner="quart", linewidth=1,
+            #                palette={"supply": "b", "demand": ".85"})
+            sns.despine(left=True)
+            plt.title(y)
+            plt.tight_layout()
         plt.show()
 
 
@@ -3147,7 +3213,8 @@ class Analysis:
 
         pass
 
-    def Bins_scatter_line(self,x_var,y_var):
+    def Bins_scatter_line(self,params):
+        x_var,y_var = params
         outpngdir = self.this_class_png + 'Bins_scatter_line_equal_interval/'
         # outpngdir = self.this_class_png + 'Bins_scatter_line_quantile/'
 
@@ -3188,7 +3255,7 @@ class Analysis:
         # plt.figure(figsize=(10,8))
         for drought_type in ['repeatedly_initial_spei12', 'repeatedly_subsequential_spei12']:
             fig,ax0 = plt.subplots(figsize=(6,4))
-            ax1 = ax0.twinx()
+            # ax1 = ax0.twinx()
             styles = ['-','--']
             styles_flag = -1
             for lc_broad_needle in ['Needleleaf','Broadleaf']:
@@ -3198,7 +3265,7 @@ class Analysis:
                 print(title)
                 df,dff = self.__load_df()
                 df = df[df['lat']>23]
-                df = df[df['Rplant']<0.06]
+                # df = df[df['Rplant']<0.06]
                 df = df[df['lc_broad_needle']==lc_broad_needle]
                 df = df[df['drought_type']==drought_type]
                 # df = df[df['dominate']=='demand']
@@ -3272,7 +3339,8 @@ class Analysis:
 
             # plt.show()
 
-            outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
+            # outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
+            outf = outpngdir + '{}__{}__{}.pdf'.format(drought_type,x_var, y_var)
             plt.savefig(outf, dpi=300)
             plt.close()
         # plt.figure(figsize=(10,8))
@@ -3710,6 +3778,25 @@ class Analysis:
 
 
         pass
+
+    def factors_auto_correlation(self):
+
+        df,dff = self.__load_df()
+        df = Global_vars().clean_df(df)
+        var_list = [
+            'min_precip_anomaly_in_drought_range',
+            'min_precip_in_drought_range',
+            'max_precip_in_drought_range',
+            'max_vpd_in_drought_range',
+            'pre_1_precip_anomaly',
+            'pre_2_precip_anomaly',
+            'pre_3_precip_anomaly',
+            'pre_6_precip_anomaly',
+        ]
+        df_selected = df[var_list]
+        df_selected = df_selected.dropna()
+        sns.pairplot(df_selected,kind='hist')
+        plt.show()
 
 
 

@@ -1,4 +1,5 @@
 # coding=utf-8
+import numpy as np
 
 from __init__ import *
 # from Main_flow_csif_legacy_2002 import *
@@ -2601,6 +2602,141 @@ class Tif:
             delta_spatial_dic[pix] = delta
         DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_tif(delta_spatial_dic,outf)
 
+
+class ML:
+
+    def __init__(self):
+
+        pass
+
+    def x_variables_single(self):
+        precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
+        precip_vars_list = precip_vars.split()
+        xvars = [
+            'max_vpd_in_drought_range',
+            # 'max_vpd_anomaly_in_drought_range',
+        ]
+        for i in precip_vars_list:
+            xvars.append(i)
+        return xvars
+        pass
+
+
+    def run(self):
+        self.foo()
+        pass
+
+
+    def foo(self):
+        df,dff = self.__load_df()
+        print('loaded')
+        df = Global_vars().clean_df(df)
+        print('cleaned')
+        x_variables_single = self.x_variables_single()
+        y_variable = 'CSIF_anomaly_loss'
+        drought_type_col = 'drought_type_new'
+        pix_list = df['pix'].tolist()
+        pix_list = list(set(pix_list))
+        selected_pix_spatial_dic = {}
+        for pix in pix_list:
+            selected_pix_spatial_dic[pix] = 1
+        X = df[x_variables_single]
+        Y = df[y_variable]
+        self.random_forest_train(X,Y,x_variables_single,selected_pix_spatial_dic,isplot=True)
+
+
+    def __load_df(self):
+
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        return df,dff
+
+    def random_forest_train(self, X, Y,variable_list,selected_pix_spatial_dic,isplot=False, is_save_png=False,title=''):
+
+        X = np.array(X)
+        Y = np.array(Y)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=1)
+        # print(X_test[0])
+        # exit()
+        Y_train = np.array(Y_train)
+        Y_test = np.array(Y_test)
+        clf = RandomForestRegressor(n_estimators=100,n_jobs=-1)
+        # clf = RandomForestClassifier()
+        # print X_train
+        # print '.............'
+        # print Y_train
+        # X_train = X_train[:100]
+        # Y_train = Y_train[:100]
+        # print(len(Y_train))
+        # exit()
+        print('fitting')
+        clf.fit(X_train, Y_train)
+        print('fitted')
+
+        importances = clf.feature_importances_
+        y_pred = clf.predict(X_test)
+        r_model = stats.pearsonr(Y_test, y_pred)[0]
+        mse = sklearn.metrics.mean_squared_error(Y_test, y_pred)
+        r_X = []
+        for i in range(len(X_test[0])):
+            corr_x = []
+            corr_y = []
+            for j in range(len(X_test)):
+                if X_test[j][i] == False:
+                    continue
+                corr_x.append(X_test[j][i])
+                corr_y.append(y_pred[j])
+            # print corr_y
+            r_c, p = stats.pearsonr(corr_x, corr_y)
+            r_X.append(r_c)
+            # print i, r_c, p
+            # plt.scatter(corr_x, corr_y)
+            # plt.show()
+        #### plot ####
+        if isplot:
+            print(importances)
+            print('mse:%s\nr:%s' % (mse, r_model))
+            # out_png_dir = self.this_class_png + '/RF_importances/'
+            # Tools().mk_dir(out_png_dir)
+            # 1 plot spatial
+            # plt.figure()
+            # plt.imshow(selected_pix_spatial,cmap='gray')
+
+            # 2 plot importance
+            plt.figure(figsize=(20,8))
+            plt.subplot(311)
+            title_new = title+' data_length:{} test_length:{} RMSE:{} r_model:{}'.format(len(X),len(X_test),mse,r_model)
+            plt.title(title_new)
+            y_min = min(importances)
+            y_max = max(importances)
+            offset = (y_max - y_min)
+            y_min = y_min - offset * 0.3
+            y_max = y_max + offset * 0.3
+
+            plt.ylim(y_min, y_max)
+            plt.bar(range(len(importances)), importances, width=0.3)
+            print(variable_list)
+            plt.xticks(range(len(importances)),variable_list)
+
+            ax = plt.subplot(312)
+            KDE_plot().plot_scatter(Y_test, y_pred, ax=ax, linewidth=0)
+            plt.axis('equal')
+
+            ax = plt.subplot(313)
+            DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
+            selected_pix_spatial_dic_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(selected_pix_spatial_dic)
+            plt.imshow(selected_pix_spatial_dic_arr,cmap='gray')
+            if is_save_png == True:
+                # plt.savefig(out_png_dir + title + '.png', ppi=300)
+                plt.close()
+            elif is_save_png == False:
+                plt.show()
+        #### plot ####
+
+        return importances, mse, r_model, Y_test, y_pred, r_X
+
+
+
 class Analysis:
 
     def __init__(self):
@@ -2615,7 +2751,7 @@ class Analysis:
         # self.overview()
         # self.correlation()
         # self.overview_ANOVA_test()
-        self.run_Bins_scatter_line()
+        # self.run_Bins_scatter_line()
         # self.dominate_drought()
         # self.scatter_vpd_precip()
         # self.delta()
@@ -3918,8 +4054,9 @@ def main():
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    Analysis().run()
+    # Analysis().run()
     # Check().run()
+    ML().run()
     pass
 
 if __name__ == '__main__':

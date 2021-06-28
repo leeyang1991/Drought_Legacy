@@ -93,9 +93,6 @@ results_root = this_root + 'results/'
 # plt.rcParams['axes.unicode_minus'] = False
 from LY_Tools import *
 T = Tools()
-D = DIC_and_TIF()
-S = SMOOTH()
-M = MULTIPROCESS
 
 if __name__ == '__main__':
     kill_python_process()

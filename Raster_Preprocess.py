@@ -2270,6 +2270,340 @@ class Hydraulic_Traits_RS:
         # nc_dic[date_str] = arr
         # exit()
 
+
+class Koppen:
+
+    def __init__(self):
+        self.Koppen_cls()
+        pass
+
+    def run(self):
+
+        # self.koppen_to_arr()
+        self.do_reclass()
+        # self.plot_reclass()
+        # self.plot_koppen_landuse()
+        # self.cross_koppen_landuse()
+        # self.gen_cross_koppen_landuse_tif()
+        # self.gen_tif_colormap()
+        pass
+
+
+    def Koppen_cls(self):
+        self.Koppen_color_dic = {
+            'Af': '8d1c21',
+            'Am': 'e7161a',
+            'As': 'f19596',
+            'Aw': 'f8c8c9',
+
+            'BWk': 'f1ee70',
+            'BWh': 'f4c520',
+            'BSk': 'c7a655',
+            'BSh': 'c58a19',
+
+            'Cfa': '113118',
+            'Cfb': '114f2a',
+            'Cfc': '137539',
+
+            'Csa': '6cb92c',
+            'Csb': '9bc82a',
+            'Csc': 'bfd62e',
+
+            'Cwa': 'ad6421',
+            'Cwb': '916425',
+            'Cwc': '583d1b',
+
+            'Dfa': '2d112f',
+            'Dfb': '5a255d',
+            'Dfc': '9b3e93',
+            'Dfd': 'b9177d',
+
+            'Dsa': 'bf7cb2',
+            'Dsb': 'deb3d2',
+            'Dsc': 'd9c5df',
+            'Dsd': 'c8c8c9',
+
+            'Dwa': 'bdafd5',
+            'Dwb': '957cac',
+            'Dwc': '7f57a1',
+            'Dwd': '603691',
+
+            'EF': '688cc7',
+            'ET': '87cfd9',
+
+            'nan': '000000'
+        }
+
+        self.A = 'Af Am As Aw'.split()
+        self.B = 'BWk BWh BSk BSh'.split()
+        self.E = ['ET','EF']
+        self.Cf = 'Cfa Cfb Cfc'.split()
+        self.Csw = 'Csa Csb Csc Cwa Cwb Cwc'.split()
+        self.Df = 'Dfa Dfb Dfc Dfd'.split()
+        self.Dsw = 'Dsa Dsb Dsc Dwa Dwb Dwc Dwd'.split() # 没有 Dsd
+
+        # print self.A
+        # print self.B
+        # print self.Cf
+        # print self.Cs
+        # print self.Df
+        # print self.Dsw
+        # print self.ET
+
+
+
+
+
+    def plot_koppen_landuse(self):
+        f = RF().this_class_arr + '/cross_koppen_landuse_pix.npy'
+        outtif = self.this_class_tif+'koppen_landuse_cross.tif'
+        dic = Tools().load_npy(f)
+
+        lc_list = []
+        kp_list = []
+        for v,k in enumerate(dic):
+            lc,kp = k.split('.')
+            lc_list.append(lc)
+            kp_list.append(kp)
+        lc_list = set(lc_list)
+        kp_list = set(kp_list)
+        vk_dic = {}
+        flag = 0
+        for lc in ['Grasslands', 'Shrublands_Savanna', 'Forest']:
+            for kp in ['AW', 'AH', 'AS', 'AR', 'TH', 'TA']:
+                flag += 1
+                key = lc+'.'+kp
+                vk_dic[key] = flag
+
+
+        spatial_dic = {}
+        for key in dic:
+            val = vk_dic[key]
+            pixs = dic[key][0]
+            for pix in pixs:
+                spatial_dic[pix] = val
+
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        DIC_and_TIF().arr_to_tif(arr,outtif)
+        fw = open(self.this_class_tif+'koppen_landuse_cross.txt','w')
+        for i in range(20):
+            for key in vk_dic:
+                v = vk_dic[key]
+                if v == i:
+                    fw.write(str(v)+'\t'+key+'\n')
+        fw.close()
+        # plt.imshow(arr)
+        # plt.show()
+
+
+
+    def koppen_ASCII_to_arr(self):
+
+        f = data_root + 'Koppen/Koeppen-Geiger-ASCII.txt'
+        fr = open(f)
+        fr.readline()
+        lines = fr.readlines()
+        fr.close()
+        lon_list = []
+        lat_list = []
+        val_list = []
+        for line in lines:
+            line = line.split('\n')[0]
+            lat, lon, cls = line.split()
+            lon_list.append(float(lon))
+            lat_list.append(float(lat))
+            val_list.append(cls)
+
+        arr_ascii = DIC_and_TIF().lon_lat_ascii_to_arr(lon_list, lat_list, val_list)
+        return arr_ascii
+
+
+    def reclass(self,koppen_dic,reclass_type):
+        # latitude_dic = Water_balance().gen_koppen_area()
+        reclass_pix = []
+        for cls in reclass_type:
+            pixles = koppen_dic[cls]
+            for pix in pixles:
+                reclass_pix.append(pix)
+        return reclass_pix
+
+
+    def do_reclass(self):
+        outf = data_root + 'Koppen/koppen_reclass_spatial_dic'
+        reclass_type = {'A':self.A,
+                        'B':self.B,
+                        'Cf':self.Cf,
+                        'Csw':self.Csw,
+                        'Df':self.Df,
+                        'Dsw':self.Dsw,
+                        'E':self.E}
+        reclass_dic = {}
+        koppen_arr = self.koppen_ASCII_to_arr()
+        koppen_dic = DIC_and_TIF().spatial_arr_to_dic(koppen_arr)
+        for pix in koppen_dic:
+            kp = koppen_dic[pix]
+            success = 0
+            new_class_i = None
+            for kp_reclass in reclass_type:
+                kp_class_origin_list = reclass_type[kp_reclass]
+                if kp in kp_class_origin_list:
+                    new_class_i = kp_reclass
+                    success = 1
+                    break
+            if success == 1:
+                new_class = new_class_i
+            else:
+                new_class = None
+            reclass_dic[pix] = new_class
+        #### check ####
+        # val_dic = {}
+        # flag = 0
+        # for i in reclass_type:
+        #     flag += 1
+        #     val_dic[i] = flag
+        # val_dic[None] = 0
+        # spatial_dic = {}
+        # for pix in reclass_dic:
+        #     kp = reclass_dic[pix]
+        #     val = val_dic[kp]
+        #     spatial_dic[pix] = val
+        #
+        # arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # plt.imshow(arr)
+        # plt.colorbar()
+        # plt.show()
+        T.save_npy(reclass_dic,outf)
+        return reclass_dic
+
+
+    def plot_reclass(self):
+        reclass_dic = self.do_reclass()
+        vk_dic = {}
+        for i, k in enumerate(reclass_dic):
+            vk_dic[k] = i
+        void_dic = DIC_and_TIF().void_spatial_dic()
+        for i in vk_dic:
+            pixels = reclass_dic[i]
+            val = vk_dic[i]
+            for pix in pixels:
+                void_dic[pix] = val
+        for pix in void_dic:
+            if void_dic[pix] == []:
+                void_dic[pix] = np.nan
+        DIC_and_TIF().plot_back_ground_arr()
+        arr = DIC_and_TIF().pix_dic_to_spatial_arr(void_dic)
+        DIC_and_TIF().arr_to_tif(arr,self.this_class_tif+'koppen_reclass.tif')
+        fw = open(self.this_class_tif+'koppen_reclass.txt','w')
+        fw.write(str(vk_dic))
+        fw.close()
+
+        # palette = []
+        # for i in range(len(reclass_dic)):
+        #     palette.append('#' + self.Koppen_color_dic[i])
+        # colors = sns.color_palette(palette)
+        # cmap = mpl.colors.ListedColormap(colors)
+
+
+        cmap = sns.diverging_palette(236, 0, s=99, l=50, n=len(reclass_dic), center="light")
+        cmap = mpl.colors.ListedColormap(cmap)
+        # color_dic = {}
+        # cm = 0
+        # for lc in reclass_dic:
+        #     print lc, cm, cmap[cm]
+        #     color_dic[lc] = cmap[cm]
+        #     cm += 1
+
+        plt.imshow(arr,cmap)
+        plt.show()
+
+
+
+
+
+    def gen_cross_koppen_landuse_tif(self):
+        outtif = self.this_class_tif+'koppen_landuse.tif'
+        pix_dic = self.cross_koppen_landuse()
+        val_dic = {}
+
+        regions = []
+        for lc in ['Forest','Grasslands','Shrublands']:
+            for kp in ['A','B','Cf','Csw','Df','Dsw','E']:
+                r = lc+'.'+kp
+                regions.append(r)
+
+
+        for i,region in enumerate(regions):
+            # print i,region
+            val_dic[region] = i
+        out_txt = self.this_class_tif+'koppen_landuse.csv'
+        fw = open(out_txt,'w')
+
+        landuse_dic = Landcover().glc_2000_landuse_reclass()
+        koppen_dic = self.do_reclass()
+        regions = []
+        for lc in landuse_dic:
+            for k in koppen_dic:
+                region = lc+'.'+k
+                regions.append(region)
+
+        for region in regions:
+            if not region in val_dic:
+                continue
+            val = val_dic[region]
+            pix_num = len(pix_dic[region][0])
+            HI_val = pix_dic[region][1]
+            text = '{},{},{},{}'.format(region,val,pix_num,HI_val)
+            fw.write(text+'\n')
+        fw.close()
+        spatial_dic = {}
+        for region in pix_dic:
+            pixs = pix_dic[region][0]
+            # print region,len(pixs)
+            for pix in pixs:
+                spatial_dic[pix] = val_dic[region]
+
+        spatial_arr = DIC_and_TIF().pix_dic_to_spatial_arr(spatial_dic)
+        # plt.imshow(spatial_arr)
+        # plt.show()
+        DIC_and_TIF().arr_to_tif_GDT_Byte(spatial_arr,outtif)
+
+        pass
+
+
+    def gen_tif_colormap(self):
+
+        r = sns.color_palette("Reds_r",n_colors=7)
+        g = sns.color_palette("Greens_r",n_colors=7)
+        b = sns.color_palette("Blues_r",n_colors=7)
+        # b = sns.light_palette("navy",n_colors=7,reverse=True)
+        rgb_r = []
+        rgb_g = []
+        rgb_b = []
+        for i in r:
+            rgb_r.append(i)
+        for i in g:
+            rgb_g.append(i)
+        for i in b:
+            rgb_b.append(i)
+        #     print i
+        sns.palplot(r)
+        sns.palplot(g)
+        sns.palplot(b)
+        plt.show()
+        colors = rgb_g+rgb_r+rgb_b
+        clr_f = self.this_class_tif+'koppen_landuse.tif.clr'
+        fw = open(clr_f,'w')
+        for i in range(21):
+            color = colors[i]
+            r,g,b = color
+            r = int(r*255)
+            g = int(g*255)
+            b = int(b*255)
+            line = '{} {} {} {}\n'.format(i,r,g,b)
+            fw.write(line)
+        fw.close()
+        pass
+
 def main():
     # CSIF().run()
     # SPEI_preprocess().run()
@@ -2297,7 +2631,8 @@ def main():
     # outtif = '/Users/liyang/Desktop/step2/global_250m_reproj.tif'
     # res = 0.0025
     # Soilgrids().re_projection(tif,outtif,res=res)
-    Hydraulic_Traits_RS().run()
+    # Hydraulic_Traits_RS().run()
+    Koppen().run()
 
     pass
 

@@ -1390,6 +1390,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.Carbon_loss_to_df(df)
         # df = self.minus_carbon_loss(df)
         # df = self.cal_rt_rs_rc(df)
+        df = self.add_previous_legacy_to_repeatedly_drought(df)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1420,11 +1421,11 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.add_zr_in_df(df)
         # df = self.add_Rplant_in_df(df)
         # df = self.add_isohydricity_to_df(df)
-        df = self.add_compose_drought_types(df)
+        # df = self.add_compose_drought_types(df)
         # df
         # exit()
         T.save_df(df,self.dff)
-        self.__df_to_excel(df,self.dff,random=True)
+        self.__df_to_excel(df,self.dff,random=False)
         pass
 
 
@@ -2221,6 +2222,46 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
 
         return df
 
+    def add_previous_legacy_to_repeatedly_drought(self,df):
+        events_dic = {}
+        pix_list = df['pix'].to_list()
+        pix_list = set(pix_list)
+        for pix in pix_list:
+            events_dic[pix] = {}
+            events_dic[pix]['repeatedly_initial_spei12'] = []
+            events_dic[pix]['repeatedly_subsequential_spei12'] = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            CSIF_anomaly_loss = row.CSIF_anomaly_loss
+            drought_type = row.drought_type
+            if drought_type == 'repeatedly_initial_spei12':
+                events_dic[pix]['repeatedly_initial_spei12'].append(CSIF_anomaly_loss)
+            elif drought_type == 'repeatedly_subsequential_spei12':
+                events_dic[pix]['repeatedly_subsequential_spei12'].append(CSIF_anomaly_loss)
+            else:
+                pass
+                # raise UserWarning('drought_type error')
+
+        init_spatial_dic = {}
+        for pix in tqdm(events_dic, desc='cal delta...'):
+            events = events_dic[pix]
+            repeatedly_initial_spei12 = events['repeatedly_initial_spei12']
+            init_mean = np.mean(repeatedly_initial_spei12)
+            # subseq_mean = np.mean(repeatedly_subsequential_spei12)
+            init_spatial_dic[pix] = init_mean
+
+        init_legacy_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_type = row.drought_type
+            init_legacy = init_spatial_dic[pix]
+            if drought_type != 'repeatedly_subsequential_spei12':
+                init_legacy_list.append(np.nan)
+                continue
+            init_legacy_list.append(init_legacy)
+        df['init_legacy'] = init_legacy_list
+        return df
+
 
 # class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
 #
@@ -2606,15 +2647,47 @@ class Tif:
 class ML:
 
     def __init__(self):
-
+        self.this_class_png = results_root_main_flow + 'png/ML/'
+        Tools().mk_dir(self.this_class_png, force=True)
         pass
+
+
+    def run(self):
+        # self.single_model()
+        self.repeatedly_model()
 
     def x_variables_single(self):
         precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
         precip_vars_list = precip_vars.split()
         xvars = [
+            # 'max_vpd_in_drought_range',
+            'max_vpd_anomaly_in_drought_range',
+            # 'pre_3_precip_anomaly',
+        ]
+        for i in precip_vars_list:
+            xvars.append(i)
+        return xvars
+        pass
+
+    def y_variables_single(self):
+        precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
+        precip_vars_list = precip_vars.split()
+        xvars = [
             'max_vpd_in_drought_range',
             # 'max_vpd_anomaly_in_drought_range',
+            # 'pre_3_precip_anomaly',
+        ]
+        for i in precip_vars_list:
+            xvars.append(i)
+        return xvars
+        pass
+    def x_variables_repeat(self):
+        precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
+        precip_vars_list = precip_vars.split()
+        xvars = [
+            # 'max_vpd_in_drought_range',
+            'max_vpd_anomaly_in_drought_range',
+            'init_legacy',
         ]
         for i in precip_vars_list:
             xvars.append(i)
@@ -2622,28 +2695,74 @@ class ML:
         pass
 
 
-    def run(self):
-        self.foo()
-        pass
+    def single_model(self):
+        outpngdir = self.this_class_png + 'single_model/'
+        Tools().mk_dir(outpngdir)
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
 
+        for y_variable in y_var_list:
+            for lc in ['Broadleaf','Needleleaf']:
+                print(y_variable,lc)
+                df,dff = self.__load_df()
+                print('loaded')
+                df = Global_vars().clean_df(df)
+                print('cleaned')
+                x_variables_single = self.x_variables_single()
+                df = df[df['drought_type_new']=='single']
+                df = df[df['lc_broad_needle']==lc]
+                pix_list = df['pix'].tolist()
+                pix_list = list(set(pix_list))
+                selected_pix_spatial_dic = {}
+                for pix in pix_list:
+                    selected_pix_spatial_dic[pix] = 1
+                X = df[x_variables_single]
+                Y = df[y_variable]
+                outpngf = outpngdir + '{}__{}'.format(y_variable,lc)
+                self.random_forest_train(X,Y,x_variables_single,selected_pix_spatial_dic,lc,
+                                         isplot=True,is_save_png=True,outpngf=outpngf)
 
-    def foo(self):
-        df,dff = self.__load_df()
-        print('loaded')
-        df = Global_vars().clean_df(df)
-        print('cleaned')
-        x_variables_single = self.x_variables_single()
-        y_variable = 'CSIF_anomaly_loss'
-        drought_type_col = 'drought_type_new'
-        pix_list = df['pix'].tolist()
-        pix_list = list(set(pix_list))
-        selected_pix_spatial_dic = {}
-        for pix in pix_list:
-            selected_pix_spatial_dic[pix] = 1
-        X = df[x_variables_single]
-        Y = df[y_variable]
-        self.random_forest_train(X,Y,x_variables_single,selected_pix_spatial_dic,isplot=True)
+    def repeatedly_model(self):
+        outpngdir = self.this_class_png + 'repeatedly_model/'
+        Tools().mk_dir(outpngdir)
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
+        for y_variable in y_var_list:
+            df,dff = self.__load_df()
+            print('loaded')
+            df = Global_vars().clean_df(df)
+            print('cleaned')
+            x_variables_repeat = self.x_variables_repeat()
+            # y_variable = 'CSIF_anomaly_loss'
+            # drought_type_col = 'drought_type_new'
+            # df = df[df['drought_type_new']=='single']
+            df = df[df['drought_type']=='repeatedly_subsequential_spei12']
+            lc = 'Broadleaf'
 
+            # lc = 'Needleleaf'
+            df = df[df['lc_broad_needle']==lc]
+            df = df.dropna()
+            # print(len(df))
+            # exit()
+            pix_list = df['pix'].tolist()
+            pix_list = list(set(pix_list))
+            selected_pix_spatial_dic = {}
+            for pix in pix_list:
+                selected_pix_spatial_dic[pix] = 1
+            X = df[x_variables_repeat]
+            Y = df[y_variable]
+            # self.random_forest_train(X,Y,x_variables_repeat,selected_pix_spatial_dic,lc,isplot=True)
+            outpngf = outpngdir + '{}__{}'.format(y_variable, lc)
+            self.random_forest_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
+                                     isplot=True, is_save_png=True, outpngf=outpngf)
 
     def __load_df(self):
 
@@ -2651,8 +2770,11 @@ class ML:
         df = T.load_df(dff)
         return df,dff
 
-    def random_forest_train(self, X, Y,variable_list,selected_pix_spatial_dic,isplot=False, is_save_png=False,title=''):
-
+    def random_forest_train(self, X, Y,variable_list,selected_pix_spatial_dic,lc, isplot=False,is_save_png=False,outpngf='',):
+        # from sklearn import XGboost
+        from sklearn.ensemble import GradientBoostingRegressor
+        if is_save_png and outpngf == '':
+            raise UserWarning
         X = np.array(X)
         Y = np.array(Y)
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=1)
@@ -2661,22 +2783,18 @@ class ML:
         Y_train = np.array(Y_train)
         Y_test = np.array(Y_test)
         clf = RandomForestRegressor(n_estimators=100,n_jobs=-1)
-        # clf = RandomForestClassifier()
-        # print X_train
-        # print '.............'
-        # print Y_train
-        # X_train = X_train[:100]
-        # Y_train = Y_train[:100]
-        # print(len(Y_train))
-        # exit()
+        # clf = GradientBoostingRegressor(n_estimators=100)
         print('fitting')
         clf.fit(X_train, Y_train)
         print('fitted')
 
         importances = clf.feature_importances_
         y_pred = clf.predict(X_test)
+        # y_pred = clf.predict(X_train)
         r_model = stats.pearsonr(Y_test, y_pred)[0]
         mse = sklearn.metrics.mean_squared_error(Y_test, y_pred)
+        score = clf.score(X_test,Y_test)
+        print('score',score)
         r_X = []
         for i in range(len(X_test[0])):
             corr_x = []
@@ -2705,7 +2823,7 @@ class ML:
             # 2 plot importance
             plt.figure(figsize=(20,8))
             plt.subplot(311)
-            title_new = title+' data_length:{} test_length:{} RMSE:{} r_model:{}'.format(len(X),len(X_test),mse,r_model)
+            title_new = 'data_length:{} test_length:{} RMSE:{:0.2f} r_model:{:0.2f}\n{}'.format(len(X),len(X_test),mse,r_model,lc)
             plt.title(title_new)
             y_min = min(importances)
             y_max = max(importances)
@@ -2715,7 +2833,7 @@ class ML:
 
             plt.ylim(y_min, y_max)
             plt.bar(range(len(importances)), importances, width=0.3)
-            print(variable_list)
+            # print(variable_list)
             plt.xticks(range(len(importances)),variable_list)
 
             ax = plt.subplot(312)
@@ -2727,7 +2845,7 @@ class ML:
             selected_pix_spatial_dic_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(selected_pix_spatial_dic)
             plt.imshow(selected_pix_spatial_dic_arr,cmap='gray')
             if is_save_png == True:
-                # plt.savefig(out_png_dir + title + '.png', ppi=300)
+                plt.savefig(outpngf+ '.png', dpi=300)
                 plt.close()
             elif is_save_png == False:
                 plt.show()
@@ -2751,7 +2869,7 @@ class Analysis:
         # self.overview()
         # self.correlation()
         # self.overview_ANOVA_test()
-        # self.run_Bins_scatter_line()
+        self.run_Bins_scatter_line()
         # self.dominate_drought()
         # self.scatter_vpd_precip()
         # self.delta()
@@ -2759,7 +2877,7 @@ class Analysis:
         # self.bin_scatter()
         # self.bin_correlation()
         # self.factors_auto_correlation()
-
+        self.two_var_scatter_plot()
 
         pass
 
@@ -3958,7 +4076,7 @@ class Analysis:
 
         pass
 
-    def factors_auto_correlation(self):
+    def factors_pairplot(self):
 
         df,dff = self.__load_df()
         df = Global_vars().clean_df(df)
@@ -3977,6 +4095,45 @@ class Analysis:
         sns.pairplot(df_selected,kind='hist')
         plt.show()
 
+    def two_var_scatter_plot(self):
+        fig, ax0 = plt.subplots(figsize=(6, 4))
+        ax1 = ax0.twinx()
+        for lc in ['Broadleaf','Needleleaf']:
+            df,dff = self.__load_df()
+            df = Global_vars().clean_df(df)
+            # drought_type_col = 'drought_type_new'
+            # df = df[df['drought_type_new']=='single']
+            df = df[df['drought_type'] == 'repeatedly_subsequential_spei12']
+            # lc = 'Broadleaf'
+            # lc = 'Needleleaf'
+            df = df[df['lc_broad_needle'] == lc]
+            df = df.dropna()
+            x_variable = 'init_legacy'
+            y_variable = 'CSIF_anomaly_loss'
+            xval = df[x_variable].tolist()
+            bins,d_str,d_mean = self.__divide_bins_equal_interval(xval,min_v=0,max_v=5,n=10,round_=2)
+            mean_list = []
+            box_list = []
+            events_num = []
+
+            for i in tqdm(range(len(bins))):
+                if i + 1 >= len(bins):
+                    break
+                df_bin = df[df[x_variable] > bins[i]]
+                df_bin = df_bin[df_bin[x_variable] < bins[i + 1]]
+                val = df_bin[y_variable].tolist()
+                # print(len(val))
+                events_num.append(len(val))
+                mean = np.mean(val)
+                box_list.append(val)
+                mean_list.append(mean)
+            ax0.plot(d_mean,mean_list,label=lc)
+            ax0.scatter(d_mean,mean_list)
+            ax0.boxplot(box_list,positions=d_mean,labels=d_str,showfliers=False)
+            ax1.plot(d_mean,events_num)
+        ax0.legend()
+        plt.show()
+        pass
 
 
 class Check:
@@ -4044,7 +4201,7 @@ class Check:
 
 
 def main():
-    # kill_matplotlib()
+    # kill_python_process()
 
     # Main_Flow_Pick_drought_events().run()
     # Main_Flow_Pick_drought_events_05().run()
@@ -4058,6 +4215,8 @@ def main():
     # Check().run()
     ML().run()
     pass
+
+
 
 if __name__ == '__main__':
 

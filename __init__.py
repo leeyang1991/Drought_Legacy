@@ -67,10 +67,10 @@ def pause():
     input('\33[7m'+"PRESS ENTER TO CONTINUE."+'\33[0m')
 
 def kill_python_process():
-    print('will kill all python3.9 process, \033[7m\033[31mdouble\33[0m press ENTER to continue')
-    pause()
-    print('One more ENTER...')
-    pause()
+    # print('will kill all python3.9 process, \033[7m\033[31mdouble\33[0m press ENTER to continue')
+    # pause()
+    # print('One more ENTER...')
+    # pause()
     for p in psutil.process_iter():
         name = p.name()
         if 'python3.9' in name:

@@ -953,47 +953,6 @@ class DIC_and_TIF:
         pass
 
 
-    def ascii_to_arr(self,lonlist,latlist,vals):
-        '''
-        transform ascii text to spatial array
-        :param lonlist:[.....]
-        :param latlist: [.....]
-        :param vals: [.....]
-        :return:
-        :todo: need to be modified
-        '''
-        # matrix = np.meshgrid(lonlist,latlist)
-        lons = list(set(lonlist))
-        lats = list(set(latlist))
-        print(lons)
-        lons.sort()
-        lats.sort()
-        lon_matri,lat_matri = np.meshgrid(lons,lats)
-        # print matrix
-        # for i in range(len(lonlist)):
-        #     print type(lonlist[i]),latlist[i],vals[i]
-        #     sleep()
-
-        # lon_lat_dic = dict(np.load(self.this_class_arr + 'pix_to_lon_lat_dic.npy').item())
-        # lon_lat_dic_reverse = {}
-        # for key in lon_lat_dic:
-        #     lon,lat = lon_lat_dic[key]
-        #     new_key = str(lon)+'_'+str(lat)
-        #     print new_key
-        #     sleep()
-        #     lon_lat_dic_reverse[new_key] = key
-
-        # spatial_dic = {}
-        # for i in range(len(lonlist)):
-        #     lt = str(lonlist[i])+'_'+str(latlist[i])
-        #     pix = lon_lat_dic_reverse[lt]
-        #     spatial_dic[pix] = vals[i]
-
-        # arr = self.pix_dic_to_spatial_arr_ascii(spatial_dic)
-        # return arr
-        exit()
-
-
     def mask_ocean_dic(self):
         tif_template = self.tif_template
         arr, originX, originY, pixelWidth, pixelHeight = to_raster.raster2array(tif_template)
@@ -1183,6 +1142,42 @@ class DIC_and_TIF:
         longitude_start = originX
         latitude_start = originY
         to_raster.array2raster(outtif, longitude_start, latitude_start, pixelWidth, pixelHeight, spatial)
+
+
+    def lon_lat_ascii_to_arr(self,lon_list,lat_list,val_list):
+        lonlist_set = list(set(lon_list))
+        latlist_set = list(set(lat_list))
+        lonlist_set.sort()
+        latlist_set.sort()
+        latlist_set = latlist_set[::-1]
+        originX = min(lonlist_set)
+        originY = max(latlist_set)
+        pixelWidth = lonlist_set[1] - lonlist_set[0]
+        pixelHeight = latlist_set[1] - latlist_set[0]
+        spatial_dic = {}
+        for i in range(len(lon_list)):
+            lon = lon_list[i]
+            lat = lat_list[i]
+            val = val_list[i]
+            r = abs(int((lat - originY) / pixelHeight))
+            c = abs(int((lon - originX) / pixelWidth))
+            spatial_dic[(r, c)] = val
+        spatial = []
+        row = abs(int((max(latlist_set) - min(latlist_set)) / pixelHeight))
+        col = abs(int((max(lonlist_set) - min(lonlist_set)) / pixelWidth))
+        for r in range(row):
+            temp = []
+            for c in range(col):
+                key = (r, c)
+                if key in spatial_dic:
+                    val_pix = spatial_dic[key]
+                    temp.append(val_pix)
+                else:
+                    temp.append(None)
+            spatial.append(temp)
+        spatial = np.array(spatial)
+        return spatial
+
 
     def unify_raster(self, in_tif, out_tif, ndv=-999999.):
         '''

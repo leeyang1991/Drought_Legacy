@@ -1390,7 +1390,13 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df = self.Carbon_loss_to_df(df)
         # df = self.minus_carbon_loss(df)
         # df = self.cal_rt_rs_rc(df)
-        df = self.add_previous_legacy_to_repeatedly_drought(df)
+        # for n in range(1,4):
+        #     print(n)
+        #     df = self.cal_legacy_n(df,n)
+        # df = self.add_previous_legacy_to_repeatedly_drought(df)
+        for n in range(1,4):
+            print(n)
+            df = self.add_previous_legacy_n_to_repeatedly_drought(df,n)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1425,7 +1431,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df
         # exit()
         T.save_df(df,self.dff)
-        self.__df_to_excel(df,self.dff,random=False)
+        self.__df_to_excel(df,self.dff,random=True)
         pass
 
 
@@ -2156,6 +2162,71 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['Recovery_rc'] = rc_list
         return df
 
+
+    def cal_legacy_n(self, df, n):
+        # SIF_dir = data_root + 'CSIF005/per_pix_anomaly_detrend/'
+        SIF_dir = data_root + 'CSIF005/per_pix/'
+        gs_range = Global_vars().gs_mons()
+        sif_dic = T.load_npy_dir(SIF_dir)
+        legacy_list = []
+        gs_map_dic = Global_vars().map_time_series_indx_and_gs_series_indx()
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            if not pix in sif_dic:
+                legacy_list.append(np.nan)
+                continue
+            ndvi = sif_dic[pix]
+            ndvi_detrend = signal.detrend(ndvi) + np.mean(ndvi)
+            ndvi = ndvi_detrend
+            ndvi_gs = []
+            for i,val in enumerate(ndvi):
+                mon = i % 12 + 1
+                if mon in gs_range:
+                    ndvi_gs.append(val)
+            ndvi_gs_detrend = signal.detrend(ndvi_gs) + np.mean(ndvi_gs)
+            ndvi_gs = ndvi_gs_detrend
+            # plt.plot(ndvi_gs)
+            # plt.plot(ndvi_gs_detrend)
+            # plt.plot(ndvi_gs_detrend - ndvi_gs)
+            # plt.show()
+            drought_event_date_range = row.drought_event_date_range
+            drought_event_date_range_gs = []
+            for i in drought_event_date_range:
+                if not i in gs_map_dic:
+                    continue
+                gs_indx = gs_map_dic[i]
+                drought_event_date_range_gs.append(gs_indx)
+            # print(drought_event_date_range_gs)
+            # exit()
+            if len(drought_event_date_range_gs) == 0:
+                legacy_list.append(np.nan)
+                continue
+            drought_year = drought_event_date_range_gs[0] // len(gs_range)
+            if drought_year + n >= len(ndvi) / 12:
+                legacy_list.append(np.nan)
+                continue
+            post_year_range = list(range(drought_year + n,drought_year + 1 + n))
+            # ndvi_post_indx = range(drought_event_date_range[-1] + 0, drought_event_date_range[-1] + n)
+            # ndvi_prev_indx = range(drought_event_date_range[0] - n, drought_event_date_range[0])
+            # ndvi_duration_indx = drought_event_date_range
+            ndvi_reshape = np.reshape(ndvi,(-1,12))
+            ndvi_reshape = ndvi_reshape.T
+            gs_range_indx = np.array(gs_range) - 1
+            ndvi_reshape_gs = T.pick_vals_from_1darray(ndvi_reshape,gs_range_indx)
+            ndvi_reshape_gs = ndvi_reshape_gs.T
+
+            post_year_mean = np.mean(T.pick_vals_from_1darray(ndvi_reshape_gs,post_year_range))
+            normal_state_mean = np.mean(ndvi_gs)
+
+            legacy = post_year_mean / normal_state_mean
+            # print(legacy)
+            legacy_list.append(legacy)
+        # 'Resistance (Rt), Recovery (Rc), Resilience (Rs)'
+        df['legacy_{}'.format(n)] = legacy_list
+        return df
+
+
+
     def minus_carbon_loss(self,df):
         carbon_loss = df['carbon_loss']
         carbon_loss = np.array(carbon_loss)
@@ -2262,6 +2333,45 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['init_legacy'] = init_legacy_list
         return df
 
+    def add_previous_legacy_n_to_repeatedly_drought(self,df,n):
+        events_dic = {}
+        pix_list = df['pix'].to_list()
+        pix_list = set(pix_list)
+        for pix in pix_list:
+            events_dic[pix] = {}
+            events_dic[pix]['repeatedly_initial_spei12'] = []
+            events_dic[pix]['repeatedly_subsequential_spei12'] = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            CSIF_anomaly_loss = row['legacy_{}'.format(n)]
+            drought_type = row.drought_type
+            if drought_type == 'repeatedly_initial_spei12':
+                events_dic[pix]['repeatedly_initial_spei12'].append(CSIF_anomaly_loss)
+            elif drought_type == 'repeatedly_subsequential_spei12':
+                events_dic[pix]['repeatedly_subsequential_spei12'].append(CSIF_anomaly_loss)
+            else:
+                pass
+                # raise UserWarning('drought_type error')
+
+        init_spatial_dic = {}
+        for pix in tqdm(events_dic, desc='cal delta...'):
+            events = events_dic[pix]
+            repeatedly_initial_spei12 = events['repeatedly_initial_spei12']
+            init_mean = np.mean(repeatedly_initial_spei12)
+            # subseq_mean = np.mean(repeatedly_subsequential_spei12)
+            init_spatial_dic[pix] = init_mean
+
+        init_legacy_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_type = row.drought_type
+            init_legacy = init_spatial_dic[pix]
+            if drought_type != 'repeatedly_subsequential_spei12':
+                init_legacy_list.append(np.nan)
+                continue
+            init_legacy_list.append(init_legacy)
+        df['init_legacy_{}'.format(n)] = init_legacy_list
+        return df
 
 # class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
 #
@@ -2688,6 +2798,9 @@ class ML:
             # 'max_vpd_in_drought_range',
             'max_vpd_anomaly_in_drought_range',
             'init_legacy',
+            'init_legacy_1',
+            'init_legacy_2',
+            'init_legacy_3',
         ]
         for i in precip_vars_list:
             xvars.append(i)
@@ -2736,33 +2849,33 @@ class ML:
             'CSIF_anomaly_loss',
         ]
         for y_variable in y_var_list:
-            df,dff = self.__load_df()
-            print('loaded')
-            df = Global_vars().clean_df(df)
-            print('cleaned')
-            x_variables_repeat = self.x_variables_repeat()
-            # y_variable = 'CSIF_anomaly_loss'
-            # drought_type_col = 'drought_type_new'
-            # df = df[df['drought_type_new']=='single']
-            df = df[df['drought_type']=='repeatedly_subsequential_spei12']
-            lc = 'Broadleaf'
-
-            # lc = 'Needleleaf'
-            df = df[df['lc_broad_needle']==lc]
-            df = df.dropna()
-            # print(len(df))
-            # exit()
-            pix_list = df['pix'].tolist()
-            pix_list = list(set(pix_list))
-            selected_pix_spatial_dic = {}
-            for pix in pix_list:
-                selected_pix_spatial_dic[pix] = 1
-            X = df[x_variables_repeat]
-            Y = df[y_variable]
-            # self.random_forest_train(X,Y,x_variables_repeat,selected_pix_spatial_dic,lc,isplot=True)
-            outpngf = outpngdir + '{}__{}'.format(y_variable, lc)
-            self.random_forest_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
-                                     isplot=True, is_save_png=True, outpngf=outpngf)
+            for lc in ['Broadleaf','Needleleaf']:
+                df,dff = self.__load_df()
+                print('loaded')
+                df = Global_vars().clean_df(df)
+                print('cleaned')
+                x_variables_repeat = self.x_variables_repeat()
+                # y_variable = 'CSIF_anomaly_loss'
+                # drought_type_col = 'drought_type_new'
+                # df = df[df['drought_type_new']=='single']
+                df = df[df['drought_type']=='repeatedly_subsequential_spei12']
+                df = df[df['lc_broad_needle']==lc]
+                df = df.dropna()
+                # print(len(df))
+                # exit()
+                pix_list = df['pix'].tolist()
+                pix_list = list(set(pix_list))
+                selected_pix_spatial_dic = {}
+                for pix in pix_list:
+                    selected_pix_spatial_dic[pix] = 1
+                X = df[x_variables_repeat]
+                Y = df[y_variable]
+                # self.random_forest_train(X,Y,x_variables_repeat,selected_pix_spatial_dic,lc,isplot=True)
+                outpngf = outpngdir + '{}__{}'.format(y_variable, lc)
+                self.random_forest_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
+                                         isplot=True, is_save_png=True, outpngf=outpngf)
+                # self.XGBoost_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
+                #                          isplot=True, is_save_png=True, outpngf=outpngf)
 
     def __load_df(self):
 
@@ -2853,6 +2966,95 @@ class ML:
 
         return importances, mse, r_model, Y_test, y_pred, r_X
 
+    def XGBoost_train(self, X, Y,variable_list,selected_pix_spatial_dic,lc, isplot=False,is_save_png=False,outpngf='',):
+        # from sklearn import XGboost
+        from sklearn.ensemble import GradientBoostingRegressor
+        if is_save_png and outpngf == '':
+            raise UserWarning
+        # X = np.array(X)
+        # Y = np.array(Y)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=1)
+
+        # print((X_train))
+        dtrain = xgb.DMatrix(X_train,label=Y_train)
+        # print(dtrain)
+        param = {'max_depth':2, 'eta':1, 'objective':'binary:logistic' }
+        xgb.train(param,dtrain)
+        exit()
+        # print(X_test[0])
+        # exit()
+        Y_train = np.array(Y_train)
+        Y_test = np.array(Y_test)
+        # clf = RandomForestRegressor(n_estimators=100,n_jobs=-1)
+        # clf = GradientBoostingRegressor(n_estimators=100)
+        print('fitting')
+        # clf.fit(X_train, Y_train)
+        print('fitted')
+
+        # importances = clf.feature_importances_
+        # y_pred = clf.predict(X_test)
+        # y_pred = clf.predict(X_train)
+        r_model = stats.pearsonr(Y_test, y_pred)[0]
+        mse = sklearn.metrics.mean_squared_error(Y_test, y_pred)
+        score = clf.score(X_test,Y_test)
+        print('score',score)
+        r_X = []
+        for i in range(len(X_test[0])):
+            corr_x = []
+            corr_y = []
+            for j in range(len(X_test)):
+                if X_test[j][i] == False:
+                    continue
+                corr_x.append(X_test[j][i])
+                corr_y.append(y_pred[j])
+            # print corr_y
+            r_c, p = stats.pearsonr(corr_x, corr_y)
+            r_X.append(r_c)
+            # print i, r_c, p
+            # plt.scatter(corr_x, corr_y)
+            # plt.show()
+        #### plot ####
+        if isplot:
+            print(importances)
+            print('mse:%s\nr:%s' % (mse, r_model))
+            # out_png_dir = self.this_class_png + '/RF_importances/'
+            # Tools().mk_dir(out_png_dir)
+            # 1 plot spatial
+            # plt.figure()
+            # plt.imshow(selected_pix_spatial,cmap='gray')
+
+            # 2 plot importance
+            plt.figure(figsize=(20,8))
+            plt.subplot(311)
+            title_new = 'data_length:{} test_length:{} RMSE:{:0.2f} r_model:{:0.2f}\n{}'.format(len(X),len(X_test),mse,r_model,lc)
+            plt.title(title_new)
+            y_min = min(importances)
+            y_max = max(importances)
+            offset = (y_max - y_min)
+            y_min = y_min - offset * 0.3
+            y_max = y_max + offset * 0.3
+
+            plt.ylim(y_min, y_max)
+            plt.bar(range(len(importances)), importances, width=0.3)
+            # print(variable_list)
+            plt.xticks(range(len(importances)),variable_list)
+
+            ax = plt.subplot(312)
+            KDE_plot().plot_scatter(Y_test, y_pred, ax=ax, linewidth=0)
+            plt.axis('equal')
+
+            ax = plt.subplot(313)
+            DIC_and_TIF(Global_vars().tif_template_7200_3600).plot_back_ground_arr()
+            selected_pix_spatial_dic_arr = DIC_and_TIF(Global_vars().tif_template_7200_3600).pix_dic_to_spatial_arr(selected_pix_spatial_dic)
+            plt.imshow(selected_pix_spatial_dic_arr,cmap='gray')
+            if is_save_png == True:
+                plt.savefig(outpngf+ '.png', dpi=300)
+                plt.close()
+            elif is_save_png == False:
+                plt.show()
+        #### plot ####
+
+        return importances, mse, r_model, Y_test, y_pred, r_X
 
 
 class Analysis:

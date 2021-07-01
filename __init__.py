@@ -58,6 +58,11 @@ from jenkspy import JenksNaturalBreaks
 import scipy.io
 from scipy.stats import kruskal
 import psutil
+import xgboost as xgb
+'''
+No such file or directory: 'cmake'
+brew install cmake
+'''
 np.seterr('ignore')
 
 def sleep(t=1):

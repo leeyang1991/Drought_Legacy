@@ -121,6 +121,8 @@ class Global_vars:
                 y_var_min = -9999
             df = df[df[y_var] > y_var_min]
             df = df[df[y_var] < y_var_max]
+        df = df.drop_duplicates(subset=['pix','carbon_loss','recovery_date_range'])
+
         return df
 
 
@@ -1394,9 +1396,12 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         #     print(n)
         #     df = self.cal_legacy_n(df,n)
         # df = self.add_previous_legacy_to_repeatedly_drought(df)
-        for n in range(1,4):
-            print(n)
-            df = self.add_previous_legacy_n_to_repeatedly_drought(df,n)
+        # for v in 'Resilience_rs	Resistance_rt	Recovery_rc'.split():
+        #     print(v)
+        #     df = self.add_previous_rt_rs_rc_to_repeatedly_drought(df,v)
+        # for n in range(1,4):
+        #     print(n)
+        #     df = self.add_previous_legacy_n_to_repeatedly_drought(df,n)
         # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
 
@@ -1431,7 +1436,7 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # df
         # exit()
         T.save_df(df,self.dff)
-        self.__df_to_excel(df,self.dff,random=True)
+        self.__df_to_excel(df,self.dff,random=False)
         pass
 
 
@@ -2332,6 +2337,45 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
             init_legacy_list.append(init_legacy)
         df['init_legacy'] = init_legacy_list
         return df
+    def add_previous_rt_rs_rc_to_repeatedly_drought(self,df,var_rt_rs_rc):
+        events_dic = {}
+        pix_list = df['pix'].to_list()
+        pix_list = set(pix_list)
+        for pix in pix_list:
+            events_dic[pix] = {}
+            events_dic[pix]['repeatedly_initial_spei12'] = []
+            events_dic[pix]['repeatedly_subsequential_spei12'] = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            pix = row.pix
+            CSIF_anomaly_loss = row[var_rt_rs_rc]
+            drought_type = row.drought_type
+            if drought_type == 'repeatedly_initial_spei12':
+                events_dic[pix]['repeatedly_initial_spei12'].append(CSIF_anomaly_loss)
+            elif drought_type == 'repeatedly_subsequential_spei12':
+                events_dic[pix]['repeatedly_subsequential_spei12'].append(CSIF_anomaly_loss)
+            else:
+                pass
+                # raise UserWarning('drought_type error')
+
+        init_spatial_dic = {}
+        for pix in tqdm(events_dic, desc='cal delta...'):
+            events = events_dic[pix]
+            repeatedly_initial_spei12 = events['repeatedly_initial_spei12']
+            init_mean = np.mean(repeatedly_initial_spei12)
+            # subseq_mean = np.mean(repeatedly_subsequential_spei12)
+            init_spatial_dic[pix] = init_mean
+
+        init_legacy_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_type = row.drought_type
+            init_legacy = init_spatial_dic[pix]
+            if drought_type != 'repeatedly_subsequential_spei12':
+                init_legacy_list.append(np.nan)
+                continue
+            init_legacy_list.append(init_legacy)
+        df['init_{}'.format(var_rt_rs_rc)] = init_legacy_list
+        return df
 
     def add_previous_legacy_n_to_repeatedly_drought(self,df,n):
         events_dic = {}
@@ -2779,31 +2823,29 @@ class ML:
         return xvars
         pass
 
-    def y_variables_single(self):
+    def x_variables_repeat(self,y_var):
         precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
         precip_vars_list = precip_vars.split()
         xvars = [
             'max_vpd_in_drought_range',
             # 'max_vpd_anomaly_in_drought_range',
-            # 'pre_3_precip_anomaly',
+            # 'recovery_time',
+            # 'init_legacy_1',
+            # 'init_legacy_2',
+            # 'init_legacy_3',
         ]
         for i in precip_vars_list:
             xvars.append(i)
-        return xvars
-        pass
-    def x_variables_repeat(self):
-        precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
-        precip_vars_list = precip_vars.split()
-        xvars = [
-            # 'max_vpd_in_drought_range',
-            'max_vpd_anomaly_in_drought_range',
-            'init_legacy',
-            'init_legacy_1',
-            'init_legacy_2',
-            'init_legacy_3',
-        ]
-        for i in precip_vars_list:
-            xvars.append(i)
+        if y_var == 'Recovery_rc':
+            xvars.append('init_Recovery_rc')
+        elif y_var == 'Resilience_rs':
+            xvars.append('init_Resilience_rs')
+        elif y_var == 'Resistance_rt':
+            xvars.append('init_Resistance_rt')
+        elif y_var == 'CSIF_anomaly_loss':
+            xvars.append('init_legacy')
+        else:
+            pass
         return xvars
         pass
 
@@ -2843,9 +2885,9 @@ class ML:
         outpngdir = self.this_class_png + 'repeatedly_model/'
         Tools().mk_dir(outpngdir)
         y_var_list = [
-            'Recovery_rc',
-            'Resilience_rs',
-            'Resistance_rt',
+            # 'Recovery_rc',
+            # 'Resilience_rs',
+            # 'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
         for y_variable in y_var_list:
@@ -2854,7 +2896,9 @@ class ML:
                 print('loaded')
                 df = Global_vars().clean_df(df)
                 print('cleaned')
-                x_variables_repeat = self.x_variables_repeat()
+                x_variables_repeat = self.x_variables_repeat(y_variable)
+                # print(x_variables_repeat)
+                # exit()
                 # y_variable = 'CSIF_anomaly_loss'
                 # drought_type_col = 'drought_type_new'
                 # df = df[df['drought_type_new']=='single']
@@ -2873,7 +2917,7 @@ class ML:
                 # self.random_forest_train(X,Y,x_variables_repeat,selected_pix_spatial_dic,lc,isplot=True)
                 outpngf = outpngdir + '{}__{}'.format(y_variable, lc)
                 self.random_forest_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
-                                         isplot=True, is_save_png=True, outpngf=outpngf)
+                                         isplot=True, is_save_png=False, outpngf=outpngf)
                 # self.XGBoost_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
                 #                          isplot=True, is_save_png=True, outpngf=outpngf)
 
@@ -3056,6 +3100,141 @@ class ML:
 
         return importances, mse, r_model, Y_test, y_pred, r_X
 
+class Partial_Dependence_Plots:
+    '''
+    Ref:
+    https://towardsdatascience.com/looking-beyond-feature-importance-37d2807aaaa7
+    '''
+    def __init__(self):
+        self.this_class_arr = results_root_main_flow + 'arr/Partial_Dependence_Plots/'
+        self.this_class_tif = results_root_main_flow + 'tif/Partial_Dependence_Plots/'
+        self.this_class_png = results_root_main_flow + 'png/Partial_Dependence_Plots/'
+        Tools().mk_dir(self.this_class_arr, force=True)
+        Tools().mk_dir(self.this_class_tif, force=True)
+        Tools().mk_dir(self.this_class_png, force=True)
+        pass
+
+
+    def run(self):
+        y_var_list = [
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
+            'CSIF_anomaly_loss',
+        ]
+        for y_vars in y_var_list:
+            for lc in ['Broadleaf','Needleleaf']:
+                df,dff = self.__load_df()
+                print('loaded')
+                df = Global_vars().clean_df(df)
+                print('cleaned')
+                x_vars = ML().x_variables_repeat(y_vars)
+                df = df[df['drought_type'] == 'repeatedly_subsequential_spei12']
+                df = df[df['lc_broad_needle'] == lc]
+                print(len(df))
+                df = df.dropna()
+                # print(x_vars)
+                # exit()
+                self.partial_dependent_plot(df,x_vars,y_vars)
+
+        pass
+
+    def __load_df(self):
+
+        dff = Main_flow_Dataframe_NDVI_SPEI_legacy().dff
+        df = T.load_df(dff)
+        return df,dff
+
+    def partial_dependent_plot(self,df,x_vars,y_vars):
+        outpngdir = self.this_class_png + 'partial_dependent_plot/'
+        T.mk_dir(outpngdir)
+        outdir = self.this_class_png + 'partial_dependent_plot/'
+        T.mk_dir(outdir,force=True)
+
+        flag = 0
+        plt.figure(figsize=(12, 8))
+        for var in tqdm(x_vars):
+            flag += 1
+            ax = plt.subplot(4, 5, flag)
+            vars_list = x_vars
+            # print(timing)
+            XXX = df[vars_list]
+            # print(len(XXX))
+            if len(XXX) < 100:
+                continue
+            selected_features = vars_list
+            vars_list1 = copy.copy(selected_features)
+            vars_list1.append(y_vars)
+            XX = df[vars_list1]
+            XX = XX.dropna()
+            vars_list1.remove(y_vars)
+            X = XX[vars_list1]
+            Y = XX[y_vars]
+            if len(df) < 100:
+                continue
+            # print(X)
+            # print(Y)
+            # exit()
+            model, r2 = self.train_model(X, Y)
+            print(r2)
+            # exit()
+            df_partial_plot = self.__get_PDPvalues(var, X, model)
+            ppx = df_partial_plot[var]
+            ppy = df_partial_plot['PDs']
+            ppx_smooth = SMOOTH().smooth_convolve(ppx,window_len=11)
+            ppy_smooth = SMOOTH().smooth_convolve(ppy,window_len=11)
+            plt.plot(ppx_smooth, ppy_smooth, lw=2,)
+            plt.xlabel(var)
+            plt.ylabel(y_vars)
+            # title = 'r2: {}'.format(r2)
+            # plt.title(title)
+            plt.tight_layout()
+            # plt.legend()
+            # plt.show()
+            # plt.savefig(outpngdir + title + '.pdf',dpi=300)
+            # plt.close()
+        plt.show()
+
+
+    def train_model(self,X,y):
+        print(len(X))
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, random_state=42, test_size=0.3)
+        # rf = RandomForestClassifier(n_estimators=300, random_state=42)
+        rf = RandomForestRegressor(n_estimators=100, random_state=42,n_jobs=-1)
+        # rf = LinearRegression()
+        rf.fit(X_train, y_train)
+        r2 = rf.score(X_test,y_test)
+        y_pred = rf.predict(X_test)
+        # y_pred = rf.predict(X_train)
+        # plt.scatter(y_pred,y_test)
+        print(r2)
+        # plt.scatter(y_pred,y_train)
+        # plt.show()
+
+        return rf,r2
+
+    def __get_PDPvalues(self, col_name, data, model, grid_resolution=50):
+        Xnew = data.copy()
+        sequence = np.linspace(np.min(data[col_name]), np.max(data[col_name]), grid_resolution)
+        Y_pdp = []
+        for each in sequence:
+            Xnew[col_name] = each
+            Y_temp = model.predict(Xnew)
+            Y_pdp.append(np.mean(Y_temp))
+        return pd.DataFrame({col_name: sequence, 'PDs': Y_pdp})
+
+    def __plot_PDP(self,col_name, data, model):
+        df = self.__get_PDPvalues(col_name, data, model)
+        plt.rcParams.update({'font.size': 16})
+        plt.rcParams["figure.figsize"] = (6,5)
+        fig, ax = plt.subplots()
+        # ax.plot(data[col_name], np.zeros(data[col_name].shape)+min(df['PDs'])-1, 'k|', ms=15)  # rug plot
+        ax.plot(df[col_name], df['PDs'], lw = 2)
+        ax.set_ylabel('Recovery time')
+        ax.set_xlabel(col_name)
+        plt.tight_layout()
+        return ax
 
 class Analysis:
 
@@ -4416,6 +4595,7 @@ def main():
     # Analysis().run()
     # Check().run()
     ML().run()
+    Partial_Dependence_Plots().run()
     pass
 
 

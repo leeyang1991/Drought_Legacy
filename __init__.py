@@ -60,6 +60,7 @@ from scipy.stats import kruskal
 import psutil
 import xgboost as xgb
 '''
+pip install xgboost
 No such file or directory: 'cmake'
 brew install cmake
 '''

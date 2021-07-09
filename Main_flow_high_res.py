@@ -3135,7 +3135,8 @@ class Partial_Dependence_Plots:
                 df = df.dropna()
                 # print(x_vars)
                 # exit()
-                self.partial_dependent_plot(df,x_vars,y_vars)
+                title = '{}__{}'.format(y_vars,lc)
+                self.partial_dependent_plot(df,x_vars,y_vars,title)
 
         pass
 
@@ -3145,17 +3146,25 @@ class Partial_Dependence_Plots:
         df = T.load_df(dff)
         return df,dff
 
-    def partial_dependent_plot(self,df,x_vars,y_vars):
+    def partial_dependent_plot(self,df,x_vars,y_vars,title):
         outpngdir = self.this_class_png + 'partial_dependent_plot/'
         T.mk_dir(outpngdir)
         outdir = self.this_class_png + 'partial_dependent_plot/'
         T.mk_dir(outdir,force=True)
 
         flag = 0
+        xv = df[x_vars]
+        yv = df[y_vars]
+        model, r2, importances = self.train_model(xv, yv)
+        plt.figure()
+        plt.barh(x_vars, importances)
+        plt.title(title + '\nr2:{:0.2f}'.format(r2))
+        plt.tight_layout()
+        print(r2)
         plt.figure(figsize=(12, 8))
         for var in tqdm(x_vars):
             flag += 1
-            ax = plt.subplot(4, 5, flag)
+            ax = plt.subplot(2, 3, flag)
             vars_list = x_vars
             # print(timing)
             XXX = df[vars_list]
@@ -3175,8 +3184,7 @@ class Partial_Dependence_Plots:
             # print(X)
             # print(Y)
             # exit()
-            model, r2 = self.train_model(X, Y)
-            print(r2)
+
             # exit()
             df_partial_plot = self.__get_PDPvalues(var, X, model)
             ppx = df_partial_plot[var]
@@ -3186,13 +3194,15 @@ class Partial_Dependence_Plots:
             plt.plot(ppx_smooth, ppy_smooth, lw=2,)
             plt.xlabel(var)
             plt.ylabel(y_vars)
-            # title = 'r2: {}'.format(r2)
-            # plt.title(title)
+            # title1 = '\nr2: {}'.format(r2)
+            plt.title(title)
             plt.tight_layout()
+
             # plt.legend()
             # plt.show()
             # plt.savefig(outpngdir + title + '.pdf',dpi=300)
             # plt.close()
+
         plt.show()
 
 
@@ -3205,6 +3215,7 @@ class Partial_Dependence_Plots:
         # rf = LinearRegression()
         rf.fit(X_train, y_train)
         r2 = rf.score(X_test,y_test)
+        importances = rf.feature_importances_
         y_pred = rf.predict(X_test)
         # y_pred = rf.predict(X_train)
         # plt.scatter(y_pred,y_test)
@@ -3212,7 +3223,7 @@ class Partial_Dependence_Plots:
         # plt.scatter(y_pred,y_train)
         # plt.show()
 
-        return rf,r2
+        return rf,r2,importances
 
     def __get_PDPvalues(self, col_name, data, model, grid_resolution=50):
         Xnew = data.copy()
@@ -3267,7 +3278,7 @@ class Analysis:
             # 'min_precip_anomaly_in_drought_range',
             # 'min_precip_in_drought_range',
             # 'max_precip_in_drought_range',
-            # 'max_vpd_in_drought_range',
+            'max_vpd_in_drought_range',
             # 'Aridity_Index',
             # 'zr',
             # 'Rplant',
@@ -3277,9 +3288,9 @@ class Analysis:
             # 'pre_6_precip_anomaly',
         ]
         y_var_list = [
-            # 'Recovery_rc',
-            # 'Resilience_rs',
-            # 'Resistance_rt',
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
         # y1_var_list = [
@@ -4015,12 +4026,12 @@ class Analysis:
                 ax0.legend()
                 # ax1.legend(loc='lower left')
 
-            plt.show()
+            # plt.show()
 
-            # outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
+            outf = outpngdir + '{}__{}__{}.png'.format(drought_type,x_var, y_var)
             # outf = outpngdir + '{}__{}__{}.pdf'.format(drought_type,x_var, y_var)
-            # plt.savefig(outf, dpi=300)
-            # plt.close()
+            plt.savefig(outf, dpi=300)
+            plt.close()
         # plt.figure(figsize=(10,8))
         # for lc_broad_needle in ['Needleleaf','Broadleaf']:
         #     for drought_type in ['repeatedly_initial_spei12','repeatedly_subsequential_spei12']:
@@ -4592,10 +4603,10 @@ def main():
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    # Analysis().run()
+    Analysis().run()
     # Check().run()
-    ML().run()
-    Partial_Dependence_Plots().run()
+    # ML().run()
+    # Partial_Dependence_Plots().run()
     pass
 
 

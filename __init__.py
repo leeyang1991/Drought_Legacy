@@ -54,7 +54,10 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 import glob
 from osgeo import osr
 from matplotlib.colors import LogNorm
-from jenkspy import JenksNaturalBreaks
+try:
+    from jenkspy import jenks_breaks
+except:
+    from jenkspy import JenksNaturalBreaks
 import scipy.io
 from scipy.stats import kruskal
 import psutil
@@ -64,6 +67,7 @@ pip install xgboost
 No such file or directory: 'cmake'
 brew install cmake
 '''
+# exit()
 np.seterr('ignore')
 
 def sleep(t=1):
@@ -100,5 +104,5 @@ results_root = this_root + 'results/'
 from LY_Tools import *
 T = Tools()
 
-if __name__ == '__main__':
-    kill_python_process()
+# if __name__ == '__main__':
+#     kill_python_process()

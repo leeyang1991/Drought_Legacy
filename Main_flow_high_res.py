@@ -1402,9 +1402,8 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         # for n in range(1,4):
         #     print(n)
         #     df = self.add_previous_legacy_n_to_repeatedly_drought(df,n)
-        # 2 add landcover to df
         # df = self.add_lon_lat_to_df(df)
-
+        df = self.add_previous_drought_length_severity_to_df(df)
         # df = self.add_landcover_to_df(df)
         # df = self.landcover_compose(df)
         # df = self.add_min_precip_to_df(df)
@@ -2417,6 +2416,27 @@ class Main_flow_Dataframe_NDVI_SPEI_legacy:
         df['init_legacy_{}'.format(n)] = init_legacy_list
         return df
 
+
+    def add_previous_drought_length_severity_to_df(self,df):
+        SPEI_dir = data_root + 'SPEI12/per_pix/'
+        spei_dic = T.load_npy_dir(SPEI_dir)
+        severity_list = []
+        drought_length_list = []
+        for i,row in tqdm(df.iterrows(),total=len(df)):
+            pix = row.pix
+            drought_event_date_range = row.drought_event_date_range
+            spei = spei_dic[pix]
+            picked_spei = []
+            for t in drought_event_date_range:
+                spei_i = spei[t]
+                picked_spei.append(spei_i)
+            severity = np.sum(picked_spei)
+            drought_length = len(drought_event_date_range)
+            severity_list.append(severity)
+            drought_length_list.append(drought_length)
+        df['severity'] = severity_list
+        df['drought_length'] = drought_length_list
+        return df
 # class Main_flow_Dataframe_NDVI_SPEI_legacy_threshold:
 #
 #     def __init__(self,threshold):
@@ -2810,6 +2830,50 @@ class ML:
         # self.single_model()
         self.repeatedly_model()
 
+    def discard_hierarchical_clustering(self,df, xvar_list,yvar, t=0.0, isplot=False):
+        '''
+        url:
+        https://scikit-learn.org/stable/auto_examples/inspection/plot_permutation_importance_multicollinear.html#sphx-glr-auto-examples-inspection-plot-permutation-importance-multicollinear-py
+        '''
+        from collections import defaultdict
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from scipy.stats import spearmanr
+        from scipy.cluster import hierarchy
+
+        # print(df)
+        # exit()
+        df = df.dropna()
+        X = df[xvar_list]
+        corr = np.array(X.corr())
+        corr_linkage = hierarchy.ward(corr)
+        cluster_ids = hierarchy.fcluster(corr_linkage, t=t, criterion='distance')
+        # cluster_ids = hierarchy.fcluster(corr_linkage, t=t, criterion='inconsistent')
+        cluster_id_to_feature_ids = defaultdict(list)
+        for idx, cluster_id in enumerate(cluster_ids):
+            cluster_id_to_feature_ids[cluster_id].append(idx)
+        selected_features_indx = [v[0] for v in cluster_id_to_feature_ids.values()]
+        selected_features = []
+        for i in selected_features_indx:
+            selected_features.append(xvar_list[i])
+
+        # print('selected_features:',selected_features)
+        if isplot:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+            dendro = hierarchy.dendrogram(
+                corr_linkage, labels=xvar_list, ax=ax1, leaf_rotation=90
+            )
+            dendro_idx = np.arange(0, len(dendro['ivl']))
+            ax2.imshow(corr[dendro['leaves'], :][:, dendro['leaves']])
+            ax2.set_xticks(dendro_idx)
+            ax2.set_yticks(dendro_idx)
+            ax2.set_xticklabels(dendro['ivl'], rotation='vertical')
+            ax2.set_yticklabels(dendro['ivl'])
+            fig.tight_layout()
+        return selected_features
+
+
     def x_variables_single(self):
         precip_vars = 'pre_1_precip_anomaly	pre_2_precip_anomaly	pre_3_precip_anomaly	pre_6_precip_anomaly'
         precip_vars_list = precip_vars.split()
@@ -2833,6 +2897,8 @@ class ML:
             # 'init_legacy_1',
             # 'init_legacy_2',
             # 'init_legacy_3',
+            'drought_length',
+            'severity',
         ]
         for i in precip_vars_list:
             xvars.append(i)
@@ -2885,9 +2951,9 @@ class ML:
         outpngdir = self.this_class_png + 'repeatedly_model/'
         Tools().mk_dir(outpngdir)
         y_var_list = [
-            # 'Recovery_rc',
-            # 'Resilience_rs',
-            # 'Resistance_rt',
+            'Recovery_rc',
+            'Resilience_rs',
+            'Resistance_rt',
             'CSIF_anomaly_loss',
         ]
         for y_variable in y_var_list:
@@ -2897,7 +2963,10 @@ class ML:
                 df = Global_vars().clean_df(df)
                 print('cleaned')
                 x_variables_repeat = self.x_variables_repeat(y_variable)
-                # print(x_variables_repeat)
+                selected_feature = self.discard_hierarchical_clustering(df, xvar_list=x_variables_repeat, yvar=y_variable,
+                                                                        isplot=False,
+                                                                        t=1.0)
+
                 # exit()
                 # y_variable = 'CSIF_anomaly_loss'
                 # drought_type_col = 'drought_type_new'
@@ -2912,12 +2981,12 @@ class ML:
                 selected_pix_spatial_dic = {}
                 for pix in pix_list:
                     selected_pix_spatial_dic[pix] = 1
-                X = df[x_variables_repeat]
+                X = df[selected_feature]
                 Y = df[y_variable]
                 # self.random_forest_train(X,Y,x_variables_repeat,selected_pix_spatial_dic,lc,isplot=True)
                 outpngf = outpngdir + '{}__{}'.format(y_variable, lc)
-                self.random_forest_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
-                                         isplot=True, is_save_png=False, outpngf=outpngf)
+                self.random_forest_train(X, Y, selected_feature, selected_pix_spatial_dic, lc,
+                                         isplot=True, is_save_png=True, outpngf=outpngf)
                 # self.XGBoost_train(X, Y, x_variables_repeat, selected_pix_spatial_dic, lc,
                 #                          isplot=True, is_save_png=True, outpngf=outpngf)
 
@@ -2939,13 +3008,25 @@ class ML:
         # exit()
         Y_train = np.array(Y_train)
         Y_test = np.array(Y_test)
-        clf = RandomForestRegressor(n_estimators=100,n_jobs=-1)
+        clf = RandomForestRegressor(n_estimators=100,n_jobs=4)
         # clf = GradientBoostingRegressor(n_estimators=100)
         print('fitting')
         clf.fit(X_train, Y_train)
         print('fitted')
 
-        importances = clf.feature_importances_
+        # importances = clf.feature_importances_
+        result = permutation_importance(clf, X_train, Y_train, scoring=None,
+                                        n_repeats=10, random_state=42,
+                                        n_jobs=4)
+        importances = result.importances_mean
+        importances_dic = dict(zip(variable_list, importances))
+        labels = []
+        importance = []
+        for key in variable_list:
+            labels.append(key)
+            importance.append(importances_dic[key])
+        # print(result)
+        # exit()
         y_pred = clf.predict(X_test)
         # y_pred = clf.predict(X_train)
         r_model = stats.pearsonr(Y_test, y_pred)[0]
@@ -2980,7 +3061,7 @@ class ML:
             # 2 plot importance
             plt.figure(figsize=(20,8))
             plt.subplot(311)
-            title_new = 'data_length:{} test_length:{} RMSE:{:0.2f} r_model:{:0.2f}\n{}'.format(len(X),len(X_test),mse,r_model,lc)
+            title_new = 'data_length:{} test_length:{} RMSE:{:0.2f} score:{:0.2f}\n{}'.format(len(X),len(X_test),mse,score,lc)
             plt.title(title_new)
             y_min = min(importances)
             y_max = max(importances)
@@ -2991,7 +3072,7 @@ class ML:
             plt.ylim(y_min, y_max)
             plt.bar(range(len(importances)), importances, width=0.3)
             # print(variable_list)
-            plt.xticks(range(len(importances)),variable_list)
+            plt.xticks(range(len(importances)),labels)
 
             ax = plt.subplot(312)
             KDE_plot().plot_scatter(Y_test, y_pred, ax=ax, linewidth=0)
@@ -3269,7 +3350,7 @@ class Analysis:
         # self.bin_scatter()
         # self.bin_correlation()
         # self.factors_auto_correlation()
-        self.two_var_scatter_plot()
+        # self.two_var_scatter_plot()
 
         pass
 
@@ -3306,8 +3387,8 @@ class Analysis:
         for x in x_var_list:
             for y in y_var_list:
                 params.append([x,y])
-                self.Bins_scatter_line([x,y])
-        # MULTIPROCESS(self.Bins_scatter_line,params).run()
+                # self.Bins_scatter_line([x,y])
+        MULTIPROCESS(self.Bins_scatter_line,params).run(process=4)
         end = time.time()
         duration = end - start
         duration = round(duration,2)
@@ -4603,9 +4684,9 @@ def main():
     #     print('threshold',threshold)
     #     Main_flow_Dataframe_NDVI_SPEI_legacy_threshold(threshold).run()
     # Tif().run()
-    Analysis().run()
+    # Analysis().run()
     # Check().run()
-    # ML().run()
+    ML().run()
     # Partial_Dependence_Plots().run()
     pass
 
